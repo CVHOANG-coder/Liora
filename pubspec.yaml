@@ -1,0 +1,29 @@
+name: video_gen
+description: "A lightweight AI content creation app starter."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.0.17
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/home/
+    - assets/images/gen_video/
+    - assets/images/in_app_purchase/
+    - assets/images/templates/
+    - assets/images/profile/
+    - assets/svgs/
+    - assets/data/

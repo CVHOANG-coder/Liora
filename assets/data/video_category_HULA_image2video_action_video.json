@@ -1,0 +1,60 @@
+{
+  "component_uid": "1161943",
+  "category_id": "HULA_image2video_action_video",
+  "category_rid": "HULA_image2video_action_video",
+  "category_title": "Action videos",
+  "post_count": 3,
+  "posts": [
+    {
+      "post_id": "h2vcF3GiSrWpBItkUUkP3Q",
+      "created_at": "2025-01-29T16:41:02.711275Z",
+      "updated_at": "2026-04-14T11:00:10.054652Z",
+      "post_url": "https://my.prequel.app/post/h2vcF3GiSrWpBItkUUkP3Q",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/d5374bd7-b8b7-4354-a79c-4cae2537bf65.mp4",
+        "https://cfvideo.prequel.app/72c6a82e-2358-4e53-8a49-49cbdacc3752.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/556dacac-4892-4b43-acdf-e6c96e54bd9b.jpeg"
+      ],
+      "description": "Heart Sign"
+    },
+    {
+      "post_id": "FSsgpC37QSYRWdr8X269w",
+      "created_at": "2025-01-29T16:36:10.047205Z",
+      "updated_at": "2026-04-14T11:05:28.085828Z",
+      "post_url": "https://my.prequel.app/post/FSsgpC37QSYRWdr8X269w",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/0119381c-c2b5-4b3b-a755-a33b710e7d5e.mp4",
+        "https://cfvideo.prequel.app/34197ef9-ad8b-426c-bdaf-fd05bc16459c.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/2c77784e-6cbd-4cce-b99a-333f23225629.jpeg"
+      ],
+      "description": "Peace Sign"
+    },
+    {
+      "post_id": "8uDH3MwCShWb1Gn1f83gtQ",
+      "created_at": "2025-01-27T16:50:43.826393Z",
+      "updated_at": "2026-04-14T11:04:38.481492Z",
+      "post_url": "https://my.prequel.app/post/8uDH3MwCShWb1Gn1f83gtQ",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/8b0cbb18-587d-4cfd-be4c-dedfb39338b5.mp4",
+        "https://cfvideo.prequel.app/ef7473a9-1754-4b8a-8ef6-5025e611dafb.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/10733502-785f-47ed-af8a-c47f1c7ec6bc.jpeg"
+      ],
+      "description": "Groom"
+    }
+  ]
+}

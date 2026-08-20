@@ -1,0 +1,60 @@
+{
+  "component_uid": "1161925",
+  "category_id": "Hula_Photo_Revive",
+  "category_rid": "Hula_Photo_Revive",
+  "category_title": "Photo revive",
+  "post_count": 3,
+  "posts": [
+    {
+      "post_id": "OBBmZQtgSfXqGbgcZRoNw",
+      "created_at": "2026-02-24T14:05:32.232776Z",
+      "updated_at": "2026-04-14T11:14:09.778723Z",
+      "post_url": "https://my.prequel.app/post/OBBmZQtgSfXqGbgcZRoNw",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/7bd0997a-1eda-4a8e-bb17-af16b16f3133.mp4",
+        "https://cfvideo.prequel.app/eb16903b-589d-4572-839e-61d417487cad.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/fe34a767-5fc8-45de-b68f-75e2b87ed4b3.jpeg"
+      ],
+      "description": "Soft Move"
+    },
+    {
+      "post_id": "Lp0U3sgoSgt24bvNQN37g",
+      "created_at": "2026-02-24T13:55:43.629396Z",
+      "updated_at": "2026-04-14T11:13:39.390832Z",
+      "post_url": "https://my.prequel.app/post/Lp0U3sgoSgt24bvNQN37g",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/f1c01731-ef2f-4919-a440-f898c1a6d97b.mp4",
+        "https://cfvideo.prequel.app/b8b58262-a699-4ed2-b65f-390981bfeb2e.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/5e6ce3c3-3ca0-4c26-bed4-896b7ff3f9e8.jpeg"
+      ],
+      "description": "Hello Motion"
+    },
+    {
+      "post_id": "2BDPpKuRnKZtUqnS6Fscg",
+      "created_at": "2026-02-24T14:09:59.786980Z",
+      "updated_at": "2026-04-14T09:11:49.837489Z",
+      "post_url": "https://my.prequel.app/post/2BDPpKuRnKZtUqnS6Fscg",
+      "uuid": "823e177f-1985-435c-b521-f9b3e29f94e9",
+      "video_url_count": 2,
+      "video_urls": [
+        "https://cfvideo.prequel.app/6b41d3e1-a22f-4625-9ab5-961c963e5e21.mp4",
+        "https://cfvideo.prequel.app/95c91890-5f74-4a7f-a81b-2147388d39dd.mp4"
+      ],
+      "thumbnail_url_count": 1,
+      "thumbnail_urls": [
+        "https://cfimg.prequel.app/da9631d0-59ba-4559-bbf1-ac1991b1baee.jpeg"
+      ],
+      "description": "Soft Move"
+    }
+  ]
+}
