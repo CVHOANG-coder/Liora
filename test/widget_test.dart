@@ -6,6 +6,11 @@ void main() {
   testWidgets('navigates between home and profile', (tester) async {
     await tester.pumpWidget(const VideoGenApp());
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create AI'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
     await tester.tap(find.byKey(const Key('trialLaterButton')));
     await tester.pumpAndSettle();
@@ -22,6 +27,10 @@ void main() {
 
   testWidgets('center add button opens create sheet', (tester) async {
     await tester.pumpWidget(const VideoGenApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
     await tester.tap(find.byKey(const Key('trialLaterButton')));

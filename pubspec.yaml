@@ -25,5 +25,6 @@ flutter:
     - assets/images/in_app_purchase/
     - assets/images/templates/
     - assets/images/profile/
+    - assets/images/on_boarding/
     - assets/svgs/
     - assets/data/

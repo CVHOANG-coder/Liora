@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'shared/themes/app_theme.dart';
-import 'presentation/screens/main/main_screen.dart';
+import 'presentation/screens/onboarding/onboarding_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +28,7 @@ class VideoGenApp extends StatelessWidget {
       title: 'VideoGen',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const MainScreen(),
+      home: const OnboardingScreen(),
     );
   }
 }
