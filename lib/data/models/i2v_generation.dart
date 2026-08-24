@@ -1,3 +1,5 @@
+import 'i2v_request_status.dart';
+
 class I2VGenerationResponse {
   const I2VGenerationResponse({
     required this.success,
@@ -60,6 +62,32 @@ class I2VGeneration {
     );
   }
 
+  factory I2VGeneration.fromRequestStatus(I2VRequestStatus request) {
+    return I2VGeneration(
+      requestId: request.requestId,
+      runpodJobId: request.runpodJobId,
+      userId: request.userId,
+      serviceType: request.serviceType,
+      prompt: request.prompt,
+      imageUrl: request.imageUrl,
+      status: request.status,
+      createTime: request.createTime,
+      remainingCredit: 0,
+      creditInfo: I2VCreditInfo(
+        baseCredit: request.creditCharged,
+        multiplier: 0,
+        totalCharged: request.creditCharged,
+      ),
+      params: I2VParams(
+        duration: request.duration,
+        megapixels: request.isHd ? 1 : 0,
+        steps: 0,
+        aspectRatio: '',
+        seed: '',
+      ),
+    );
+  }
+
   final String requestId;
   final String runpodJobId;
   final int userId;
@@ -73,6 +101,9 @@ class I2VGeneration {
   final int remainingCredit;
   final I2VCreditInfo creditInfo;
   final I2VParams params;
+
+  GenerationRequestStatus get requestStatus =>
+      GenerationRequestStatus.fromValue(status);
 }
 
 class GenerationTheme {

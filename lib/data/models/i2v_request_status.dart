@@ -1,3 +1,32 @@
+enum GenerationRequestStatus {
+  inQueue('IN_QUEUE'),
+  pending('PENDING'),
+  completed('COMPLETED'),
+  failed('FAILED'),
+  error('ERROR'),
+  cancelled('CANCELLED'),
+  deleted('DELETED'),
+  unknown('');
+
+  const GenerationRequestStatus(this.value);
+
+  factory GenerationRequestStatus.fromValue(Object? value) {
+    final normalized = value?.toString().trim().toUpperCase() ?? '';
+    for (final status in values) {
+      if (status != unknown && status.value == normalized) return status;
+    }
+    return unknown;
+  }
+
+  final String value;
+
+  bool get isActive => this == inQueue || this == pending;
+
+  bool get isTerminal => !isActive && this != unknown;
+
+  bool get isFailed => this == failed || this == error;
+}
+
 class I2VRequestStatusResponse {
   const I2VRequestStatusResponse({
     required this.success,
@@ -72,6 +101,30 @@ class I2VRequestStatus {
     );
   }
 
+  I2VRequestStatus copyWith({String? resultUrl}) {
+    return I2VRequestStatus(
+      id: id,
+      requestId: requestId,
+      runpodJobId: runpodJobId,
+      userId: userId,
+      serviceType: serviceType,
+      status: status,
+      prompt: prompt,
+      imageUrl: imageUrl,
+      thumbnailUrl: thumbnailUrl,
+      resultUrl: resultUrl ?? this.resultUrl,
+      errorMessage: errorMessage,
+      creditCharged: creditCharged,
+      creditRefunded: creditRefunded,
+      duration: duration,
+      isHd: isHd,
+      isLongTime: isLongTime,
+      createTime: createTime,
+      completedTime: completedTime,
+      lastUpdateTime: lastUpdateTime,
+    );
+  }
+
   final int id;
   final String requestId;
   final String runpodJobId;
@@ -92,9 +145,17 @@ class I2VRequestStatus {
   final DateTime? completedTime;
   final DateTime? lastUpdateTime;
 
-  bool get isCompleted => status == 'COMPLETED';
-  bool get isFailed => status == 'FAILED' || status == 'FAIL';
-  bool get isQueued => status == 'IN_QUEUE';
+  GenerationRequestStatus get requestStatus =>
+      GenerationRequestStatus.fromValue(status);
+
+  bool get isQueued => requestStatus == GenerationRequestStatus.inQueue;
+  bool get isPending => requestStatus == GenerationRequestStatus.pending;
+  bool get isActive => requestStatus.isActive;
+  bool get isCompleted => requestStatus == GenerationRequestStatus.completed;
+  bool get isFailed => requestStatus.isFailed;
+  bool get isCancelled => requestStatus == GenerationRequestStatus.cancelled;
+  bool get isDeleted => requestStatus == GenerationRequestStatus.deleted;
+  bool get isTerminal => requestStatus.isTerminal;
 }
 
 int _asInt(Object? value) {

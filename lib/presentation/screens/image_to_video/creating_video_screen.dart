@@ -30,6 +30,7 @@ class CreatingVideoScreen extends StatefulWidget {
     this.creatorLabel = 'Image to Video',
     this.notificationPermissionRequester,
     this.notificationSettingsOpener,
+    this.initialRequestStatus,
   });
 
   final I2VGeneration generation;
@@ -45,6 +46,7 @@ class CreatingVideoScreen extends StatefulWidget {
   final String creatorLabel;
   final NotificationPermissionRequester? notificationPermissionRequester;
   final NotificationSettingsOpener? notificationSettingsOpener;
+  final I2VRequestStatus? initialRequestStatus;
 
   @override
   State<CreatingVideoScreen> createState() => _CreatingVideoScreenState();
@@ -56,6 +58,9 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
   Timer? _fakeProgressTimer;
   bool _pollInFlight = false;
   bool _resolved = false;
+  String _failureTitle = 'Video Generation Failed';
+  String? _failureGuidance;
+  bool _failureCreditsRefunded = false;
   String? _failureMessage;
   GenerationProgress? _generationProgress;
   double _displayProgress = 0.02;
@@ -72,6 +77,8 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
     _initializeProgress();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_requestNotificationPermissionIfNeeded());
+      final initialStatus = widget.initialRequestStatus;
+      if (initialStatus != null) unawaited(_handleStatus(initialStatus));
     });
   }
 
@@ -127,7 +134,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
   }
 
   void _activateProgress(GenerationProgress progress) {
-    if (!mounted) return;
+    if (!mounted || _resolved) return;
     _generationProgress = progress;
     _refreshFakeProgress(persistStep: false);
     _fakeProgressTimer = Timer.periodic(
@@ -193,45 +200,56 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
           widget.statusFetcher ?? ApiClient.instance.fetchImageToVideoStatus;
       final status = await fetcher(widget.generation.requestId);
       if (!mounted || _resolved) return;
-
-      if (status.isCompleted) {
-        _resolved = true;
-        _stopPolling();
-        _fakeProgressTimer?.cancel();
-        await _clearStoredProgress();
-        if (!mounted) return;
-        if (status.resultUrl.isEmpty) {
-          _showFailureUi(
-            'The generated video URL is missing. Please try again.',
-          );
-          return;
-        }
-        unawaited(_refreshGenerationHistory());
-        await Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => GeneratedVideoScreen(
-              result: status,
-              returnToPreviousOnBack: widget.returnToPreviousOnBack,
-            ),
-          ),
-        );
-      } else if (status.isFailed) {
-        _resolved = true;
-        _stopPolling();
-        _fakeProgressTimer?.cancel();
-        await _clearStoredProgress();
-        if (!mounted) return;
-        _showFailureUi(
-          status.errorMessage.isEmpty
-              ? 'The video could not be generated. Please try again.'
-              : status.errorMessage,
-        );
-      }
+      await _handleStatus(status);
     } catch (_) {
       // A temporary polling error should not mark the generation as failed.
       // The next 10-second cycle retries automatically.
     } finally {
       _pollInFlight = false;
+    }
+  }
+
+  Future<void> _handleStatus(I2VRequestStatus status) async {
+    if (!mounted || _resolved || !status.isTerminal) return;
+    _resolved = true;
+    _stopPolling();
+    _fakeProgressTimer?.cancel();
+    unawaited(_clearStoredProgress());
+
+    if (status.isCompleted) {
+      if (status.resultUrl.isEmpty) {
+        _showFailureUi('The generated video URL is missing. Please try again.');
+        return;
+      }
+      unawaited(_refreshGenerationHistory());
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => GeneratedVideoScreen(
+            result: status,
+            returnToPreviousOnBack: widget.returnToPreviousOnBack,
+          ),
+        ),
+      );
+    } else if (status.isFailed) {
+      _showFailureUi(
+        status.errorMessage.isEmpty
+            ? 'The video could not be generated. Please try again.'
+            : status.errorMessage,
+        creditsRefunded: true,
+      );
+    } else if (status.isCancelled) {
+      _showFailureUi(
+        'This video request was cancelled.',
+        title: 'Video Generation Cancelled',
+        guidance: 'Return to ${widget.creatorLabel} whenever you are ready.',
+        creditsRefunded: true,
+      );
+    } else if (status.isDeleted) {
+      _showFailureUi(
+        'This video request was deleted and is no longer available.',
+        title: 'Video Request Deleted',
+        guidance: 'Return to ${widget.creatorLabel} to create a new video.',
+      );
     }
   }
 
@@ -257,8 +275,20 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
     }
   }
 
-  void _showFailureUi(String message) {
-    if (mounted) setState(() => _failureMessage = message);
+  void _showFailureUi(
+    String message, {
+    String title = 'Video Generation Failed',
+    String? guidance,
+    bool creditsRefunded = false,
+  }) {
+    if (mounted) {
+      setState(() {
+        _failureTitle = title;
+        _failureGuidance = guidance;
+        _failureCreditsRefunded = creditsRefunded;
+        _failureMessage = message;
+      });
+    }
   }
 
   void _stopPolling() {
@@ -280,7 +310,10 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
     final failureMessage = _failureMessage;
     if (failureMessage != null) {
       return _GenerationFailureScreen(
+        title: _failureTitle,
         message: failureMessage,
+        guidance: _failureGuidance,
+        creditsRefunded: _failureCreditsRefunded,
         creatorLabel: widget.creatorLabel,
         onBackToCreate: () => Navigator.maybePop(context),
       );
@@ -820,12 +853,18 @@ class _ContinueButton extends StatelessWidget {
 
 class _GenerationFailureScreen extends StatelessWidget {
   const _GenerationFailureScreen({
+    required this.title,
     required this.message,
+    required this.guidance,
+    required this.creditsRefunded,
     required this.creatorLabel,
     required this.onBackToCreate,
   });
 
+  final String title;
   final String message;
+  final String? guidance;
+  final bool creditsRefunded;
   final String creatorLabel;
   final VoidCallback onBackToCreate;
 
@@ -876,8 +915,8 @@ class _GenerationFailureScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  const Text(
-                    'Video Generation Failed',
+                  Text(
+                    title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -897,9 +936,22 @@ class _GenerationFailureScreen extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
+                  if (creditsRefunded) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Your credits have been refunded.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF63E981),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Text(
-                    'Return to $creatorLabel and try again with another prompt.',
+                    guidance ??
+                        'Return to $creatorLabel and try again with another prompt.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF8D8592),

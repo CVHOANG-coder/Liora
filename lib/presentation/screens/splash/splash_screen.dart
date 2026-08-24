@@ -73,7 +73,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         curve: Curves.easeOut,
       );
       if (!mounted) return;
-      _openOnboarding();
+      final openedNotification =
+          FirebaseService.markNotificationNavigationReady();
+      if (!openedNotification) _openOnboarding();
     } on TickerCanceled {
       return;
     } catch (error) {

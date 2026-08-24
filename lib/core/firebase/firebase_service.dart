@@ -32,6 +32,58 @@ typedef NotificationPermissionRequester =
     Future<NotificationPermissionFlowResult> Function();
 typedef NotificationSettingsOpener = Future<bool> Function();
 
+class VideoNotificationOpen {
+  const VideoNotificationOpen({
+    required this.type,
+    required this.requestId,
+    required this.status,
+    required this.resultUrl,
+    required this.replaceCurrentRoute,
+  });
+
+  factory VideoNotificationOpen.fromData(
+    Map<String, dynamic> data, {
+    bool replaceCurrentRoute = false,
+  }) {
+    final type = data['type']?.toString().trim().toLowerCase() ?? '';
+    if (type != 'video_generated' && type != 'video_failed') {
+      throw const FormatException('Unsupported notification type.');
+    }
+
+    final requestId = data['request_id']?.toString().trim() ?? '';
+    if (requestId.isEmpty) {
+      throw const FormatException('Video notification is missing request_id.');
+    }
+
+    final rawStatus = data['status']?.toString().trim().toUpperCase() ?? '';
+    const supportedStatuses = <String>{
+      'IN_QUEUE',
+      'PENDING',
+      'COMPLETED',
+      'FAILED',
+      'ERROR',
+      'CANCELLED',
+      'DELETED',
+    };
+    final fallbackStatus = type == 'video_generated' ? 'COMPLETED' : 'FAILED';
+    return VideoNotificationOpen(
+      type: type,
+      requestId: requestId,
+      status: supportedStatuses.contains(rawStatus)
+          ? rawStatus
+          : fallbackStatus,
+      resultUrl: data['result_url']?.toString().trim() ?? '',
+      replaceCurrentRoute: replaceCurrentRoute,
+    );
+  }
+
+  final String type;
+  final String requestId;
+  final String status;
+  final String resultUrl;
+  final bool replaceCurrentRoute;
+}
+
 String? firebaseUserTopicFor(String userCode) {
   final normalizedUserCode = userCode.trim();
   if (normalizedUserCode.isEmpty) return null;
@@ -49,6 +101,9 @@ class FirebaseService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   static final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
+  static final StreamController<VideoNotificationOpen>
+  _notificationOpenController =
+      StreamController<VideoNotificationOpen>.broadcast(sync: true);
 
   static const _homePermissionAttemptedKey =
       'notifications.home_permission_attempted';
@@ -65,6 +120,20 @@ class FirebaseService {
   _creatingPermissionRequestInFlight;
   static String? _pendingUserTopic;
   static Future<bool>? _topicSubscriptionInFlight;
+  static bool _notificationNavigationReady = false;
+  static VideoNotificationOpen? _pendingNotificationOpen;
+
+  static Stream<VideoNotificationOpen> get notificationOpens =>
+      _notificationOpenController.stream;
+
+  static bool markNotificationNavigationReady() {
+    _notificationNavigationReady = true;
+    final pending = _pendingNotificationOpen;
+    _pendingNotificationOpen = null;
+    if (pending == null) return false;
+    _notificationOpenController.add(pending);
+    return true;
+  }
 
   static Future<void> initialize() {
     return _initializationFuture ??= _initializeFirebase();
@@ -81,7 +150,6 @@ class FirebaseService {
     _listenForMessages();
     await _logInitialNotificationIfNeeded();
     _initialized = true;
-    unawaited(_printRegistrationToken());
   }
 
   static Future<bool> subscribeToUserTopic(String userCode) async {
@@ -163,11 +231,8 @@ class FirebaseService {
 
     await _localNotifications.initialize(
       settings: settings,
-      onDidReceiveNotificationResponse: (_) {
-        analytics.logEvent(
-          name: 'push_opened',
-          parameters: {'source': 'foreground_notification'},
-        );
+      onDidReceiveNotificationResponse: (response) {
+        unawaited(_handleLocalNotificationOpen(response));
       },
     );
 
@@ -329,18 +394,15 @@ class FirebaseService {
       }
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen(
-      (message) => _logNotificationOpen(message, 'background'),
-    );
+    FirebaseMessaging.onMessageOpenedApp.listen((message) async {
+      await _logNotificationOpen(message, 'background');
+      _queueNotificationOpen(message.data);
+    });
 
-    messaging.onTokenRefresh.listen((token) {
-      if (kDebugMode) {
-        debugPrint('FCM token refreshed: $token');
-      }
+    messaging.onTokenRefresh.listen((_) {
       if (_pendingUserTopic != null) {
         unawaited(_trySubscribeToPendingUserTopic());
       }
-      // Send this token to the application backend when a token API is ready.
     });
   }
 
@@ -348,13 +410,20 @@ class FirebaseService {
     RemoteMessage message,
   ) async {
     final notification = message.notification;
-    final android = notification?.android;
-    if (notification == null || android == null) return;
+    if (notification == null && message.data.isEmpty) return;
+
+    final type = message.data['type']?.toString().trim().toLowerCase();
+    final fallbackTitle = type == 'video_failed'
+        ? 'Video generation failed'
+        : 'Your video is ready';
+    final fallbackBody = type == 'video_failed'
+        ? 'Tap to view the request details.'
+        : 'Tap to watch your generated video.';
 
     await _localNotifications.show(
       id: DateTime.now().millisecondsSinceEpoch.remainder(0x7fffffff),
-      title: notification.title,
-      body: notification.body,
+      title: notification?.title ?? fallbackTitle,
+      body: notification?.body ?? fallbackBody,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _notificationChannel.id,
@@ -373,6 +442,8 @@ class FirebaseService {
     final localLaunchDetails = await _localNotifications
         .getNotificationAppLaunchDetails();
     if (localLaunchDetails?.didNotificationLaunchApp ?? false) {
+      final payload = localLaunchDetails?.notificationResponse?.payload;
+      _queueNotificationPayload(payload, replaceCurrentRoute: true);
       await analytics.logEvent(
         name: 'push_opened',
         parameters: {'source': 'foreground_notification_terminated'},
@@ -381,46 +452,75 @@ class FirebaseService {
 
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
+      _queueNotificationOpen(initialMessage.data, replaceCurrentRoute: true);
       await _logNotificationOpen(initialMessage, 'terminated');
+    }
+  }
+
+  static Future<void> _handleLocalNotificationOpen(
+    NotificationResponse response,
+  ) async {
+    _queueNotificationPayload(response.payload);
+    await analytics.logEvent(
+      name: 'push_opened',
+      parameters: {'source': 'foreground_notification'},
+    );
+  }
+
+  static void _queueNotificationPayload(
+    String? payload, {
+    bool replaceCurrentRoute = false,
+  }) {
+    if (payload == null || payload.trim().isEmpty) return;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map) {
+        _queueNotificationOpen(
+          Map<String, dynamic>.from(decoded),
+          replaceCurrentRoute: replaceCurrentRoute,
+        );
+      }
+    } catch (error) {
+      if (kDebugMode) debugPrint('Invalid notification payload: $error');
+    }
+  }
+
+  static void _queueNotificationOpen(
+    Map<String, dynamic> data, {
+    bool replaceCurrentRoute = false,
+  }) {
+    try {
+      final notification = VideoNotificationOpen.fromData(
+        data,
+        replaceCurrentRoute: replaceCurrentRoute,
+      );
+      if (_notificationNavigationReady) {
+        _notificationOpenController.add(notification);
+      } else {
+        _pendingNotificationOpen = notification;
+      }
+    } on FormatException catch (error) {
+      if (kDebugMode) {
+        debugPrint('Ignored notification navigation: ${error.message}');
+      }
     }
   }
 
   static Future<void> _logNotificationOpen(
     RemoteMessage message,
     String appState,
-  ) {
-    return analytics.logEvent(
-      name: 'push_opened',
-      parameters: {
-        'source': 'firebase_messaging',
-        'app_state': appState,
-        if (message.messageId != null) 'message_id': message.messageId!,
-      },
-    );
-  }
-
-  static Future<void> _printRegistrationToken() async {
+  ) async {
     try {
-      if (kIsWeb) return;
-
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
-        final apnsToken = await messaging.getAPNSToken();
-        if (apnsToken == null) {
-          if (kDebugMode) {
-            debugPrint('APNs token is not available yet; waiting for refresh.');
-          }
-          return;
-        }
-      }
-
-      final token = await messaging.getToken();
-      if (kDebugMode) {
-        debugPrint('FCM token: $token');
-      }
+      await analytics.logEvent(
+        name: 'push_opened',
+        parameters: {
+          'source': 'firebase_messaging',
+          'app_state': appState,
+          if (message.messageId != null) 'message_id': message.messageId!,
+        },
+      );
     } catch (error) {
-      if (kDebugMode) {
-        debugPrint('Could not retrieve the FCM token: $error');
-      }
+      if (kDebugMode) debugPrint('Could not log notification open: $error');
     }
   }
 }

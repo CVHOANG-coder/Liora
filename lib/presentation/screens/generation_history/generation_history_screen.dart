@@ -147,7 +147,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
     Iterable<I2VRequestStatus> requests,
   ) async {
     final terminalRequestIds = requests
-        .where((request) => request.isCompleted || request.isFailed)
+        .where((request) => request.isTerminal)
         .map((request) => request.requestId)
         .where((requestId) => requestId.isNotEmpty);
     final repository =
@@ -169,7 +169,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
         result: request,
         returnToPreviousOnBack: true,
       );
-    } else if (request.isQueued) {
+    } else if (request.isActive) {
       final repository =
           widget.progressRepository ??
           const SharedPreferencesGenerationProgressRepository();
@@ -192,7 +192,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
       }
       if (!mounted) return;
       destination = CreatingVideoScreen(
-        generation: _asGeneration(request),
+        generation: I2VGeneration.fromRequestStatus(request),
         statusFetcher: widget.statusFetcher,
         returnToPreviousOnBack: true,
         initialProgress: progress,
@@ -352,7 +352,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
             SliverToBoxAdapter(
               child: _HistoryOverview(
                 total: _totalItems,
-                creating: _requests.where((item) => item.isQueued).length,
+                creating: _requests.where((item) => item.isActive).length,
               ),
             ),
             SliverPadding(
@@ -554,32 +554,6 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-I2VGeneration _asGeneration(I2VRequestStatus request) {
-  return I2VGeneration(
-    requestId: request.requestId,
-    runpodJobId: request.runpodJobId,
-    userId: request.userId,
-    serviceType: request.serviceType,
-    prompt: request.prompt,
-    imageUrl: request.imageUrl,
-    status: request.status,
-    createTime: request.createTime,
-    remainingCredit: 0,
-    creditInfo: const I2VCreditInfo(
-      baseCredit: 0,
-      multiplier: 0,
-      totalCharged: 0,
-    ),
-    params: I2VParams(
-      duration: request.duration,
-      megapixels: 0,
-      steps: 0,
-      aspectRatio: '',
-      seed: '',
-    ),
-  );
-}
-
 class _HistoryGridItem extends StatelessWidget {
   const _HistoryGridItem({
     super.key,
@@ -598,13 +572,13 @@ class _HistoryGridItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final canOpen =
         (request.isCompleted && request.resultUrl.isNotEmpty) ||
-        request.isQueued;
+        request.isActive;
     final previewUrl = request.thumbnailUrl.isNotEmpty
         ? request.thumbnailUrl
         : request.imageUrl;
 
     final title = request.prompt.isEmpty ? 'Untitled video' : request.prompt;
-    final statusLabel = _statusLabel(request.status);
+    final statusLabel = _statusLabel(request.requestStatus);
 
     return Semantics(
       button: canOpen,
@@ -640,8 +614,9 @@ class _HistoryGridItem extends StatelessWidget {
                   ),
                 ),
               ),
-              if (request.isQueued) const _QueuedOverlay(),
-              if (request.isFailed) const _FailedOverlay(),
+              if (request.isActive) const _QueuedOverlay(),
+              if (request.isFailed || request.isCancelled)
+                _TerminalOverlay(status: request.requestStatus),
               Positioned(
                 top: 7,
                 left: 7,
@@ -961,11 +936,16 @@ class _GridStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = _statusLabel(status);
-    final color = switch (status.toUpperCase()) {
-      'COMPLETED' => const Color(0xFF63E981),
-      'IN_QUEUE' => const Color(0xFFFFB046),
-      'FAILED' || 'FAIL' => const Color(0xFFFF6C78),
+    final requestStatus = GenerationRequestStatus.fromValue(status);
+    final label = _statusLabel(requestStatus);
+    final color = switch (requestStatus) {
+      GenerationRequestStatus.completed => const Color(0xFF63E981),
+      GenerationRequestStatus.inQueue => const Color(0xFFFFB046),
+      GenerationRequestStatus.pending => const Color(0xFF54C7FC),
+      GenerationRequestStatus.failed ||
+      GenerationRequestStatus.error => const Color(0xFFFF6C78),
+      GenerationRequestStatus.cancelled => const Color(0xFFB5ADB8),
+      GenerationRequestStatus.deleted => const Color(0xFF777077),
       _ => const Color(0xFFFF62BC),
     };
     return Container(
@@ -1017,17 +997,22 @@ class _QueuedOverlay extends StatelessWidget {
   }
 }
 
-class _FailedOverlay extends StatelessWidget {
-  const _FailedOverlay();
+class _TerminalOverlay extends StatelessWidget {
+  const _TerminalOverlay({required this.status});
+
+  final GenerationRequestStatus status;
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0x77000000),
+    final isCancelled = status == GenerationRequestStatus.cancelled;
+    return ColoredBox(
+      color: const Color(0x77000000),
       child: Center(
         child: Icon(
-          Icons.error_outline_rounded,
-          color: Color(0xFFFF6877),
+          isCancelled ? Icons.cancel_outlined : Icons.error_outline_rounded,
+          color: isCancelled
+              ? const Color(0xFFB5ADB8)
+              : const Color(0xFFFF6877),
           size: 30,
         ),
       ),
@@ -1171,11 +1156,15 @@ String _formatDate(DateTime? value) {
       '${twoDigits(date.hour)}:${twoDigits(date.minute)}';
 }
 
-String _statusLabel(String status) {
-  return switch (status.toUpperCase()) {
-    'COMPLETED' => 'Completed',
-    'IN_QUEUE' => 'Creating',
-    'FAILED' || 'FAIL' => 'Failed',
-    final value => value.replaceAll('_', ' '),
+String _statusLabel(GenerationRequestStatus status) {
+  return switch (status) {
+    GenerationRequestStatus.inQueue => 'In queue',
+    GenerationRequestStatus.pending => 'Processing',
+    GenerationRequestStatus.completed => 'Completed',
+    GenerationRequestStatus.failed => 'Failed',
+    GenerationRequestStatus.error => 'Error',
+    GenerationRequestStatus.cancelled => 'Cancelled',
+    GenerationRequestStatus.deleted => 'Deleted',
+    GenerationRequestStatus.unknown => 'Unknown',
   };
 }

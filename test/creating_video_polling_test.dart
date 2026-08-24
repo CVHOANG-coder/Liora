@@ -242,9 +242,48 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('recognizes both failure status spellings', () {
+  test('recognizes the complete request status contract', () {
+    expect(_status('IN_QUEUE').isQueued, isTrue);
+    expect(_status('IN_QUEUE').isActive, isTrue);
+    expect(_status('PENDING').isPending, isTrue);
+    expect(_status('PENDING').isActive, isTrue);
+    expect(_status('COMPLETED').isCompleted, isTrue);
     expect(_status('FAILED').isFailed, isTrue);
-    expect(_status('FAIL').isFailed, isTrue);
+    expect(_status('ERROR').isFailed, isTrue);
+    expect(_status('CANCELLED').isCancelled, isTrue);
+    expect(_status('DELETED').isDeleted, isTrue);
+
+    expect(_status('FAILED').isTerminal, isTrue);
+    expect(_status('ERROR').isTerminal, isTrue);
+    expect(_status('CANCELLED').isTerminal, isTrue);
+    expect(_status('DELETED').isTerminal, isTrue);
+    expect(_status('FAIL').isFailed, isFalse);
+  });
+
+  testWidgets('stops polling and reports refunded credits on CANCELLED', (
+    tester,
+  ) async {
+    final progressRepository = _MemoryProgressRepository();
+    await progressRepository.save(_progress());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CreatingVideoScreen(
+          generation: _generation(),
+          initialProgress: _progress(),
+          progressRepository: progressRepository,
+          initialPollDelay: Duration.zero,
+          statusFetcher: (_) async => _status('CANCELLED'),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Video Generation Cancelled'), findsOneWidget);
+    expect(find.textContaining('credits have been refunded'), findsOneWidget);
+    expect(await progressRepository.load('request-001'), isNull);
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -29,6 +29,7 @@ class GenerationHistoryPage {
             (request) =>
                 I2VRequestStatus.fromJson(Map<String, dynamic>.from(request)),
           )
+          .where((request) => !request.isDeleted)
           .toList(growable: false),
       pagination: GenerationHistoryPagination.fromJson(
         _asMap(data['pagination']),

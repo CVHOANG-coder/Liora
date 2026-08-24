@@ -27,6 +27,23 @@ void main() {
     expect(page.pagination.hasMore, isTrue);
   });
 
+  test('omits requests already marked DELETED from history', () {
+    final page = GenerationHistoryPage.fromJson(
+      _response(
+        page: 1,
+        totalPages: 1,
+        requests: <Map<String, dynamic>>[
+          _request('deleted-1', 'DELETED'),
+          _request('pending-1', 'PENDING'),
+        ],
+      ),
+    );
+
+    expect(page.requests, hasLength(1));
+    expect(page.requests.single.requestId, 'pending-1');
+    expect(page.requests.single.isPending, isTrue);
+  });
+
   testWidgets('loads more pages and pull-to-refresh reloads page one', (
     tester,
   ) async {
