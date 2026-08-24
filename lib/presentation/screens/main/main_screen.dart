@@ -1,43 +1,93 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/firebase/firebase_service.dart';
+import '../../providers/profile_provider.dart';
 import '../../widgets/create_bottom_sheet.dart';
 import '../../widgets/trial_offer_dialog.dart';
 import '../home/home_screen.dart';
+import '../image_to_video/image_to_video_screen.dart';
 import '../profile/profile_screen.dart';
+import '../text_to_video/text_to_video_screen.dart';
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class MainScreen extends ConsumerStatefulWidget {
+  const MainScreen({
+    super.key,
+    this.initialIndex = 0,
+    this.showTrialOffer = true,
+    this.notificationPermissionRequester,
+  });
+
+  final int initialIndex;
+  final bool showTrialOffer;
+  final NotificationPermissionRequester? notificationPermissionRequester;
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
+class _MainScreenState extends ConsumerState<MainScreen> {
+  late int _selectedIndex;
 
   static const _screens = [HomeScreen(), ProfileScreen()];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) TrialOfferDialog.show(context);
+    _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _showInitialOfferIfNeeded();
+      if (!mounted || _selectedIndex != 0) return;
+      await _requestHomeNotificationPermission();
     });
   }
 
+  Future<void> _showInitialOfferIfNeeded() async {
+    if (!mounted || !widget.showTrialOffer) return;
+    final isSubscribed = ref.read(profileProvider)?.isSubscribed ?? false;
+    if (!isSubscribed) await TrialOfferDialog.show(context);
+  }
+
+  Future<void> _requestHomeNotificationPermission() {
+    final requester =
+        widget.notificationPermissionRequester ??
+        FirebaseService.requestNotificationPermissionOnHome;
+    return requester().then<void>((_) {});
+  }
+
+  void _selectTab(int index) {
+    setState(() => _selectedIndex = index);
+    if (index == 0) {
+      unawaited(_requestHomeNotificationPermission());
+    }
+  }
+
   Future<void> _openCreateSheet() async {
-    final result = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<CreateVideoMode>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xC7000000),
       builder: (_) => const CreateBottomSheet(),
     );
 
     if (!mounted || result == null) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Đã chọn tạo $result')));
+    switch (result) {
+      case CreateVideoMode.imageToVideo:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const ImageToVideoScreen()),
+        );
+        return;
+      case CreateVideoMode.textToVideo:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const TextToVideoScreen()),
+        );
+        return;
+    }
   }
 
   @override
@@ -49,7 +99,7 @@ class _MainScreenState extends State<MainScreen> {
       floatingActionButton: _CreateButton(onPressed: _openCreateSheet),
       bottomNavigationBar: _BottomBar(
         currentIndex: _selectedIndex,
-        onChanged: (index) => setState(() => _selectedIndex = index),
+        onChanged: _selectTab,
       ),
     );
   }
@@ -163,7 +213,7 @@ class _CreateButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Tạo mới',
+      label: 'Create',
       child: Container(
         width: 68,
         height: 68,

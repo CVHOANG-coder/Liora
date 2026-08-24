@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import 'core/firebase/firebase_service.dart';
 import 'shared/themes/app_theme.dart';
-import 'presentation/screens/onboarding/onboarding_screen.dart';
+import 'presentation/screens/splash/splash_screen.dart';
+import 'presentation/providers/purchase_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await FirebaseService.initialize();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -16,19 +21,25 @@ void main() {
     ),
   );
 
-  runApp(const VideoGenApp());
+  runApp(const ProviderScope(child: VideoGenApp()));
 }
 
-class VideoGenApp extends StatelessWidget {
-  const VideoGenApp({super.key});
+class VideoGenApp extends ConsumerWidget {
+  const VideoGenApp({super.key, this.home});
+
+  final Widget? home;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Start listening before the purchase screens open so Google Play can
+    // redeliver pending purchases from a previous app session.
+    ref.watch(purchaseControllerProvider);
     return MaterialApp(
-      title: 'VideoGen',
+      title: 'Nostalia: AI Video Generator',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const OnboardingScreen(),
+      navigatorObservers: [?FirebaseService.analyticsObserver],
+      home: home ?? const SplashScreen(),
     );
   }
 }

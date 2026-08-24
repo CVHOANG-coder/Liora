@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../data/video_categories.dart';
+import '../../providers/profile_provider.dart';
+import '../../providers/theme_provider.dart';
+import '../../widgets/trial_offer_dialog.dart';
 import '../image_to_video/image_to_video_screen.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../text_to_video/text_to_video_screen.dart';
+import '../video_detail/video_detail_screen.dart';
 
 const _assetRoot = 'assets/images/templates';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  late final Future<List<VideoCategory>> _categoriesFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _categoriesFuture = loadVideoCategories();
-  }
-
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
+    final isSubscribed = ref.watch(
+      profileProvider.select((profile) => profile?.isSubscribed ?? false),
+    );
+    final categories = ref.watch(themeCategoriesProvider);
+
     return ColoredBox(
       color: Colors.black,
       child: SafeArea(
@@ -36,15 +40,32 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 118),
               sliver: SliverList.list(
                 children: [
-                  _HomeHeader(),
+                  _HomeHeader(
+                    isSubscribed: isSubscribed,
+                    onProPressed: () {
+                      if (!isSubscribed) {
+                        TrialOfferDialog.show(context);
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AllPlans(),
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 30),
                   _Headline(),
                   const SizedBox(height: 24),
                   _FeatureCards(),
                   const SizedBox(height: 26),
-                  _VideoCategories(future: _categoriesFuture),
-                  const SizedBox(height: 26),
-                  _QuickCreate(),
+                  _VideoCategories(
+                    categories: categories,
+                    onRetry: () => ref.invalidate(themeCategoriesProvider),
+                  ),
+                  // Quick Create is temporarily hidden.
+                  // const SizedBox(height: 26),
+                  // _QuickCreate(),
                 ],
               ),
             ),
@@ -56,7 +77,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader();
+  const _HomeHeader({required this.isSubscribed, required this.onProPressed});
+
+  final bool isSubscribed;
+  final VoidCallback onProPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -65,37 +89,50 @@ class _HomeHeader extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
+            child: Semantics(
+              button: true,
+              enabled: true,
+              label: isSubscribed ? 'Open Pro plan' : 'View Pro offer',
+              child: Material(
                 color: const Color(0xFF150A13),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFFF42B5)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    'assets/svgs/pro.svg',
-                    width: 18,
-                    height: 18,
-                    fit: BoxFit.contain,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFFFF48C3),
-                      BlendMode.srcIn,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const Key('homeProButton'),
+                  onTap: onProPressed,
+                  child: Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFF42B5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SvgPicture.asset(
+                          'assets/svgs/pro.svg',
+                          width: 18,
+                          height: 18,
+                          fit: BoxFit.contain,
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFFFF48C3),
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Pro',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(width: 6),
-                  Text(
-                    '17+ Pro',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -155,24 +192,15 @@ class _Brand extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF42C0), Color(0xFFFF733E)],
-          ).createShader(bounds),
-          child: const Text(
-            'V',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 35,
-              height: 1,
-              fontWeight: FontWeight.w900,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+        Image.asset(
+          'assets/images/home/N_logo.png',
+          width: 32,
+          height: 32,
+          fit: BoxFit.contain,
         ),
         const SizedBox(width: 5),
         const Text(
-          'VideoGen',
+          'Nostalia',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -206,7 +234,7 @@ class _Headline extends StatelessWidget {
             stops: [0, 0.57, 0.76, 1],
           ).createShader(bounds),
           child: const Text(
-            'Tạo phim ngắn AI 17+',
+            'Create AI short films',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 29,
@@ -218,7 +246,7 @@ class _Headline extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Điện ảnh, cá nhân hoá, dễ viral.',
+          'Cinematic, personalized, made to go viral.',
           style: TextStyle(color: Color(0xFFBDB8C1), fontSize: 16),
         ),
       ],
@@ -236,7 +264,7 @@ class _FeatureCards extends StatelessWidget {
         Expanded(
           child: _FeatureCard(
             title: 'Text to Video',
-            subtitle: 'Biến ý tưởng thành\nvideo ngắn bằng AI',
+            subtitle: 'Turn ideas into\nAI short videos',
             asset: 'assets/images/home/text_to_video.png',
             glow: Color(0xFFFF20AF),
             background: [Color(0xFF400027), Color(0xFF100009)],
@@ -246,7 +274,7 @@ class _FeatureCards extends StatelessWidget {
         Expanded(
           child: _FeatureCard(
             title: 'Image to Video',
-            subtitle: 'Tạo video từ ảnh, nhân vật',
+            subtitle: 'Animate photos\nand characters',
             asset: 'assets/images/home/image_to_video.png',
             glow: Color(0xFFFF5B39),
             background: [Color(0xFF48110F), Color(0xFF120504)],
@@ -355,10 +383,17 @@ class _FeatureCard extends StatelessWidget {
       ),
     );
 
-    if (title != 'Image to Video') return card;
+    final isTextToVideo = title == 'Text to Video';
+    final isImageToVideo = title == 'Image to Video';
+    if (!isTextToVideo && !isImageToVideo) return card;
     return GestureDetector(
+      key: Key(isTextToVideo ? 'homeTextToVideoCard' : 'homeImageToVideoCard'),
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const ImageToVideoScreen()),
+        MaterialPageRoute<void>(
+          builder: (_) => isTextToVideo
+              ? const TextToVideoScreen()
+              : const ImageToVideoScreen(),
+        ),
       ),
       child: card,
     );
@@ -366,29 +401,23 @@ class _FeatureCard extends StatelessWidget {
 }
 
 class _VideoCategories extends StatelessWidget {
-  const _VideoCategories({required this.future});
+  const _VideoCategories({required this.categories, required this.onRetry});
 
-  final Future<List<VideoCategory>> future;
+  final AsyncValue<List<VideoCategory>> categories;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<VideoCategory>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _CategoriesLoading();
-        }
-
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
+    return categories.when(
+      loading: () => const _CategoriesLoading(),
+      error: (error, _) => _CategoriesError(error: error, onRetry: onRetry),
+      data: (items) {
+        if (items.isEmpty) return const _CategoriesEmpty();
         return Column(
           children: [
-            for (var index = 0; index < snapshot.data!.length; index++) ...[
-              _VideoCategorySection(category: snapshot.data![index]),
-              if (index != snapshot.data!.length - 1)
-                const SizedBox(height: 24),
+            for (var index = 0; index < items.length; index++) ...[
+              _VideoCategorySection(category: items[index]),
+              if (index != items.length - 1) const SizedBox(height: 24),
             ],
           ],
         );
@@ -464,17 +493,29 @@ class _VideoThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      image: true,
-      label: 'Video thumbnail',
-      child: ClipRRect(
+      button: true,
+      label: 'Watch ${post.description}',
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(15),
-        child: Image.network(
-          post.thumbnailUrl!,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           key: Key('videoThumbnail_${post.id}'),
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : const _ThumbnailSkeleton(),
-          errorBuilder: (_, _, _) => const _ThumbnailError(),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => VideoDetailScreen(post: post),
+            ),
+          ),
+          child: Hero(
+            tag: 'video_${post.id}',
+            child: Image.network(
+              post.thumbnailUrl!,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : const _ThumbnailSkeleton(),
+              errorBuilder: (_, _, _) => const _ThumbnailError(),
+            ),
+          ),
         ),
       ),
     );
@@ -556,6 +597,69 @@ class _CategoriesLoading extends StatelessWidget {
   }
 }
 
+class _CategoriesError extends StatelessWidget {
+  const _CategoriesError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171217),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF3A2D38)),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            color: Color(0xFFFF4DA6),
+            size: 30,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            error.toString(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFFBDB8C1), fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const Key('retryThemesButton'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 19),
+            label: const Text('Retry'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF4DA6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoriesEmpty extends StatelessWidget {
+  const _CategoriesEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        'No themes are available yet.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Color(0xFF8E8790), fontSize: 13),
+      ),
+    );
+  }
+}
+
+/*
 class _QuickCreate extends StatelessWidget {
   const _QuickCreate();
 
@@ -569,7 +673,7 @@ class _QuickCreate extends StatelessWidget {
             Icon(Icons.bolt_rounded, color: Color(0xFFB45CFF), size: 24),
             SizedBox(width: 8),
             Text(
-              'Tạo nhanh',
+              'Quick Create',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -584,16 +688,16 @@ class _QuickCreate extends StatelessWidget {
             Expanded(
               child: _QuickTool(
                 icon: Icons.description_outlined,
-                title: 'Kịch bản AI',
-                subtitle: 'Viết kịch bản chỉ\ntrong vài giây',
+                title: 'AI Script',
+                subtitle: 'Write a script in\njust a few seconds',
               ),
             ),
             SizedBox(width: 8),
             Expanded(
               child: _QuickTool(
                 icon: Icons.mic_none_rounded,
-                title: 'Lồng tiếng',
-                subtitle: 'Giọng AI tự nhiên,\ncảm xúc',
+                title: 'Voiceover',
+                subtitle: 'Natural, expressive\nAI voices',
               ),
             ),
             SizedBox(width: 8),
@@ -601,15 +705,15 @@ class _QuickCreate extends StatelessWidget {
               child: _QuickTool(
                 icon: Icons.closed_caption_outlined,
                 title: 'Subtitle',
-                subtitle: 'Tự động tạo\nphụ đề',
+                subtitle: 'Automatically create\nsubtitles',
               ),
             ),
             SizedBox(width: 8),
             Expanded(
               child: _QuickTool(
                 icon: Icons.person_off_outlined,
-                title: 'Xoá nền',
-                subtitle: 'Tách nền nhanh,\nchuyên nghiệp',
+                title: 'Remove Background',
+                subtitle: 'Remove backgrounds\nquickly and cleanly',
               ),
             ),
           ],
@@ -680,3 +784,4 @@ class _QuickTool extends StatelessWidget {
     );
   }
 }
+*/

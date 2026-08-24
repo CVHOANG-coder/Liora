@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/user_profile.dart';
+import '../../providers/profile_provider.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
+import '../generation_history/generation_history_screen.dart';
+import '../settings/settings_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+    final creditBalance = profile?.totalCredit ?? 0;
+
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: RadialGradient(
@@ -34,16 +42,16 @@ class ProfileScreen extends StatelessWidget {
                     116,
                   ),
                   sliver: SliverList.list(
-                    children: const [
-                      _AccountCard(),
-                      SizedBox(height: 26),
-                      _UpgradeCard(),
-                      SizedBox(height: 19),
-                      _ProfileMenu(),
-                      SizedBox(height: 17),
-                      _SupportMenu(),
-                      SizedBox(height: 3),
-                      Center(
+                    children: [
+                      _AccountCard(profile: profile),
+                      const SizedBox(height: 26),
+                      _UpgradeCard(balance: creditBalance),
+                      const SizedBox(height: 19),
+                      const _ProfileMenu(),
+                      const SizedBox(height: 17),
+                      const _SupportMenu(),
+                      const SizedBox(height: 3),
+                      const Center(
                         child: Text(
                           'V 2.18.0',
                           style: TextStyle(
@@ -66,7 +74,9 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard();
+  const _AccountCard({required this.profile});
+
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +122,7 @@ class _AccountCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              const Expanded(child: _AccountDetails()),
+              Expanded(child: _AccountDetails(profile: profile)),
               const Icon(
                 Icons.chevron_right_rounded,
                 size: 34,
@@ -121,7 +131,7 @@ class _AccountCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 17),
-          const _StatsRow(),
+          _StatsRow(profile: profile),
         ],
       ),
     );
@@ -129,18 +139,24 @@ class _AccountCard extends StatelessWidget {
 }
 
 class _AccountDetails extends StatelessWidget {
-  const _AccountDetails();
+  const _AccountDetails({required this.profile});
+
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
+    final displayName = _profileDisplayName(profile);
+    final identifier = _profileIdentifier(profile);
+    final isPro = _hasProAccess(profile);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Luna Noir',
+        Text(
+          displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -148,9 +164,11 @@ class _AccountDetails extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          '@lunavelora',
-          style: TextStyle(color: Color(0xFFB3ADBA), fontSize: 16),
+        Text(
+          identifier,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Color(0xFFB3ADBA), fontSize: 16),
         ),
         const SizedBox(height: 15),
         Container(
@@ -162,14 +180,21 @@ class _AccountDetails extends StatelessWidget {
               BoxShadow(color: Color(0x88FF18AF), blurRadius: 12),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProIcon(color: AppColors.accent, size: 19),
-              SizedBox(width: 6),
+              if (isPro)
+                const _ProIcon(color: AppColors.accent, size: 19)
+              else
+                const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.accent,
+                  size: 19,
+                ),
+              const SizedBox(width: 6),
               Text(
-                '17+ Pro',
-                style: TextStyle(
+                isPro ? 'Pro' : 'Free',
+                style: const TextStyle(
                   color: AppColors.accent,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -184,40 +209,79 @@ class _AccountDetails extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  const _StatsRow({required this.profile});
+
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
+    final isPro = _hasProAccess(profile);
+    final accountStatus = _profileAccountStatus(profile);
+
     return Row(
-      children: const [
+      children: [
         Expanded(
           child: _StatCard(
             icon: Icons.play_circle_outline_rounded,
-            value: '12',
+            value: '${profile?.generationCount ?? 0}',
             label: 'videos',
           ),
         ),
-        SizedBox(width: 14),
+        const SizedBox(width: 14),
         Expanded(
           child: _StatCard(
-            icon: Icons.star_border_rounded,
-            value: '4',
-            label: 'styles saved',
+            icon: Icons.today_rounded,
+            value: '${profile?.todayGenerationCount ?? 0}',
+            label: 'today',
           ),
         ),
-        SizedBox(width: 14),
+        const SizedBox(width: 14),
         Expanded(
           child: _StatCard(
             icon: Icons.workspace_premium_outlined,
-            value: 'Pro',
-            label: 'active',
-            warm: true,
-            proIcon: true,
+            value: isPro ? 'Pro' : 'Free',
+            label: accountStatus,
+            warm: isPro,
+            proIcon: isPro,
           ),
         ),
       ],
     );
   }
+}
+
+String _profileDisplayName(UserProfile? profile) {
+  final username = profile?.username?.trim() ?? '';
+  if (username.isNotEmpty) return username;
+
+  final userCode = profile?.userCode.trim() ?? '';
+  if (userCode.isNotEmpty) return userCode;
+
+  final email = profile?.email.trim() ?? '';
+  if (email.isNotEmpty) return email.split('@').first;
+  return 'Nostalia User';
+}
+
+String _profileIdentifier(UserProfile? profile) {
+  final email = profile?.email.trim() ?? '';
+  if (email.isNotEmpty) return email;
+
+  final userCode = profile?.userCode.trim() ?? '';
+  if (userCode.isNotEmpty) return 'ID: $userCode';
+  return 'Profile unavailable';
+}
+
+bool _hasProAccess(UserProfile? profile) {
+  return profile?.isSubscribed == true || profile?.isVip == true;
+}
+
+String _profileAccountStatus(UserProfile? profile) {
+  if (profile == null) return 'offline';
+  if (profile.isBanned) return 'banned';
+  if (profile.isActive) return 'active';
+
+  final status = profile.userStatus.trim().toLowerCase();
+  return status.isEmpty ? 'inactive' : status;
 }
 
 class _StatCard extends StatelessWidget {
@@ -297,148 +361,217 @@ class _StatCard extends StatelessWidget {
 }
 
 class _UpgradeCard extends StatelessWidget {
-  const _UpgradeCard();
+  const _UpgradeCard({required this.balance});
+
+  final int balance;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 208,
-      clipBehavior: Clip.antiAlias,
+      height: 166,
+      padding: const EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF27091E), Color(0xFF100913), Color(0xFF261109)],
+          colors: [Color(0xFFFF20B3), Color(0xFFFF704B), Color(0xFFFFA12B)],
         ),
-        border: Border.all(color: const Color(0xFFFF3BAE), width: 1.2),
         boxShadow: const [
-          BoxShadow(color: Color(0x88FF1C9D), blurRadius: 18),
-          BoxShadow(color: Color(0x55FF8A34), blurRadius: 22),
+          BoxShadow(color: Color(0x66FF1AA5), blurRadius: 18),
+          BoxShadow(
+            color: Color(0x44FF832C),
+            blurRadius: 20,
+            offset: Offset(4, 1),
+          ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -9,
-            top: 2,
-            width: 195,
-            height: 120,
-            child: Image.asset(
-              'assets/images/profile/vip_banner.png',
-              fit: BoxFit.contain,
-            ),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(23),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF21091D), Color(0xFF0C0810), Color(0xFF1E0D0A)],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 15, 18, 11),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _UpgradeTitle(),
-                const SizedBox(height: 8),
-                const _Benefit(text: 'Unlock 100+ AI styles'),
-                const SizedBox(height: 4),
-                const _Benefit(text: 'Create unlimited clips'),
-                const SizedBox(height: 4),
-                const _Benefit(text: 'Generate with AI Chat'),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const InAppPurchaseScreen(),
-                    ),
+        ),
+        child: Stack(
+          children: [
+            const Positioned(
+              right: -40,
+              top: -38,
+              width: 190,
+              height: 155,
+              child: Opacity(
+                opacity: 0.28,
+                child: Image(
+                  image: AssetImage(
+                    'assets/images/in_app_purchase/balance_coin.png',
                   ),
-                  child: Container(
-                    height: 42,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF159C), Color(0xFFFF7E35)],
-                      ),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0xAAFF168F), blurRadius: 15),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 13),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
                       children: [
-                        Text(
-                          'Upgrade Now',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                        Image.asset(
+                          'assets/images/in_app_purchase/balance_coin.png',
+                          width: 82,
+                          height: 72,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    color: Color(0xFFFF55B8),
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 7),
+                                  Text(
+                                    'Credit Balance',
+                                    style: TextStyle(
+                                      color: Color(0xFFE7E1E9),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    ShaderMask(
+                                      blendMode: BlendMode.srcIn,
+                                      shaderCallback: (bounds) =>
+                                          const LinearGradient(
+                                            colors: [
+                                              Color(0xFFFF35B2),
+                                              Color(0xFFFF8536),
+                                            ],
+                                          ).createShader(bounds),
+                                      child: Text(
+                                        _formatCredits(balance),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 32,
+                                          height: 1,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.6,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 7),
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 3),
+                                      child: Text(
+                                        'credits',
+                                        style: TextStyle(
+                                          color: Color(0xFFBEB6C1),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(width: 8),
-                        _ProIcon(color: Colors.white, size: 20),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                const Center(
-                  child: Text(
-                    'Yearly 799.000đ  •  Cancel anytime',
-                    style: TextStyle(color: Color(0xFFBDB1BD), fontSize: 10),
+                  const SizedBox(height: 8),
+                  _BuyMoreCreditsButton(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const BuyCredits()),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _UpgradeTitle extends StatelessWidget {
-  const _UpgradeTitle();
+class _BuyMoreCreditsButton extends StatelessWidget {
+  const _BuyMoreCreditsButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return RichText(
-      text: const TextSpan(
-        style: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 21,
-          fontWeight: FontWeight.w800,
+    return Container(
+      key: const Key('buyMoreCreditsButton'),
+      height: 44,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(23),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF159F), Color(0xFFFF5D5B), Color(0xFFFF982F)],
         ),
-        children: [
-          TextSpan(text: 'Get Velora '),
-          TextSpan(
-            text: 'Pro',
-            style: TextStyle(color: Color(0xFFFF765C)),
+        boxShadow: const [BoxShadow(color: Color(0x77FF168F), blurRadius: 13)],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(23),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image(
+                image: AssetImage('assets/images/in_app_purchase/coin3.png'),
+                width: 27,
+                height: 27,
+              ),
+              SizedBox(width: 9),
+              Text(
+                'Buy More Credits',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(width: 7),
+              Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 21),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _Benefit extends StatelessWidget {
-  const _Benefit({required this.text});
+String _formatCredits(int value) {
+  final digits = value.clamp(0, 999999999).toString();
+  final buffer = StringBuffer();
 
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(
-          Icons.check_circle_rounded,
-          color: Color(0xFFFF4CA9),
-          size: 12,
-        ),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(color: Color(0xFFECE7EE), fontSize: 11),
-        ),
-      ],
-    );
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
   }
+
+  return buffer.toString();
 }
 
 class _ProIcon extends StatelessWidget {
@@ -478,36 +611,27 @@ class _ProfileMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: const [
+      children: [
         _FeatureTile(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: 'AI Chat',
-          subtitle: 'Tạo ý tưởng, viết prompt, phát triển kịch bản',
-          action: 'Open',
-        ),
-        SizedBox(height: 7),
-        _FeatureTile(
-          icon: Icons.folder_copy_outlined,
-          title: 'Packs',
-          subtitle: 'Bộ style, preset và concept dựng sẵn',
-        ),
-        SizedBox(height: 7),
-        _FeatureTile(
-          icon: Icons.person_search_outlined,
-          title: 'Creations',
-          subtitle: 'Ảnh AI, chân dung, cover, thumbnail',
-        ),
-        SizedBox(height: 7),
-        _FeatureTile(
+          key: const Key('videoHistoryRow'),
           icon: Icons.video_library_outlined,
           title: 'Video',
-          subtitle: 'Các clip đã tạo và mẫu yêu thích',
+          subtitle: 'History of your generated videos',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const GenerationHistoryScreen(),
+            ),
+          ),
         ),
-        SizedBox(height: 7),
+        const SizedBox(height: 7),
         _FeatureTile(
+          key: const Key('settingsRow'),
           icon: Icons.settings_outlined,
           title: 'Settings',
-          subtitle: 'Ngôn ngữ, dữ liệu, trợ giúp',
+          subtitle: 'Language, data, and help',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+          ),
         ),
       ],
     );
@@ -516,94 +640,87 @@ class _ProfileMenu extends StatelessWidget {
 
 class _FeatureTile extends StatelessWidget {
   const _FeatureTile({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.action,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final String? action;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final warm = title == 'Creations';
-    final color = warm ? const Color(0xFFFF7B69) : const Color(0xFFE94DC3);
-    return Container(
-      height: 86,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0x541A1421),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF38243B)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.08),
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.18), blurRadius: 18),
-              ],
-            ),
-            child: Icon(icon, color: color, size: 34),
+    const color = Color(0xFFE94DC3);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 86,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0x541A1421),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF38243B)),
           ),
-          const SizedBox(width: 17),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.08),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFAAA3B1),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (action != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0x331F0F2A),
-                borderRadius: BorderRadius.circular(19),
-                border: Border.all(color: const Color(0xFF653061)),
+                child: Icon(icon, color: color, size: 34),
               ),
-              child: Text(
-                action!,
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 17),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFAAA3B1),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            )
-          else
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFFD0CBD4),
-              size: 31,
-            ),
-        ],
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFFD0CBD4),
+                size: 31,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

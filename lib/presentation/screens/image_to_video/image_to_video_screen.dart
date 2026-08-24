@@ -1,21 +1,63 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/device/image_access_permission.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../data/models/generation_progress.dart';
+import '../../../data/models/i2v_generation.dart';
+import '../../../data/services/generation_progress_repository.dart';
+import '../../providers/profile_provider.dart';
+import '../../widgets/generation_failure_dialog.dart';
+import '../in_app_purchase/in_app_purchase_screen.dart';
+import 'creating_video_screen.dart';
 
-class ImageToVideoScreen extends StatefulWidget {
-  const ImageToVideoScreen({super.key});
+typedef ImageToVideoPickImage = Future<String?> Function();
+typedef ImageToVideoPickImageFromSource =
+    Future<String?> Function(ImageSource source);
+typedef ImageToVideoRequestPermission =
+    Future<ImageAccessPermissionResult> Function(ImageSource source);
+typedef ImageToVideoSubmit =
+    Future<I2VGeneration> Function({
+      required String imagePath,
+      required String prompt,
+      required bool isHd,
+      required bool isLongTime,
+    });
+
+class ImageToVideoScreen extends ConsumerStatefulWidget {
+  const ImageToVideoScreen({
+    super.key,
+    this.pickImage,
+    this.pickImageFromSource,
+    this.requestPermission,
+    this.submit,
+    this.progressRepository,
+  });
+
+  /// Kept for compatibility with callers that provide a gallery-only picker.
+  final ImageToVideoPickImage? pickImage;
+  final ImageToVideoPickImageFromSource? pickImageFromSource;
+  final ImageToVideoRequestPermission? requestPermission;
+  final ImageToVideoSubmit? submit;
+  final GenerationProgressRepository? progressRepository;
 
   @override
-  State<ImageToVideoScreen> createState() => _ImageToVideoScreenState();
+  ConsumerState<ImageToVideoScreen> createState() => _ImageToVideoScreenState();
 }
 
-class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
+class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
   final _promptController = TextEditingController();
   final _promptFocusNode = FocusNode();
-  String _duration = '5s';
-  String _quality = 'Normal (720p)';
-  String _motionStyle = 'Cinematic';
-  bool _hasImage = false;
+  String _duration = '10s';
+  String _quality = 'Non-HD';
+  String? _selectedImagePath;
+  bool _isPickingImage = false;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -24,18 +66,126 @@ class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
     super.dispose();
   }
 
-  void _showImagePicker() {
-    setState(() => _hasImage = true);
+  Future<void> _showImagePicker() async {
+    if (_isPickingImage || _isSubmitting) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ImageSourceSheet(),
+    );
+    if (!mounted || source == null) return;
+
+    setState(() => _isPickingImage = true);
+    try {
+      final permissionRequester =
+          widget.requestPermission ?? ImageAccessPermission.request;
+      final permission = await permissionRequester(source);
+      if (!mounted) return;
+      if (permission == ImageAccessPermissionResult.settingsRequired) {
+        await _showPermissionSettingsDialog(source);
+        return;
+      }
+      if (permission == ImageAccessPermissionResult.denied) {
+        _showPermissionDeniedMessage(source);
+        return;
+      }
+
+      final imagePath = await _pickImageFrom(source);
+      if (!mounted || imagePath == null || imagePath.isEmpty) return;
+      setState(() => _selectedImagePath = imagePath);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            source == ImageSource.camera
+                ? 'Unable to open the camera. Please try again.'
+                : 'Unable to open the photo library. Please try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
+    }
+  }
+
+  Future<String?> _pickImageFrom(ImageSource source) async {
+    final sourcePicker = widget.pickImageFromSource;
+    if (sourcePicker != null) return sourcePicker(source);
+    final legacyPicker = widget.pickImage;
+    if (legacyPicker != null) return legacyPicker();
+    return (await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 95,
+      maxWidth: 4096,
+      maxHeight: 4096,
+      requestFullMetadata: false,
+    ))?.path;
+  }
+
+  void _showPermissionDeniedMessage(ImageSource source) {
+    final isCamera = source == ImageSource.camera;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã chọn ảnh mẫu để xem trước')),
+      SnackBar(
+        content: Text(
+          isCamera
+              ? 'Camera permission is required to take a photo.'
+              : 'Photo access is required to select an image.',
+        ),
+      ),
     );
   }
 
-  void _randomizePrompt() {
-    const prompt =
-        'Slow cinematic camera push-in, gentle wind moving the subject, soft golden lighting, dreamy atmosphere';
-    _promptController.text = prompt;
-    setState(() {});
+  Future<void> _showPermissionSettingsDialog(ImageSource source) async {
+    final isCamera = source == ImageSource.camera;
+    final shouldOpenSettings = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        icon: Container(
+          width: 54,
+          height: 54,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF3FAE), Color(0xFFFF783E)],
+            ),
+          ),
+          child: Icon(
+            isCamera ? Icons.photo_camera_rounded : Icons.photo_library_rounded,
+            color: Colors.white,
+          ),
+        ),
+        title: const Text('Permission Required'),
+        content: Text(
+          isCamera
+              ? 'Enable Camera permission in Settings to take a photo for your video.'
+              : 'Enable Photos permission in Settings to select an image for your video.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF409E),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    if (shouldOpenSettings == true) {
+      await ImageAccessPermission.openSettings();
+    }
   }
 
   Future<void> _pickOption({
@@ -75,21 +225,80 @@ class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
     if (choice != null) onSelected(choice);
   }
 
-  void _generate() {
-    if (!_hasImage) {
-      _showImagePicker();
+  Future<void> _generate() async {
+    final imagePath = _selectedImagePath;
+    if (imagePath == null) {
+      await _showImagePicker();
       return;
     }
     if (_promptController.text.trim().isEmpty) {
       _promptFocusNode.requestFocus();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hãy mô tả chuyển động cho video')),
+        const SnackBar(content: Text('Describe the motion for your video.')),
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đang chuẩn bị video của bạn...')),
-    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _isSubmitting = true);
+    try {
+      final submit = widget.submit ?? ApiClient.instance.generateImageToVideo;
+      final isHd = _quality == 'HD';
+      final videoDurationSeconds = _duration == '10s' ? 10 : 5;
+      final generation = await submit(
+        imagePath: imagePath,
+        prompt: _promptController.text.trim(),
+        isHd: isHd,
+        isLongTime: _duration == '10s',
+      );
+      if (!mounted) return;
+      final progress = GenerationProgress.create(
+        requestId: generation.requestId,
+        startedAt: generation.createTime ?? DateTime.now(),
+        videoDurationSeconds: videoDurationSeconds,
+        isHd: isHd,
+      );
+      final progressRepository =
+          widget.progressRepository ??
+          const SharedPreferencesGenerationProgressRepository();
+      try {
+        await progressRepository.save(progress);
+      } catch (_) {
+        // Keep the submitted request alive even if local persistence fails.
+      }
+      if (!mounted) return;
+      ref
+          .read(profileProvider.notifier)
+          .updateTotalCredit(generation.remainingCredit);
+      setState(() => _isSubmitting = false);
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CreatingVideoScreen(
+            generation: generation,
+            initialProgress: progress,
+            progressRepository: progressRepository,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to generate the video. Please try again.';
+      final action = await GenerationFailureDialog.show(
+        context,
+        message: message,
+        outOfCredits: isInsufficientCreditError(error),
+      );
+      if (!mounted) return;
+      if (action == GenerationFailureAction.buyCredits) {
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
+      } else if (action == GenerationFailureAction.retry) {
+        await _generate();
+      }
+    }
   }
 
   @override
@@ -107,9 +316,16 @@ class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
                 children: [
                   _Header(onBack: () => Navigator.maybePop(context)),
                   const SizedBox(height: 24),
-                  _UploadCard(hasImage: _hasImage, onTap: _showImagePicker),
+                  _UploadCard(
+                    imagePath: _selectedImagePath,
+                    onTap: _showImagePicker,
+                    onRemove: _selectedImagePath == null
+                        ? null
+                        : () => setState(() => _selectedImagePath = null),
+                    isLoading: _isPickingImage,
+                  ),
                   const SizedBox(height: 24),
-                  _PromptHeader(onRandom: _randomizePrompt),
+                  const _PromptHeader(),
                   const SizedBox(height: 9),
                   _PromptBox(
                     controller: _promptController,
@@ -122,7 +338,7 @@ class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
                     value: _duration,
                     onTap: () => _pickOption(
                       title: 'Duration',
-                      options: const ['3s', '5s', '8s', '10s'],
+                      options: const ['5s', '10s'],
                       selected: _duration,
                       onSelected: (value) => setState(() => _duration = value),
                     ),
@@ -134,31 +350,17 @@ class _ImageToVideoScreenState extends State<ImageToVideoScreen> {
                     value: _quality,
                     onTap: () => _pickOption(
                       title: 'Quality',
-                      options: const ['Normal (720p)', 'High (1080p)'],
+                      options: const ['Non-HD', 'HD'],
                       selected: _quality,
                       onSelected: (value) => setState(() => _quality = value),
                     ),
                   ),
-                  const SizedBox(height: 7),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/style_video.png',
-                    title: 'Motion style',
-                    value: _motionStyle,
-                    onTap: () => _pickOption(
-                      title: 'Motion style',
-                      options: const [
-                        'Cinematic',
-                        'Dynamic',
-                        'Subtle',
-                        'Dreamy',
-                      ],
-                      selected: _motionStyle,
-                      onSelected: (value) =>
-                          setState(() => _motionStyle = value),
-                    ),
-                  ),
+                  // Motion style is hidden until the API supports this field.
                   const SizedBox(height: 27),
-                  _GenerateButton(onPressed: _generate),
+                  _GenerateButton(
+                    onPressed: _isSubmitting ? null : _generate,
+                    isLoading: _isSubmitting,
+                  ),
                 ],
               ),
             ),
@@ -206,10 +408,17 @@ class _Header extends StatelessWidget {
 }
 
 class _UploadCard extends StatelessWidget {
-  const _UploadCard({required this.hasImage, required this.onTap});
+  const _UploadCard({
+    required this.imagePath,
+    required this.onTap,
+    required this.onRemove,
+    required this.isLoading,
+  });
 
-  final bool hasImage;
+  final String? imagePath;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -225,55 +434,142 @@ class _UploadCard extends StatelessWidget {
             height: 256,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: RadialGradient(
-                        center: const Alignment(0, -0.1),
-                        radius: 0.78,
-                        colors: [
-                          const Color(0xFF3D002C).withValues(alpha: 0.45),
-                          Colors.transparent,
-                        ],
+                if (imagePath != null)
+                  Positioned.fill(
+                    child: Image.file(
+                      File(imagePath!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                if (imagePath == null) ...[
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: const RadialGradient(
+                          center: Alignment(0, -0.1),
+                          radius: 0.78,
+                          colors: [Color(0x733D002C), Colors.transparent],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _UploadIcon(hasImage: hasImage),
-                      const SizedBox(height: 15),
-                      Text(
-                        hasImage ? 'Image selected' : 'Select image',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _UploadIcon(),
+                        const SizedBox(height: 15),
+                        const Text(
+                          'Select image',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        hasImage
-                            ? 'Tap to replace photo'
-                            : 'Tap to upload photo or artwork',
-                        style: const TextStyle(
-                          color: Color(0xFFB0AAB4),
-                          fontSize: 12,
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Choose from library or take a photo',
+                          style: TextStyle(
+                            color: Color(0xFFB0AAB4),
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 45),
-                      const Text(
-                        'JPG, PNG • up to 10MB',
-                        style: TextStyle(
-                          color: Color(0xFF817984),
-                          fontSize: 11,
+                        const SizedBox(height: 45),
+                        const Text(
+                          'JPG, PNG • up to 10MB',
+                          style: TextStyle(
+                            color: Color(0xFF817984),
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ] else ...[
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Color(0xD9000000)],
+                          stops: [0.48, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 14,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFFF3DAA), Color(0xFFFF783E)],
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Image selected',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Tap image to replace',
+                                style: TextStyle(
+                                  color: Color(0xFFBBB5BE),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          key: const Key('removeSelectedImage'),
+                          tooltip: 'Remove image',
+                          onPressed: onRemove,
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xCC211E2D),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (isLoading)
+                  const Positioned.fill(
+                    child: ColoredBox(
+                      color: Color(0x99000000),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Color(0xFFFF50AE),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -284,9 +580,7 @@ class _UploadCard extends StatelessWidget {
 }
 
 class _UploadIcon extends StatelessWidget {
-  const _UploadIcon({required this.hasImage});
-
-  final bool hasImage;
+  const _UploadIcon();
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +590,176 @@ class _UploadIcon extends StatelessWidget {
       child: Image.asset(
         'assets/images/gen_video/add_image_icon.png',
         fit: BoxFit.contain,
+      ),
+    );
+  }
+}
+
+class _ImageSourceSheet extends StatelessWidget {
+  const _ImageSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: Color(0xFF3A2038))),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          const Text(
+            'Add an image',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Choose how you want to add the first frame.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _ImageSourceOption(
+                  key: const Key('galleryImageSource'),
+                  icon: Icons.photo_library_rounded,
+                  title: 'Photo library',
+                  subtitle: 'Choose an existing image',
+                  colors: const [Color(0xFFFF3FAA), Color(0xFFE14FE9)],
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ImageSourceOption(
+                  key: const Key('cameraImageSource'),
+                  icon: Icons.photo_camera_rounded,
+                  title: 'Camera',
+                  subtitle: 'Take a new photo',
+                  colors: const [Color(0xFFFF6B52), Color(0xFFFFA22F)],
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 14,
+                color: Color(0xFF898391),
+              ),
+              SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  'Your device controls access before opening photos or camera.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF898391), fontSize: 10.5),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageSourceOption extends StatelessWidget {
+  const _ImageSourceOption({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Color> colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF211825),
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 154),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF432840)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: colors),
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.first.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 25),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 2,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -360,28 +824,30 @@ class _DashedGradientPainter extends CustomPainter {
 }
 
 class _PromptHeader extends StatelessWidget {
-  const _PromptHeader({required this.onRandom});
-
-  final VoidCallback onRandom;
+  const _PromptHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: [
-        const Text(
-          'Prompt',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(width: 5),
-        const Text(
-          '(Required)',
-          style: TextStyle(color: Color(0xFFFF63B5), fontSize: 15),
-        ),
-        const Spacer(),
-        _GradientOutlineButton(
-          icon: Icons.refresh_rounded,
-          label: 'Random',
-          onTap: onRandom,
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
+                Text(
+                  'Prompt',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(width: 5),
+                Text(
+                  '(Required)',
+                  style: TextStyle(color: Color(0xFFFF63B5), fontSize: 15),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -408,6 +874,7 @@ class _PromptBox extends StatelessWidget {
       child: Stack(
         children: [
           TextField(
+            key: const Key('imageToVideoPromptField'),
             controller: controller,
             focusNode: focusNode,
             maxLength: 2800,
@@ -531,77 +998,11 @@ class _SettingIcon extends StatelessWidget {
   }
 }
 
-class _GradientOutlineButton extends StatelessWidget {
-  const _GradientOutlineButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _OutlineGradientPainter(borderRadius: 15),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(15),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: const Color(0xFFFF4D9C), size: 18),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFFFF4D9C),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OutlineGradientPainter extends CustomPainter {
-  _OutlineGradientPainter({required this.borderRadius});
-  final double borderRadius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..shader = const LinearGradient(
-        colors: [Color(0xFFFF39B5), Color(0xFFFFA522)],
-      ).createShader(rect);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect.deflate(1), Radius.circular(borderRadius)),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _OutlineGradientPainter oldDelegate) => false;
-}
-
 class _GenerateButton extends StatelessWidget {
-  const _GenerateButton({required this.onPressed});
+  const _GenerateButton({required this.onPressed, required this.isLoading});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -627,22 +1028,35 @@ class _GenerateButton extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(14),
-          child: const Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Generate',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Generate',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(width: 6),
-                Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-              ],
-            ),
           ),
         ),
       ),
