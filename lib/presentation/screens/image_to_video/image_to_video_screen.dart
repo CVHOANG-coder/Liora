@@ -13,7 +13,9 @@ import '../../../data/models/i2v_generation.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
-import '../in_app_purchase/in_app_purchase_screen.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/credit_purchase_navigation.dart';
+import '../support/support_contact_screen.dart';
 import 'creating_video_screen.dart';
 
 typedef ImageToVideoPickImage = Future<String?> Function();
@@ -276,27 +278,49 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
             generation: generation,
             initialProgress: progress,
             progressRepository: progressRepository,
+            sourceImagePath: imagePath,
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      final message = error is ApiException
-          ? error.message
-          : 'Unable to generate the video. Please try again.';
-      final action = await GenerationFailureDialog.show(
+      final action = await GenerationFailureDialog.showForError(
         context,
-        message: message,
-        outOfCredits: isInsufficientCreditError(error),
+        error: error,
+        fallbackMessage: 'Unable to generate the video. Please try again.',
       );
       if (!mounted) return;
-      if (action == GenerationFailureAction.buyCredits) {
-        await Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
-      } else if (action == GenerationFailureAction.retry) {
-        await _generate();
+      switch (action) {
+        case GenerationFailureAction.buyCredits:
+          await openCreditPurchaseDestination(
+            context,
+            isVip: ref.read(profileProvider)?.isVip == true,
+          );
+        case GenerationFailureAction.renewSubscription:
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+        case GenerationFailureAction.contactSupport:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SupportContactScreen(
+                errorCode: error is ApiException ? error.errorCode : null,
+                errorMessage: error is ApiException ? error.message : null,
+              ),
+            ),
+          );
+        case GenerationFailureAction.chooseImage:
+          await _showImagePicker();
+        case GenerationFailureAction.editInput:
+          _promptFocusNode.requestFocus();
+        case GenerationFailureAction.chooseTheme:
+          Navigator.maybePop(context);
+        case GenerationFailureAction.retry:
+          await _generate();
+        case GenerationFailureAction.close:
+        case null:
+          break;
       }
     }
   }
@@ -478,7 +502,7 @@ class _UploadCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 45),
                         const Text(
-                          'JPG, PNG • up to 10MB',
+                          'JPEG, PNG, WebP • up to 20 MB',
                           style: TextStyle(
                             color: Color(0xFF817984),
                             fontSize: 11,
@@ -888,7 +912,7 @@ class _PromptBox extends StatelessWidget {
             ),
             decoration: const InputDecoration(
               hintText:
-                  'Describe the movement, camera motion,\nlighting, and mood...',
+                  'Describe the movement, camera motion, lighting, and mood...',
               hintStyle: TextStyle(
                 color: Color(0xFF88818E),
                 fontSize: 16,

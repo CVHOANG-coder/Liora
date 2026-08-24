@@ -58,15 +58,15 @@ class AuthSession {
         throw const ApiException(message: 'Invalid sign-in data.');
       }
 
-      final result = SignInResponse.fromJson(Map<String, dynamic>.from(body));
-      if (!result.success) {
-        throw ApiException(
-          message: result.message.isEmpty
-              ? 'Unable to sign in on this device.'
-              : result.message,
+      if (body['success'] != true) {
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to sign in on this device.',
           statusCode: response.statusCode,
         );
       }
+
+      final result = SignInResponse.fromJson(Map<String, dynamic>.from(body));
 
       await _tokenStorage.saveToken(result.data.token);
       _token = result.data.token;

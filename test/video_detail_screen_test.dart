@@ -31,10 +31,10 @@ void main() {
     expect(find.text('Cinematic portrait'), findsOneWidget);
     expect(find.text('Use AI Template ✨'), findsOneWidget);
     expect(find.text('@VideoGen AI'), findsNothing);
-    expect(find.text('Bộ lọc: Viral dances'), findsNothing);
+    expect(find.text('Filter: Viral dances'), findsNothing);
     expect(find.text('00:24'), findsNothing);
     expect(find.text('1 clip'), findsNothing);
-    expect(find.text('2 lượt dùng'), findsNothing);
+    expect(find.text('2 uses'), findsNothing);
     expect(find.bySemanticsLabel('Turn sound on'), findsOneWidget);
     expect(tester.takeException(), isNull);
 

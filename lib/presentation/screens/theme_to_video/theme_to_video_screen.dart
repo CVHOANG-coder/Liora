@@ -15,7 +15,9 @@ import '../../../data/video_categories.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../image_to_video/creating_video_screen.dart';
-import '../in_app_purchase/in_app_purchase_screen.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/credit_purchase_navigation.dart';
+import '../support/support_contact_screen.dart';
 
 typedef ThemeVideoPickImage = Future<String?> Function(ImageSource source);
 typedef ThemeVideoRequestPermission =
@@ -24,12 +26,9 @@ typedef ThemeVideoSubmit =
     Future<I2VGeneration> Function({
       required String themeId,
       required String firstImagePath,
-      String? lastImagePath,
       required bool isHd,
       required bool isLongTime,
     });
-
-enum _FrameSlot { first, last }
 
 class ThemeToVideoScreen extends ConsumerStatefulWidget {
   const ThemeToVideoScreen({
@@ -55,12 +54,11 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
   String _duration = '10s';
   String _quality = 'Non-HD';
   String? _firstImagePath;
-  String? _lastImagePath;
-  _FrameSlot? _pickingSlot;
+  bool _isPickingImage = false;
   bool _isSubmitting = false;
 
-  Future<void> _selectFrame(_FrameSlot slot) async {
-    if (_pickingSlot != null || _isSubmitting) return;
+  Future<void> _selectFrame() async {
+    if (_isPickingImage || _isSubmitting) return;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       useSafeArea: true,
@@ -69,7 +67,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     );
     if (!mounted || source == null) return;
 
-    setState(() => _pickingSlot = slot);
+    setState(() => _isPickingImage = true);
     try {
       final requester =
           widget.requestPermission ?? ImageAccessPermission.request;
@@ -86,13 +84,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
 
       final imagePath = await _pickImage(source);
       if (!mounted || imagePath == null || imagePath.isEmpty) return;
-      setState(() {
-        if (slot == _FrameSlot.first) {
-          _firstImagePath = imagePath;
-        } else {
-          _lastImagePath = imagePath;
-        }
-      });
+      setState(() => _firstImagePath = imagePath);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -105,7 +97,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _pickingSlot = null);
+      if (mounted) setState(() => _isPickingImage = false);
     }
   }
 
@@ -227,7 +219,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Select the first frame.')));
-      await _selectFrame(_FrameSlot.first);
+      await _selectFrame();
       return;
     }
     final themeId = widget.theme.themeKey.isNotEmpty
@@ -248,7 +240,6 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       final generation = await submit(
         themeId: themeId,
         firstImagePath: firstImagePath,
-        lastImagePath: _lastImagePath,
         isHd: isHd,
         isLongTime: _duration == '10s',
       );
@@ -281,27 +272,48 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
             initialProgress: progress,
             progressRepository: progressRepository,
             creatorLabel: 'Theme to Video',
+            sourceImagePath: firstImagePath,
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      final message = error is ApiException
-          ? error.message
-          : 'Unable to generate the video. Please try again.';
-      final action = await GenerationFailureDialog.show(
+      final action = await GenerationFailureDialog.showForError(
         context,
-        message: message,
-        outOfCredits: isInsufficientCreditError(error),
+        error: error,
+        fallbackMessage: 'Unable to generate the video. Please try again.',
       );
       if (!mounted) return;
-      if (action == GenerationFailureAction.buyCredits) {
-        await Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
-      } else if (action == GenerationFailureAction.retry) {
-        await _generate();
+      switch (action) {
+        case GenerationFailureAction.buyCredits:
+          await openCreditPurchaseDestination(
+            context,
+            isVip: ref.read(profileProvider)?.isVip == true,
+          );
+        case GenerationFailureAction.renewSubscription:
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+        case GenerationFailureAction.contactSupport:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SupportContactScreen(
+                errorCode: error is ApiException ? error.errorCode : null,
+                errorMessage: error is ApiException ? error.message : null,
+              ),
+            ),
+          );
+        case GenerationFailureAction.chooseImage:
+        case GenerationFailureAction.editInput:
+          await _selectFrame();
+        case GenerationFailureAction.chooseTheme:
+          Navigator.maybePop(context);
+        case GenerationFailureAction.retry:
+          await _generate();
+        case GenerationFailureAction.close:
+        case null:
+          break;
       }
     }
   }
@@ -323,39 +335,16 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
                   const SizedBox(height: 20),
                   _ThemeBadge(theme: widget.theme),
                   const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FrameCard(
-                          key: const Key('firstFrameCard'),
-                          label: 'First frame',
-                          requirement: 'Required',
-                          imagePath: _firstImagePath,
-                          isLoading: _pickingSlot == _FrameSlot.first,
-                          onTap: () => _selectFrame(_FrameSlot.first),
-                          onRemove: _firstImagePath == null
-                              ? null
-                              : () => setState(() => _firstImagePath = null),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: _FrameArrow(),
-                      ),
-                      Expanded(
-                        child: _FrameCard(
-                          key: const Key('lastFrameCard'),
-                          label: 'Last frame',
-                          requirement: 'Optional',
-                          imagePath: _lastImagePath,
-                          isLoading: _pickingSlot == _FrameSlot.last,
-                          onTap: () => _selectFrame(_FrameSlot.last),
-                          onRemove: _lastImagePath == null
-                              ? null
-                              : () => setState(() => _lastImagePath = null),
-                        ),
-                      ),
-                    ],
+                  _FrameCard(
+                    key: const Key('firstFrameCard'),
+                    label: 'First frame',
+                    requirement: 'Required',
+                    imagePath: _firstImagePath,
+                    isLoading: _isPickingImage,
+                    onTap: _selectFrame,
+                    onRemove: _firstImagePath == null
+                        ? null
+                        : () => setState(() => _firstImagePath = null),
                   ),
                   const SizedBox(height: 18),
                   _SettingRow(
@@ -535,7 +524,7 @@ class _FrameCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         AspectRatio(
-          aspectRatio: 0.72,
+          aspectRatio: 1.55,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
@@ -666,26 +655,6 @@ class _FramePlaceholder extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FrameArrow extends StatelessWidget {
-  const _FrameArrow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 25,
-      height: 25,
-      margin: const EdgeInsets.only(top: 31),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFFFF3BAD), Color(0xFFFF973A)],
-        ),
-      ),
-      child: const Icon(Icons.arrow_forward_rounded, size: 15),
     );
   }
 }

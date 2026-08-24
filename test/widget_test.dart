@@ -55,8 +55,10 @@ void main() {
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
     expect(find.text('Create AI'), findsOneWidget);
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    for (var page = 1; page < 4; page++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
     await tester.tap(find.byKey(const Key('trialLaterButton')));
     await tester.pumpAndSettle();
@@ -85,8 +87,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    for (var page = 1; page < 4; page++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
     await tester.tap(find.byKey(const Key('trialLaterButton')));
     await tester.pumpAndSettle();
@@ -109,11 +113,11 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: sheet, matching: find.text('Hình ảnh')),
+      find.descendant(of: sheet, matching: find.text('Image')),
       findsNothing,
     );
     expect(
-      find.descendant(of: sheet, matching: find.text('Từ mẫu')),
+      find.descendant(of: sheet, matching: find.text('Templates')),
       findsNothing,
     );
 

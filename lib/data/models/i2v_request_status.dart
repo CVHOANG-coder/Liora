@@ -66,6 +66,7 @@ class I2VRequestStatus {
     required this.imageUrl,
     required this.thumbnailUrl,
     required this.resultUrl,
+    required this.errorCode,
     required this.errorMessage,
     required this.creditCharged,
     required this.creditRefunded,
@@ -89,6 +90,7 @@ class I2VRequestStatus {
       imageUrl: json['image_url']?.toString() ?? '',
       thumbnailUrl: json['thumbnail_url']?.toString() ?? '',
       resultUrl: json['result_data']?.toString() ?? '',
+      errorCode: json['error_code']?.toString().trim().toUpperCase() ?? '',
       errorMessage: json['error_message']?.toString() ?? '',
       creditCharged: _asInt(json['credit_charged']),
       creditRefunded: json['credit_refunded'] == true,
@@ -113,6 +115,7 @@ class I2VRequestStatus {
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
       resultUrl: resultUrl ?? this.resultUrl,
+      errorCode: errorCode,
       errorMessage: errorMessage,
       creditCharged: creditCharged,
       creditRefunded: creditRefunded,
@@ -135,6 +138,7 @@ class I2VRequestStatus {
   final String imageUrl;
   final String thumbnailUrl;
   final String resultUrl;
+  final String errorCode;
   final String errorMessage;
   final int creditCharged;
   final bool creditRefunded;
@@ -156,6 +160,13 @@ class I2VRequestStatus {
   bool get isCancelled => requestStatus == GenerationRequestStatus.cancelled;
   bool get isDeleted => requestStatus == GenerationRequestStatus.deleted;
   bool get isTerminal => requestStatus.isTerminal;
+
+  bool get isTextToVideo {
+    final type = serviceType.trim().toUpperCase();
+    return type == 'T2V_GENERATOR' ||
+        type == 'TEXT_TO_VIDEO' ||
+        type == 'TEXT_TO_VIDEO_GENERATOR';
+  }
 }
 
 int _asInt(Object? value) {

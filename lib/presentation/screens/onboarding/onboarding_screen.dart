@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/storage/onboarding_preferences.dart';
 import '../main/main_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.onboardingPreferences});
+
+  final OnboardingPreferences? onboardingPreferences;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -11,11 +14,18 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   late final PageController _pageController;
+  late final OnboardingPreferences _onboardingPreferences;
   int _currentPage = 0;
+  bool _isCompleting = false;
+
+  static const _pageCount = 4;
 
   @override
   void initState() {
     super.initState();
+    _onboardingPreferences =
+        widget.onboardingPreferences ??
+        SharedPreferencesOnboardingPreferences();
     _pageController = PageController();
   }
 
@@ -26,28 +36,68 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _continue() {
-    if (_currentPage == 0) {
-      _pageController.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-      );
+    if (_currentPage < _pageCount - 1) {
+      _goToPage(_currentPage + 1);
       return;
     }
 
+    _completeOnboarding();
+  }
+
+  Future<void> _completeOnboarding() async {
+    if (_isCompleting) return;
+    _isCompleting = true;
+
+    try {
+      await _onboardingPreferences.markCompleted();
+    } catch (_) {
+      // The user can still continue if local persistence is temporarily unavailable.
+    }
+
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => const MainScreen()),
     );
   }
 
+  void _goToPage(int page) {
+    if (page == _currentPage) return;
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PageView(
-      controller: _pageController,
-      onPageChanged: (page) => setState(() => _currentPage = page),
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        _WelcomePage(onContinue: _continue),
-        _CreativePage(onContinue: _continue),
+        PageView.builder(
+          controller: _pageController,
+          itemCount: _pageCount,
+          pageSnapping: true,
+          allowImplicitScrolling: true,
+          physics: const BouncingScrollPhysics(),
+          onPageChanged: (page) => setState(() => _currentPage = page),
+          itemBuilder: (_, page) => switch (page) {
+            0 => _WelcomePage(onContinue: _continue),
+            1 => _CreativePage(onContinue: _continue),
+            2 => _ImageToVideoPage(onContinue: _continue),
+            _ => _FusionVideoPage(onContinue: _continue),
+          },
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 24,
+          child: _PageIndicator(
+            activePage: _currentPage,
+            pageCount: _pageCount,
+            onPageSelected: _goToPage,
+          ),
+        ),
       ],
     );
   }
@@ -88,9 +138,7 @@ class _WelcomePage extends StatelessWidget {
                     onPressed: onContinue,
                   ),
                 ),
-                const SizedBox(height: 42),
-                const _PageIndicator(activePage: 0),
-                const SizedBox(height: 24),
+                const SizedBox(height: 74),
               ],
             ),
           ),
@@ -353,14 +401,315 @@ class _CreativePage extends StatelessWidget {
                     onPressed: onContinue,
                   ),
                 ),
-                const SizedBox(height: 36),
-                const _PageIndicator(activePage: 1),
-                const SizedBox(height: 24),
+                const SizedBox(height: 68),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ImageToVideoPage extends StatelessWidget {
+  const _ImageToVideoPage({required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF08070E),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Image(
+            image: AssetImage('assets/images/on_boarding/bg3.png'),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+          const _ImageToVideoShade(),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                const Spacer(),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: _ImageToVideoArtwork(),
+                ),
+                const SizedBox(height: 25),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 22),
+                  child: _ImageToVideoCopy(),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _GradientActionButton(
+                    label: 'Continue',
+                    showArrow: true,
+                    onPressed: onContinue,
+                  ),
+                ),
+                const SizedBox(height: 68),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageToVideoShade extends StatelessWidget {
+  const _ImageToVideoShade();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.03),
+              Colors.transparent,
+              const Color(0xB5080710),
+              const Color(0xF5080710),
+              const Color(0xFF08070E),
+            ],
+            stops: const [0.0, 0.40, 0.64, 0.86, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageToVideoArtwork extends StatelessWidget {
+  const _ImageToVideoArtwork();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/images/on_boarding/item_slide3.png',
+      width: double.infinity,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+    );
+  }
+}
+
+class _ImageToVideoCopy extends StatelessWidget {
+  const _ImageToVideoCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '2 Image ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 38,
+                  height: 1.0,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.1,
+                ),
+              ),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [
+                    Color(0xFFFF119D),
+                    Color(0xFFFF5663),
+                    Color(0xFFFFA20D),
+                  ],
+                ).createShader(bounds),
+                child: const Text(
+                  'To Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Upload 2 images, write prompt',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFFD0CDD5),
+            fontSize: 16,
+            height: 1.25,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FusionVideoPage extends StatelessWidget {
+  const _FusionVideoPage({required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF08070E),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Image(
+            image: AssetImage('assets/images/on_boarding/bg5.png'),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+          const _FusionVideoShade(),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                const Spacer(),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: _FusionVideoArtwork(),
+                ),
+                const SizedBox(height: 24),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 22),
+                  child: _FusionVideoCopy(),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _GradientActionButton(
+                    label: 'Continue',
+                    showArrow: true,
+                    onPressed: onContinue,
+                  ),
+                ),
+                const SizedBox(height: 68),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FusionVideoShade extends StatelessWidget {
+  const _FusionVideoShade();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.03),
+              Colors.transparent,
+              const Color(0xB5080710),
+              const Color(0xF5080710),
+              const Color(0xFF08070E),
+            ],
+            stops: const [0.0, 0.42, 0.65, 0.86, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FusionVideoArtwork extends StatelessWidget {
+  const _FusionVideoArtwork();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/images/on_boarding/item_slide5.png',
+      width: double.infinity,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+    );
+  }
+}
+
+class _FusionVideoCopy extends StatelessWidget {
+  const _FusionVideoCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        FittedBox(
+          key: const Key('fusionVideoTitle'),
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Fusion ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 38,
+                  height: 1.0,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.1,
+                ),
+              ),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [
+                    Color(0xFFFF119D),
+                    Color(0xFFFF5663),
+                    Color(0xFFFFA20D),
+                  ],
+                ).createShader(bounds),
+                child: const Text(
+                  'Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Blend characters, styles, and creatures\ninto one cinematic video',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFFD0CDD5),
+            fontSize: 16,
+            height: 1.3,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -561,25 +910,40 @@ class _FeatureCard extends StatelessWidget {
 }
 
 class _PageIndicator extends StatelessWidget {
-  const _PageIndicator({required this.activePage});
+  const _PageIndicator({
+    required this.activePage,
+    required this.pageCount,
+    required this.onPageSelected,
+  });
 
   final int activePage;
+  final int pageCount;
+  final ValueChanged<int> onPageSelected;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Onboarding page ${activePage + 1} of 4',
+      label: 'Onboarding page ${activePage + 1} of $pageCount',
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _IndicatorDot(active: activePage == 0),
-          const SizedBox(width: 14),
-          _IndicatorDot(active: activePage == 1),
-          const SizedBox(width: 14),
-          const _IndicatorDot(),
-          const SizedBox(width: 14),
-          const _IndicatorDot(),
-        ],
+        children: List.generate(pageCount, (page) {
+          final active = page == activePage;
+          return Semantics(
+            button: true,
+            selected: active,
+            label: 'Go to onboarding page ${page + 1}',
+            child: GestureDetector(
+              key: Key('onboardingDot$page'),
+              onTap: () => onPageSelected(page),
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: 24,
+                height: 32,
+                child: Center(child: _IndicatorDot(active: active)),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

@@ -29,10 +29,9 @@ class T2VGenerationService {
       }
 
       if (body['success'] != true) {
-        throw ApiException(
-          message:
-              extractApiErrorMessage(body) ??
-              'Unable to submit the video generation request.',
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to submit the video generation request.',
           statusCode: response.statusCode,
         );
       }

@@ -44,6 +44,49 @@ void main() {
     expect(page.requests.single.isPending, isTrue);
   });
 
+  test('recognizes text-to-video history requests', () {
+    final request = I2VRequestStatus.fromJson(
+      _request('text-video-1', 'COMPLETED', serviceType: 'T2V_GENERATOR'),
+    );
+
+    expect(request.isTextToVideo, isTrue);
+  });
+
+  testWidgets('uses the result video as preview for text-to-video items', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GenerationHistoryScreen(
+          fetcher: ({required page, required limit}) async =>
+              GenerationHistoryPage.fromJson(
+                _response(
+                  page: 1,
+                  totalPages: 1,
+                  requests: <Map<String, dynamic>>[
+                    _request(
+                      'text-video-preview',
+                      'COMPLETED',
+                      serviceType: 'T2V_GENERATOR',
+                    ),
+                  ],
+                ),
+              ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      find.byKey(const Key('historyVideoPreview_text-video-preview')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('loads more pages and pull-to-refresh reloads page one', (
     tester,
   ) async {
@@ -113,6 +156,8 @@ void main() {
   testWidgets('opens queued history item in the polling screen', (
     tester,
   ) async {
+    const requestImageUrl =
+        'https://video.vivogames.io/uploads/5/queued-first-frame.jpg';
     await tester.pumpWidget(
       MaterialApp(
         home: GenerationHistoryScreen(
@@ -123,12 +168,13 @@ void main() {
                   page: 1,
                   totalPages: 1,
                   requests: <Map<String, dynamic>>[
-                    _request('queued-1', 'IN_QUEUE'),
+                    _request('queued-1', 'IN_QUEUE', imageUrl: requestImageUrl),
                   ],
                 ),
               ),
-          statusFetcher: (_) async =>
-              I2VRequestStatus.fromJson(_request('queued-1', 'IN_QUEUE')),
+          statusFetcher: (_) async => I2VRequestStatus.fromJson(
+            _request('queued-1', 'IN_QUEUE', imageUrl: requestImageUrl),
+          ),
         ),
       ),
     );
@@ -141,7 +187,25 @@ void main() {
 
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
     expect(find.text('Creating Video'), findsOneWidget);
+    final requestImage = tester.widget<Image>(
+      find.byKey(const Key('creatingSourceImage')),
+    );
+    expect(requestImage.image, isA<NetworkImage>());
+    expect((requestImage.image as NetworkImage).url, requestImageUrl);
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('creatingVideoBack')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('leaveCreatingVideoDialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('leaveForGenerationHistory')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(CreatingVideoScreen), findsNothing);
+    expect(find.byType(GenerationHistoryScreen), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -247,12 +311,17 @@ Map<String, dynamic> _response({
   };
 }
 
-Map<String, dynamic> _request(String id, String status) {
+Map<String, dynamic> _request(
+  String id,
+  String status, {
+  String imageUrl = '',
+  String serviceType = 'I2V_GENERATOR',
+}) {
   return <String, dynamic>{
     'request_id': id,
-    'service_type': 'I2V_GENERATOR',
+    'service_type': serviceType,
     'prompt': 'A calm seaside at golden hour',
-    'image_url': '',
+    'image_url': imageUrl,
     'image2_url': '',
     'is_hd': false,
     'is_long_time': false,

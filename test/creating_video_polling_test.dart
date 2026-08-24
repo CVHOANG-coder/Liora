@@ -115,6 +115,59 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('confirms back and opens Generation History', (tester) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Text('Create origin')),
+      ),
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => CreatingVideoScreen(
+          generation: _generation(),
+          initialProgress: _progress(),
+          progressRepository: _MemoryProgressRepository(),
+          notificationPermissionRequester: () async =>
+              NotificationPermissionFlowResult.granted,
+          historyDestinationBuilder: (_) => const Scaffold(
+            key: Key('generationHistoryDestination'),
+            body: Text('Generation History'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('leaveCreatingVideoDialog')), findsOneWidget);
+    expect(find.text('Leave this screen?'), findsOneWidget);
+    expect(find.textContaining('keep generating'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('keepWaitingForVideo')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(CreatingVideoScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('creatingVideoBack')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('leaveForGenerationHistory')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CreatingVideoScreen), findsNothing);
+    expect(
+      find.byKey(const Key('generationHistoryDestination')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens the generated video when polling returns COMPLETED', (
     tester,
   ) async {

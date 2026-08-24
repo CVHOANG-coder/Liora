@@ -25,9 +25,9 @@ class GenerationHistoryService {
 
       final json = Map<String, dynamic>.from(body);
       if (json['success'] != true) {
-        final message = json['message']?.toString() ?? '';
-        throw ApiException(
-          message: message.isEmpty ? 'Unable to load video history.' : message,
+        throw ApiException.fromResponse(
+          responseData: json,
+          fallbackMessage: 'Unable to load video history.',
           statusCode: response.statusCode,
         );
       }
@@ -49,11 +49,9 @@ class GenerationHistoryService {
       if (body is Map) {
         final json = Map<String, dynamic>.from(body);
         if (json['success'] == false) {
-          final message = json['message']?.toString() ?? '';
-          throw ApiException(
-            message: message.isEmpty
-                ? 'Unable to remove the video from history.'
-                : message,
+          throw ApiException.fromResponse(
+            responseData: json,
+            fallbackMessage: 'Unable to remove the video from history.',
             statusCode: response.statusCode,
           );
         }

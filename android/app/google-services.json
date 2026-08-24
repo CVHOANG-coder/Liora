@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "760226621347",
-    "project_id": "yunachat-4faf9",
-    "storage_bucket": "yunachat-4faf9.firebasestorage.app"
+    "project_number": "99552512003",
+    "project_id": "nostalia---ai-video-generator",
+    "storage_bucket": "nostalia---ai-video-generator.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:760226621347:android:bc1d5b75edbd1eb2975c16",
+        "mobilesdk_app_id": "1:99552512003:android:7fe6edf93e9e2105146636",
         "android_client_info": {
           "package_name": "com.nostalia.ai.videogenerator"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBHYR-VElsQbfULyS4RJO-OurlA4Vydy9c"
+          "current_key": "AIzaSyCm2f1XfqpYxwCwgJM66nvLFVDpMcuKWYY"
         }
       ],
       "services": {

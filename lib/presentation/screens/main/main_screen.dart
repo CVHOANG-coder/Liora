@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/create_bottom_sheet.dart';
-import '../../widgets/trial_offer_dialog.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/free_trial_screen.dart';
+import '../in_app_purchase/yearly_sale_screen.dart';
 import '../home/home_screen.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../profile/profile_screen.dart';
@@ -28,14 +30,17 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   late int _selectedIndex;
+  bool _isShowingInitialOffer = false;
 
   static const _screens = [HomeScreen(), ProfileScreen()];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _showInitialOfferIfNeeded();
@@ -45,9 +50,31 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _showInitialOfferIfNeeded() async {
-    if (!mounted || !widget.showTrialOffer) return;
-    final isSubscribed = ref.read(profileProvider)?.isSubscribed ?? false;
-    if (!isSubscribed) await TrialOfferDialog.show(context);
+    if (!mounted || !widget.showTrialOffer || _isShowingInitialOffer) return;
+    final profile = ref.read(profileProvider);
+    _isShowingInitialOffer = true;
+    try {
+      if (resolveProPlanStatus(profile) == ProPlanStatus.weekly) {
+        await YearlySaleScreen.open(context);
+      } else if (!(profile?.isSubscribed ?? false)) {
+        await FreeTrialScreen.open(context);
+      }
+    } finally {
+      _isShowingInitialOffer = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed || !widget.showTrialOffer) return;
+    if (resolveProPlanStatus(ref.read(profileProvider)) !=
+        ProPlanStatus.weekly) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_showInitialOfferIfNeeded());
+    });
   }
 
   Future<void> _requestHomeNotificationPermission() {
@@ -88,6 +115,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         );
         return;
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

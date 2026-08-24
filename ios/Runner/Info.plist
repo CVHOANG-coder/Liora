@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nostalia: AI Video Generator</string>
+	<string>Nostalia</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow photo access so you can choose an image to create your AI video.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
@@ -21,7 +21,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Nostalia: AI Video Generator</string>
+	<string>Nostalia</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

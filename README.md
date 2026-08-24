@@ -1,15 +1,15 @@
 # VideoGen
 
-Codebase Flutter tối giản, được tách riêng từ định hướng kiến trúc và giao diện của WaifuAI.
+Minimal Flutter codebase derived from the WaifuAI architecture and interface direction.
 
-## Màn hình
+## Screens
 
-- Home: lời chào, thẻ giới thiệu, thao tác nhanh và danh sách dự án gần đây.
-- Profile: thông tin cá nhân, thống kê, gói Pro và menu tài khoản.
-- Bottom tab: Home và Profile, nút tạo mới nằm giữa.
-- Create sheet: mở từ nút `+`, cho phép chọn Video, Hình ảnh hoặc Mẫu.
+- Home: welcome content, feature cards, quick actions, and recent projects.
+- Profile: account information, statistics, Pro plan, and account menu.
+- Bottom navigation: Home and Profile with a centered create button.
+- Create sheet: opens from the `+` button and provides video creation options.
 
-## Cấu trúc
+## Structure
 
 ```text
 lib/
@@ -23,14 +23,14 @@ lib/
 └── main.dart
 ```
 
-## Chạy project
+## Run the project
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-## Kiểm tra
+## Validation
 
 ```bash
 flutter analyze

@@ -8,7 +8,7 @@ import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/text_to_video/text_to_video_screen.dart';
 
 void main() {
@@ -76,6 +76,27 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
+    expect(find.byKey(const Key('creatingDefaultArtwork')), findsOneWidget);
+    final initialBounce = List<double>.of(
+      tester
+          .widget<Transform>(
+            find.byKey(const Key('creatingDefaultArtworkBounce')),
+          )
+          .transform
+          .storage,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    final nextBounce = List<double>.of(
+      tester
+          .widget<Transform>(
+            find.byKey(const Key('creatingDefaultArtworkBounce')),
+          )
+          .transform
+          .storage,
+    );
+    expect(nextBounce, isNot(equals(initialBounce)));
+    expect(find.byKey(const Key('creatingSourceImage')), findsNothing);
+    expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
     expect(submittedPrompt, 'A calm seaside at golden hour');
     expect(submittedHd, isFalse);
     expect(submittedLong, isTrue);
@@ -109,7 +130,7 @@ void main() {
     expect(find.text('Enter a video prompt.'), findsOneWidget);
   });
 
-  testWidgets('shows Buy Credits when T2V fails because coins are exhausted', (
+  testWidgets('opens FreeTrial when non-VIP T2V user runs out of credits', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -139,7 +160,7 @@ void main() {
     await tester.tap(find.text('Buy Credits'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BuyCredits), findsOneWidget);
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

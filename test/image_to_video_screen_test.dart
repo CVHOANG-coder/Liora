@@ -12,6 +12,7 @@ import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
@@ -118,6 +119,26 @@ void main() {
 
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
     expect(find.text('Creating Video'), findsOneWidget);
+    expect(find.byKey(const Key('creatingSourceImage')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageScanLine')), findsOneWidget);
+    final sourceImage = tester.widget<Image>(
+      find.byKey(const Key('creatingSourceImage')),
+    );
+    expect(sourceImage.fit, BoxFit.cover);
+    expect(
+      tester.getSize(find.byKey(const Key('creatingSourceImage'))),
+      tester.getSize(find.byKey(const Key('creatingImageLottie'))),
+    );
+    final lottieClip = tester.widget<ClipRRect>(
+      find
+          .ancestor(
+            of: find.byKey(const Key('creatingImageLottie')),
+            matching: find.byType(ClipRRect),
+          )
+          .first,
+    );
+    expect(lottieClip.borderRadius, BorderRadius.circular(29));
     expect(submittedPath, endsWith('assets/images/create_video.png'));
     expect(submittedPrompt, 'Gentle cinematic camera movement');
     expect(submittedHd, isFalse);
@@ -167,43 +188,84 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'opens BuyCredits when generation fails for insufficient credit',
-    (tester) async {
-      await _setPhoneSize(tester);
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            home: ImageToVideoScreen(
-              requestPermission: (_) async =>
-                  ImageAccessPermissionResult.granted,
-              pickImageFromSource: (_) => _testImagePath(),
-              submit:
-                  ({
-                    required imagePath,
-                    required prompt,
-                    required isHd,
-                    required isLongTime,
-                  }) async => throw const ApiException(
-                    message: 'Insufficient credit balance',
-                    statusCode: 402,
-                  ),
-            ),
+  testWidgets('opens FreeTrial when a non-VIP user has insufficient credit', (
+    tester,
+  ) async {
+    await _setPhoneSize(tester);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: ImageToVideoScreen(
+            requestPermission: (_) async => ImageAccessPermissionResult.granted,
+            pickImageFromSource: (_) => _testImagePath(),
+            submit:
+                ({
+                  required imagePath,
+                  required prompt,
+                  required isHd,
+                  required isLongTime,
+                }) async => throw const ApiException(
+                  message: 'Insufficient credit balance',
+                  statusCode: 402,
+                ),
           ),
         ),
-      );
+      ),
+    );
 
-      await _prepareAndGenerate(tester);
+    await _prepareAndGenerate(tester);
 
-      expect(find.text('Not Enough Credits'), findsOneWidget);
-      expect(find.text('Buy Credits'), findsOneWidget);
-      await tester.tap(find.text('Buy Credits'));
-      await tester.pumpAndSettle();
+    expect(find.text('Not Enough Credits'), findsOneWidget);
+    expect(find.text('Buy Credits'), findsOneWidget);
+    await tester.tap(find.text('Buy Credits'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(BuyCredits), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(BuyCredits), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens BuyCredits when a VIP user has insufficient credit', (
+    tester,
+  ) async {
+    await _setPhoneSize(tester);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container
+        .read(profileProvider.notifier)
+        .setProfile(UserProfile.fromJson(<String, dynamic>{'isVIP': true}));
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: ImageToVideoScreen(
+            requestPermission: (_) async => ImageAccessPermissionResult.granted,
+            pickImageFromSource: (_) => _testImagePath(),
+            submit:
+                ({
+                  required imagePath,
+                  required prompt,
+                  required isHd,
+                  required isLongTime,
+                }) async => throw const ApiException(
+                  message: 'Insufficient credit balance',
+                  errorCode: ApiErrorCode.insufficientCredit,
+                  statusCode: 402,
+                ),
+          ),
+        ),
+      ),
+    );
+
+    await _prepareAndGenerate(tester);
+    await tester.tap(find.text('Buy Credits'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BuyCredits), findsOneWidget);
+    expect(find.byType(FreeTrialScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('requests camera permission before opening the camera', (
     tester,

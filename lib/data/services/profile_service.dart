@@ -24,17 +24,17 @@ class ProfileService {
         throw const ApiException(message: 'Invalid profile data.');
       }
 
-      final result = UserProfileResponse.fromJson(
-        Map<String, dynamic>.from(body),
-      );
-      if (!result.success) {
-        throw ApiException(
-          message: result.message.isEmpty
-              ? 'Unable to load user information.'
-              : result.message,
+      if (body['success'] != true) {
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to load user information.',
           statusCode: response.statusCode,
         );
       }
+
+      final result = UserProfileResponse.fromJson(
+        Map<String, dynamic>.from(body),
+      );
       return result.data;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

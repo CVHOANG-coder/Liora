@@ -2,7 +2,7 @@ name: video_gen
 description: "A lightweight AI content creation app starter."
 publish_to: "none"
 
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
   sdk: ^3.12.2
@@ -23,9 +23,12 @@ dependencies:
   image_picker: ^1.2.1
   in_app_purchase: ^3.3.0
   in_app_purchase_android: ^0.5.2
+  lottie: ^3.5.1
+  package_info_plus: ^10.2.1
   permission_handler: ^12.0.3
   shared_preferences: ^2.5.5
   video_player: ^2.14.0
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -43,4 +46,5 @@ flutter:
     - assets/images/templates/
     - assets/images/profile/
     - assets/images/on_boarding/
+    - assets/lotties/
     - assets/svgs/

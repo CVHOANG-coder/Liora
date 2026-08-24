@@ -20,17 +20,17 @@ class I2VRequestStatusService {
         throw const ApiException(message: 'Invalid video status data.');
       }
 
-      final result = I2VRequestStatusResponse.fromJson(
-        Map<String, dynamic>.from(body),
-      );
-      if (!result.success) {
-        throw ApiException(
-          message: result.message.isEmpty
-              ? 'Unable to check the video status.'
-              : result.message,
+      if (body['success'] != true) {
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to check the video status.',
           statusCode: response.statusCode,
         );
       }
+
+      final result = I2VRequestStatusResponse.fromJson(
+        Map<String, dynamic>.from(body),
+      );
       return result.data;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

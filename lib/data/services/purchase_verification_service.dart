@@ -22,17 +22,17 @@ class PurchaseVerificationService {
         );
       }
 
-      final result = PurchaseVerificationResponse.fromJson(
-        Map<String, dynamic>.from(body),
-      );
-      if (!result.success) {
-        throw ApiException(
-          message: result.message.isEmpty
-              ? 'Unable to verify the purchase.'
-              : result.message,
+      if (body['success'] != true) {
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to verify the purchase.',
           statusCode: response.statusCode,
         );
       }
+
+      final result = PurchaseVerificationResponse.fromJson(
+        Map<String, dynamic>.from(body),
+      );
       return result;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

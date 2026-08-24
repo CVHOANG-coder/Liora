@@ -5,9 +5,13 @@ import 'package:flutter/services.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/storage/onboarding_preferences.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/package_provider.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../main/main_screen.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../support/support_contact_screen.dart';
 
 typedef SplashBootstrap = Future<void> Function();
 
@@ -16,10 +20,12 @@ class SplashScreen extends ConsumerStatefulWidget {
     super.key,
     this.duration = const Duration(milliseconds: 2200),
     this.bootstrap,
+    this.onboardingPreferences,
   });
 
   final Duration duration;
   final SplashBootstrap? bootstrap;
+  final OnboardingPreferences? onboardingPreferences;
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
@@ -28,12 +34,18 @@ class SplashScreen extends ConsumerStatefulWidget {
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final OnboardingPreferences _onboardingPreferences;
   bool _isAuthenticating = true;
   String? _errorMessage;
+  String? _errorCode;
+  int _repeatableSystemFailureCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _onboardingPreferences =
+        widget.onboardingPreferences ??
+        SharedPreferencesOnboardingPreferences();
     _controller = AnimationController(vsync: this, duration: widget.duration);
     WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
   }
@@ -42,6 +54,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     setState(() {
       _isAuthenticating = true;
       _errorMessage = null;
+      _errorCode = null;
     });
 
     _controller.reset();
@@ -75,19 +88,78 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!mounted) return;
       final openedNotification =
           FirebaseService.markNotificationNavigationReady();
-      if (!openedNotification) _openOnboarding();
+      if (!openedNotification) {
+        final onboardingCompleted = await _hasCompletedOnboarding();
+        if (onboardingCompleted) {
+          _openMain();
+        } else {
+          _openOnboarding();
+        }
+      }
     } on TickerCanceled {
       return;
     } catch (error) {
       _controller.stop();
       if (!mounted) return;
+      final errorCode = error is ApiException ? error.errorCode : null;
+      if (errorCode == ApiErrorCode.userNotFound ||
+          errorCode == ApiErrorCode.internalError) {
+        _repeatableSystemFailureCount += 1;
+      } else {
+        _repeatableSystemFailureCount = 0;
+      }
       setState(() {
         _isAuthenticating = false;
+        _errorCode = errorCode;
         _errorMessage = error is ApiException
-            ? error.message
+            ? apiErrorDisplayMessage(
+                error,
+                fallbackMessage: 'Unable to sign in. Please try again.',
+              )
             : 'Unable to sign in. Please try again.';
       });
     }
+  }
+
+  Future<bool> _hasCompletedOnboarding() async {
+    try {
+      return await _onboardingPreferences.isCompleted();
+    } catch (_) {
+      // A storage error should not prevent the user from entering the app.
+      return false;
+    }
+  }
+
+  void _openMain() {
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const MainScreen()),
+    );
+  }
+
+  void _openErrorAction() {
+    switch (_errorCode) {
+      case ApiErrorCode.accountBanned:
+        _openSupport();
+      case ApiErrorCode.subscriptionExpired:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+      default:
+        _authenticate();
+    }
+  }
+
+  void _openSupport() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SupportContactScreen(
+          errorCode: _errorCode,
+          errorMessage: _errorMessage,
+        ),
+      ),
+    );
   }
 
   void _openOnboarding() {
@@ -136,7 +208,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   progress: _controller,
                   isAuthenticating: _isAuthenticating,
                   errorMessage: _errorMessage,
-                  onRetry: _authenticate,
+                  errorCode: _errorCode,
+                  showSupport:
+                      _repeatableSystemFailureCount >= 3 ||
+                      _errorCode == ApiErrorCode.accountBanned,
+                  onPrimaryAction: _openErrorAction,
+                  onContactSupport: _openSupport,
                 ),
               ],
             );
@@ -196,14 +273,20 @@ class _SplashContent extends StatelessWidget {
     required this.progress,
     required this.isAuthenticating,
     required this.errorMessage,
-    required this.onRetry,
+    required this.errorCode,
+    required this.showSupport,
+    required this.onPrimaryAction,
+    required this.onContactSupport,
   });
 
   final Size size;
   final Animation<double> progress;
   final bool isAuthenticating;
   final String? errorMessage;
-  final VoidCallback onRetry;
+  final String? errorCode;
+  final bool showSupport;
+  final VoidCallback onPrimaryAction;
+  final VoidCallback onContactSupport;
 
   @override
   Widget build(BuildContext context) {
@@ -289,13 +372,26 @@ class _SplashContent extends StatelessWidget {
                     const SizedBox(height: 8),
                     TextButton(
                       key: const Key('splashRetryButton'),
-                      onPressed: onRetry,
+                      onPressed: onPrimaryAction,
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFFF56D5),
                         visualDensity: VisualDensity.compact,
                       ),
-                      child: const Text('Retry'),
+                      child: Text(switch (errorCode) {
+                        ApiErrorCode.accountBanned => 'Contact Support',
+                        ApiErrorCode.subscriptionExpired => 'Renew Plan',
+                        _ => 'Retry',
+                      }),
                     ),
+                    if (showSupport && errorCode != ApiErrorCode.accountBanned)
+                      TextButton(
+                        onPressed: onContactSupport,
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFBEB8C8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text('Contact Support'),
+                      ),
                   ],
                 ],
               );

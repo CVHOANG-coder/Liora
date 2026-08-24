@@ -5,9 +5,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../data/video_categories.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../widgets/trial_offer_dialog.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/free_trial_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
 
@@ -44,7 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     isSubscribed: isSubscribed,
                     onProPressed: () {
                       if (!isSubscribed) {
-                        TrialOfferDialog.show(context);
+                        FreeTrialScreen.open(context);
                         return;
                       }
                       Navigator.of(context).push(

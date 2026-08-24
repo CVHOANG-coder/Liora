@@ -31,6 +31,7 @@ class PurchaseState {
     this.products = const <String, ProductDetails>{},
     this.notFoundProductIds = const <String>{},
     this.message,
+    this.errorCode,
     this.productId,
   });
 
@@ -41,6 +42,7 @@ class PurchaseState {
   final Map<String, ProductDetails> products;
   final Set<String> notFoundProductIds;
   final String? message;
+  final String? errorCode;
   final String? productId;
 
   bool get isBusy => switch (status) {
@@ -58,6 +60,8 @@ class PurchaseState {
     Set<String>? notFoundProductIds,
     String? message,
     bool clearMessage = false,
+    String? errorCode,
+    bool clearErrorCode = false,
     String? productId,
     bool clearProductId = false,
   }) {
@@ -66,6 +70,7 @@ class PurchaseState {
       products: products ?? this.products,
       notFoundProductIds: notFoundProductIds ?? this.notFoundProductIds,
       message: clearMessage ? null : message ?? this.message,
+      errorCode: clearErrorCode ? null : errorCode ?? this.errorCode,
       productId: clearProductId ? null : productId ?? this.productId,
     );
   }
@@ -83,12 +88,17 @@ final purchaseControllerProvider =
     NotifierProvider<PurchaseController, PurchaseState>(PurchaseController.new);
 
 class PurchaseController extends Notifier<PurchaseState> {
+  static const _profileRefreshAttempts = 3;
+  static const _profileRefreshRetryDelay = Duration(milliseconds: 350);
+  static const _backgroundProfileRefreshDelay = Duration(seconds: 5);
+
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   late PurchaseGateway _gateway;
   late ApiClient _apiClient;
   final Set<String> _consumableProductIds = <String>{};
   final Set<String> _subscriptionProductIds = <String>{};
   final Set<String> _processingPurchaseTokens = <String>{};
+  bool _billingAvailable = false;
   bool _disposed = false;
 
   @override
@@ -113,13 +123,14 @@ class PurchaseController extends Notifier<PurchaseState> {
   Future<void> _initialize() async {
     _purchaseSubscription = _gateway.purchaseStream.listen(
       _onPurchaseUpdates,
-      onError: (Object error) => _setError(_messageFor(error)),
+      onError: (Object error) => _setError(error),
     );
 
     try {
       final available = await _gateway.isAvailable();
       if (_disposed) return;
       if (!available) {
+        _billingAvailable = false;
         state = const PurchaseState(
           status: PurchaseFlowStatus.unavailable,
           message: 'Google Play Billing is currently unavailable.',
@@ -127,6 +138,7 @@ class PurchaseController extends Notifier<PurchaseState> {
         return;
       }
 
+      _billingAvailable = true;
       state = state.copyWith(
         status: PurchaseFlowStatus.ready,
         clearMessage: true,
@@ -134,7 +146,7 @@ class PurchaseController extends Notifier<PurchaseState> {
       final catalog = ref.read(packageCatalogProvider);
       if (catalog != null) await _loadCatalogProducts(catalog);
     } catch (error) {
-      _setError(_messageFor(error));
+      _setError(error);
     }
   }
 
@@ -188,7 +200,7 @@ class PurchaseController extends Notifier<PurchaseState> {
         clearMessage: response.error == null,
       );
     } catch (error) {
-      _setError(_messageFor(error));
+      _setError(error);
     }
   }
 
@@ -198,10 +210,13 @@ class PurchaseController extends Notifier<PurchaseState> {
     bool replaceExistingSubscription = false,
   }) async {
     if (productId.isEmpty) {
-      _setError('This product does not have a product ID.');
+      _setError(
+        'This purchase option is not configured correctly.',
+        errorCode: ApiErrorCode.productNotFound,
+      );
       return;
     }
-    if (state.status == PurchaseFlowStatus.unavailable) {
+    if (!_billingAvailable) {
       _setError('Google Play Billing is currently unavailable.');
       return;
     }
@@ -214,7 +229,11 @@ class PurchaseController extends Notifier<PurchaseState> {
       product = state.products[productId];
     }
     if (product == null) {
-      _setError('Product $productId was not found on Google Play.');
+      _setError(
+        'This purchase option was not found on Google Play.',
+        productId: productId,
+        errorCode: ApiErrorCode.productNotFound,
+      );
       return;
     }
 
@@ -243,10 +262,14 @@ class PurchaseController extends Notifier<PurchaseState> {
               oldPurchase: oldSubscription,
             );
       if (!launched) {
-        _setError('Unable to open the Google Play checkout screen.');
+        _setError(
+          'Unable to open the Google Play checkout screen.',
+          productId: productId,
+          errorCode: ApiErrorCode.purchaseFailed,
+        );
       }
     } catch (error) {
-      _setError(_messageFor(error));
+      _setError(error);
     }
   }
 
@@ -266,7 +289,7 @@ class PurchaseController extends Notifier<PurchaseState> {
         );
       }
     } catch (error) {
-      _setError(_messageFor(error));
+      _setError(error);
     }
   }
 
@@ -287,12 +310,13 @@ class PurchaseController extends Notifier<PurchaseState> {
             purchase.error?.message ??
                 'Google Play could not process the purchase.',
             productId: purchase.productID,
+            errorCode: ApiErrorCode.purchaseFailed,
           );
         case PurchaseStatus.canceled:
           state = state.copyWith(
             status: PurchaseFlowStatus.canceled,
             productId: purchase.productID,
-            message: 'Purchase canceled.',
+            message: 'Purchase canceled. No payment was made.',
           );
       }
     }
@@ -314,6 +338,7 @@ class PurchaseController extends Notifier<PurchaseState> {
       if (token.isEmpty) {
         throw const ApiException(
           message: 'Google Play did not return a purchase token.',
+          errorCode: ApiErrorCode.receiptInvalid,
         );
       }
       final result = await _apiClient.verifyPurchase(
@@ -331,37 +356,64 @@ class PurchaseController extends Notifier<PurchaseState> {
         await _gateway.complete(purchase);
       }
 
-      try {
-        final profile = await _apiClient.fetchProfile();
-        ref.read(profileProvider.notifier).setProfile(profile);
-      } catch (_) {
-        // The purchase is already verified and finalized. The profile will be
-        // reconciled on the next authenticated refresh if this request fails.
-      }
+      final profileRefreshed = await _refreshProfileAfterPurchase();
+      if (!profileRefreshed) _scheduleBackgroundProfileRefresh();
 
       if (!_disposed) {
+        final successMessage = result.message.isEmpty
+            ? 'Payment successful.'
+            : result.message;
         state = state.copyWith(
           status: PurchaseFlowStatus.success,
           productId: purchase.productID,
-          message: result.message.isEmpty
-              ? 'Payment successful.'
-              : result.message,
+          message: profileRefreshed
+              ? successMessage
+              : '$successMessage Your account will refresh shortly.',
         );
       }
     } catch (error) {
       // Do not consume or acknowledge an invalid/unverified purchase. It can
       // be retried from the purchase stream after connectivity is restored.
-      _setError(_messageFor(error), productId: purchase.productID);
+      _setError(error, productId: purchase.productID);
     } finally {
       _processingPurchaseTokens.remove(key);
     }
   }
 
-  void _setError(String message, {String? productId}) {
+  Future<bool> _refreshProfileAfterPurchase() async {
+    for (var attempt = 0; attempt < _profileRefreshAttempts; attempt++) {
+      if (_disposed) return false;
+      try {
+        final profile = await _apiClient.fetchProfile();
+        if (_disposed) return false;
+        ref.read(profileProvider.notifier).setProfile(profile);
+        return true;
+      } catch (_) {
+        if (attempt == _profileRefreshAttempts - 1) break;
+        await Future<void>.delayed(_profileRefreshRetryDelay * (attempt + 1));
+      }
+    }
+    return false;
+  }
+
+  void _scheduleBackgroundProfileRefresh() {
+    unawaited(
+      Future<void>.delayed(_backgroundProfileRefreshDelay, () async {
+        if (_disposed) return;
+        await _refreshProfileAfterPurchase();
+      }),
+    );
+  }
+
+  void _setError(Object error, {String? productId, String? errorCode}) {
     if (_disposed) return;
+    final exception = error is ApiException ? error : null;
+    final resolvedErrorCode = exception?.errorCode ?? errorCode;
     state = state.copyWith(
       status: PurchaseFlowStatus.error,
-      message: message,
+      message: _messageFor(error),
+      errorCode: resolvedErrorCode,
+      clearErrorCode: resolvedErrorCode == null,
       productId: productId,
     );
   }
@@ -369,6 +421,7 @@ class PurchaseController extends Notifier<PurchaseState> {
   String _messageFor(Object error) {
     if (error is ApiException) return error.message;
     if (error is IAPError) return error.message;
+    if (error is String && error.trim().isNotEmpty) return error.trim();
     return 'Unable to process the purchase. Please try again.';
   }
 }

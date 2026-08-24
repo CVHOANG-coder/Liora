@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/user_profile.dart';
@@ -8,6 +9,12 @@ import '../../providers/profile_provider.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../generation_history/generation_history_screen.dart';
 import '../settings/settings_screen.dart';
+import '../support/app_web_view_screen.dart';
+
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final packageInfo = await PackageInfo.fromPlatform();
+  return packageInfo.version.trim();
+});
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -16,6 +23,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
     final creditBalance = profile?.totalCredit ?? 0;
+    final appVersion = ref.watch(appVersionProvider);
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -51,22 +59,39 @@ class ProfileScreen extends ConsumerWidget {
                       const SizedBox(height: 17),
                       const _SupportMenu(),
                       const SizedBox(height: 3),
-                      const Center(
-                        child: Text(
-                          'V 2.18.0',
-                          style: TextStyle(
-                            color: Color(0xFF77737F),
-                            fontSize: 14,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
+                      _AppVersionLabel(version: appVersion),
                     ],
                   ),
                 ),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _AppVersionLabel extends StatelessWidget {
+  const _AppVersionLabel({required this.version});
+
+  final AsyncValue<String> version;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = version.when(
+      data: (value) => value.isEmpty ? 'V --' : 'V $value',
+      loading: () => 'V ...',
+      error: (_, _) => 'V --',
+    );
+    return Center(
+      child: Text(
+        label,
+        key: const Key('profileAppVersion'),
+        style: const TextStyle(
+          color: Color(0xFF77737F),
+          fontSize: 14,
+          letterSpacing: 0.3,
         ),
       ),
     );
@@ -737,16 +762,13 @@ class _SupportMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFF302A36)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _SupportTile(icon: Icons.help_outline_rounded, title: 'Help Center'),
-          Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 0,
-            color: Color(0x332F2936),
+          _SupportTile(
+            icon: Icons.help_outline_rounded,
+            title: 'Help Center',
+            onTap: () => AppWebViewScreen.open(context, AppWebPage.support),
           ),
-          _SupportTile(icon: Icons.shield_outlined, title: 'About & Privacy'),
         ],
       ),
     );
@@ -754,33 +776,47 @@ class _SupportMenu extends StatelessWidget {
 }
 
 class _SupportTile extends StatelessWidget {
-  const _SupportTile({required this.icon, required this.title});
+  const _SupportTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 68,
-      child: Row(
-        children: [
-          const SizedBox(width: 39),
-          Icon(icon, color: const Color(0xFFD6D2D9), size: 27),
-          const SizedBox(width: 28),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(color: Color(0xFFE4DFE8), fontSize: 17),
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 68,
+          child: Row(
+            children: [
+              const SizedBox(width: 39),
+              Icon(icon, color: const Color(0xFFD6D2D9), size: 27),
+              const SizedBox(width: 28),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFFE4DFE8),
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFFD0CBD4),
+                size: 31,
+              ),
+              const SizedBox(width: 14),
+            ],
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFFD0CBD4),
-            size: 31,
-          ),
-          const SizedBox(width: 14),
-        ],
+        ),
       ),
     );
   }

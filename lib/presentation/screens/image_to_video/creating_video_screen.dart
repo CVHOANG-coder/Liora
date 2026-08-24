@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../data/models/generation_progress.dart';
 import '../../../data/models/i2v_generation.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../widgets/notification_permission_dialog.dart';
+import '../../widgets/generation_failure_dialog.dart';
+import '../generation_history/generation_history_screen.dart';
 import 'generated_video_screen.dart';
 
 typedef I2VStatusFetcher = Future<I2VRequestStatus> Function(String requestId);
@@ -28,9 +34,12 @@ class CreatingVideoScreen extends StatefulWidget {
     this.videoDurationSeconds,
     this.isHd,
     this.creatorLabel = 'Image to Video',
+    this.sourceImagePath,
     this.notificationPermissionRequester,
     this.notificationSettingsOpener,
     this.initialRequestStatus,
+    this.openedFromHistory = false,
+    this.historyDestinationBuilder,
   });
 
   final I2VGeneration generation;
@@ -44,9 +53,12 @@ class CreatingVideoScreen extends StatefulWidget {
   final int? videoDurationSeconds;
   final bool? isHd;
   final String creatorLabel;
+  final String? sourceImagePath;
   final NotificationPermissionRequester? notificationPermissionRequester;
   final NotificationSettingsOpener? notificationSettingsOpener;
   final I2VRequestStatus? initialRequestStatus;
+  final bool openedFromHistory;
+  final WidgetBuilder? historyDestinationBuilder;
 
   @override
   State<CreatingVideoScreen> createState() => _CreatingVideoScreenState();
@@ -66,6 +78,9 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
   double _displayProgress = 0.02;
   int _currentStepIndex = 0;
   Future<void> _pendingStepPersistence = Future<void>.value();
+  bool _leaveDialogOpen = false;
+  bool _allowPop = false;
+  bool _leavingForHistory = false;
 
   GenerationProgressRepository get _progressRepository =>
       widget.progressRepository ??
@@ -231,11 +246,25 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
         ),
       );
     } else if (status.isFailed) {
+      final error = ApiException(
+        message: apiErrorDisplayMessage(
+          status.errorMessage,
+          fallbackMessage:
+              'The video could not be generated. Please try again.',
+        ),
+        errorCode: status.errorCode.isEmpty ? null : status.errorCode,
+      );
+      final presentation = resolveApiErrorPresentation(
+        error,
+        fallbackMessage: 'The video could not be generated. Please try again.',
+      );
       _showFailureUi(
-        status.errorMessage.isEmpty
-            ? 'The video could not be generated. Please try again.'
-            : status.errorMessage,
-        creditsRefunded: true,
+        presentation.message,
+        title: presentation.title,
+        guidance: status.errorCode == ApiErrorCode.contentPolicy
+            ? 'Return to ${widget.creatorLabel} and edit the content before trying again.'
+            : null,
+        creditsRefunded: status.creditRefunded,
       );
     } else if (status.isCancelled) {
       _showFailureUi(
@@ -319,93 +348,248 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF030208),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _LoadingGlow()),
-          SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    12,
-                    20,
-                    18 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  sliver: SliverList.list(
-                    children: [
-                      _Header(onBack: () => Navigator.maybePop(context)),
-                      const SizedBox(height: 26),
-                      const _Artwork(),
-                      const SizedBox(height: 8),
-                      const _GeneratingTitle(),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "We're turning your idea into a cinematic result.\n"
-                        'This may take a few moments.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFFC5BFC9),
-                          fontSize: 14,
-                          height: 1.45,
+    return PopScope<void>(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(_confirmLeaveForHistory());
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF030208),
+        body: Stack(
+          children: [
+            const Positioned.fill(child: _LoadingGlow()),
+            SafeArea(
+              bottom: false,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      12,
+                      20,
+                      18 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    sliver: SliverList.list(
+                      children: [
+                        _Header(onBack: _confirmLeaveForHistory),
+                        const SizedBox(height: 26),
+                        _Artwork(
+                          sourceImagePath: widget.sourceImagePath,
+                          sourceImageUrl: widget.generation.imageUrl,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      _ProgressPercent(progress: _displayProgress),
-                      const SizedBox(height: 8),
-                      _NeonProgressBar(progress: _displayProgress),
-                      const SizedBox(height: 18),
-                      _GenerationSteps(
-                        currentStepIndex: _currentStepIndex,
-                        totalSteps: _generationProgress?.totalSteps ?? 10,
-                      ),
-                      const SizedBox(height: 18),
-                      const _BackgroundTip(),
-                      const SizedBox(height: 18),
-                      _ContinueButton(onTap: _continueInBackground),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => Navigator.maybePop(context),
-                        child: const Text(
-                          'Cancel',
+                        const SizedBox(height: 8),
+                        const _GeneratingTitle(),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "We're turning your idea into a cinematic result.\n"
+                          'This may take a few moments.',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFFFF52B1),
-                            fontSize: 16,
+                            color: Color(0xFFC5BFC9),
+                            fontSize: 14,
+                            height: 1.45,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Request ${widget.generation.requestId}',
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF655E69),
-                          fontSize: 10,
+                        const SizedBox(height: 16),
+                        _ProgressPercent(progress: _displayProgress),
+                        const SizedBox(height: 8),
+                        _NeonProgressBar(progress: _displayProgress),
+                        const SizedBox(height: 18),
+                        _GenerationSteps(
+                          currentStepIndex: _currentStepIndex,
+                          totalSteps: _generationProgress?.totalSteps ?? 10,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 18),
+                        const _BackgroundTip(),
+                        const SizedBox(height: 18),
+                        _ContinueButton(onTap: _continueInBackground),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: _confirmLeaveForHistory,
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Color(0xFFFF52B1),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Request ${widget.generation.requestId}',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF655E69),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   void _continueInBackground() {
-    if (widget.returnToPreviousOnBack) {
-      Navigator.maybePop(context);
+    _leaveForHistory();
+  }
+
+  Future<void> _confirmLeaveForHistory() async {
+    if (!mounted || _leaveDialogOpen || _leavingForHistory) return;
+    _leaveDialogOpen = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xD9000000),
+      builder: (_) => const _LeaveCreatingVideoDialog(),
+    );
+    _leaveDialogOpen = false;
+    if (confirmed == true && mounted) _leaveForHistory();
+  }
+
+  void _leaveForHistory() {
+    if (!mounted || _leavingForHistory) return;
+    _leavingForHistory = true;
+    _allowPop = true;
+    final navigator = Navigator.of(context);
+    final currentRoute = ModalRoute.of(context);
+    if (widget.openedFromHistory &&
+        currentRoute != null &&
+        navigator.canPop()) {
+      navigator.removeRoute(currentRoute);
       return;
     }
-    Navigator.of(context).popUntil((route) => route.isFirst);
+
+    final builder =
+        widget.historyDestinationBuilder ??
+        (_) => const GenerationHistoryScreen();
+    final route = MaterialPageRoute<void>(builder: builder);
+    if (navigator.canPop()) {
+      navigator.pushAndRemoveUntil(route, (route) => route.isFirst);
+    } else {
+      navigator.pushReplacement(route);
+    }
+  }
+}
+
+class _LeaveCreatingVideoDialog extends StatelessWidget {
+  const _LeaveCreatingVideoDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const Key('leaveCreatingVideoDialog'),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF271020), Color(0xFF100A13)],
+          ),
+          border: Border.all(color: const Color(0xFF963466)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x66FF2CAC), blurRadius: 28),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFF2EAC).withValues(alpha: 0.12),
+                border: Border.all(color: const Color(0xFFFF42B3)),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x66FF28AB), blurRadius: 18),
+                ],
+              ),
+              child: const Icon(
+                Icons.hourglass_top_rounded,
+                color: Color(0xFFFF58B9),
+                size: 31,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Leave this screen?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your video will keep generating in the background. '
+              'You can check its progress in Generation History.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFFC6BEC9),
+                fontSize: 13,
+                height: 1.42,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('keepWaitingForVideo'),
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFF6B3A5C)),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: const Text('Keep waiting'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('leaveForGenerationHistory'),
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF3D9D),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      shadowColor: const Color(0xFFFF28A9),
+                      elevation: 6,
+                    ),
+                    child: const Text(
+                      'Go to History',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -441,6 +625,7 @@ class _Header extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
+              key: const Key('creatingVideoBack'),
               onPressed: onBack,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 40, height: 38),
@@ -462,37 +647,190 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Artwork extends StatelessWidget {
-  const _Artwork();
+class _Artwork extends StatefulWidget {
+  const _Artwork({required this.sourceImagePath, required this.sourceImageUrl});
+
+  final String? sourceImagePath;
+  final String sourceImageUrl;
+
+  @override
+  State<_Artwork> createState() => _ArtworkState();
+}
+
+class _ArtworkState extends State<_Artwork>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _effectController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _effectController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        width: 270,
-        height: 250,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFF1BB6), Color(0xFFFF9B2D)],
-          ),
-          boxShadow: const [
-            BoxShadow(color: Color(0x66FF20B0), blurRadius: 22),
-            BoxShadow(color: Color(0x44FF8A27), blurRadius: 18),
+      child: AnimatedBuilder(
+        animation: _effectController,
+        builder: (context, _) {
+          final pulse = 0.28 + (_effectController.value * 0.32);
+          return Container(
+            width: 270,
+            height: 250,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFF1BB6), Color(0xFFFF9B2D)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF20B0).withValues(alpha: pulse),
+                  blurRadius: 22 + (_effectController.value * 10),
+                  spreadRadius: 1 + (_effectController.value * 2),
+                ),
+                BoxShadow(
+                  color: const Color(0xFFFF8A27).withValues(alpha: pulse * 0.7),
+                  blurRadius: 18 + (_effectController.value * 8),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(1.2),
+            child: _ProcessingArtwork(
+              sourceImagePath: widget.sourceImagePath,
+              sourceImageUrl: widget.sourceImageUrl,
+              scanPosition: _effectController.value,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProcessingArtwork extends StatelessWidget {
+  const _ProcessingArtwork({
+    required this.sourceImagePath,
+    required this.sourceImageUrl,
+    required this.scanPosition,
+  });
+
+  final String? sourceImagePath;
+  final String sourceImageUrl;
+  final double scanPosition;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(29),
+      child: ColoredBox(
+        color: const Color(0xFF09030D),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _sourceImage(),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  radius: 0.85,
+                  colors: [Color(0x11000000), Color(0x8A09030D)],
+                  stops: [0.42, 1],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(29),
+                child: RepaintBoundary(
+                  child: Lottie.asset(
+                    'assets/lotties/loadingImage.lottie',
+                    key: const Key('creatingImageLottie'),
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    repeat: true,
+                    frameRate: FrameRate.max,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment(0, -0.92 + (scanPosition * 1.84)),
+              child: Container(
+                key: const Key('creatingImageScanLine'),
+                height: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 13),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Color(0xFFFF25B4),
+                      Color(0xFFFFA22C),
+                      Colors.transparent,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: Color(0xCCFF35B1), blurRadius: 12),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-        padding: const EdgeInsets.all(1.2),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(29),
-            color: const Color(0xFF09030D),
-          ),
-          padding: const EdgeInsets.all(8),
+      ),
+    );
+  }
+
+  Widget _sourceImage() {
+    final path = sourceImagePath;
+    if (path != null && path.isNotEmpty) {
+      return Image.file(
+        File(path),
+        key: const Key('creatingSourceImage'),
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => _defaultArtwork(),
+      );
+    }
+
+    final url = sourceImageUrl.trim();
+    if (url.isEmpty) return _defaultArtwork();
+    return Image.network(
+      url,
+      key: const Key('creatingSourceImage'),
+      fit: BoxFit.cover,
+      filterQuality: FilterQuality.high,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const ColoredBox(
+          key: Key('creatingNetworkImageLoading'),
+          color: Color(0xFF16091A),
+        );
+      },
+      errorBuilder: (_, _, _) => _defaultArtwork(),
+    );
+  }
+
+  Widget _defaultArtwork() {
+    final bounce = math.sin(scanPosition * math.pi);
+    final sway = math.sin(scanPosition * math.pi * 2);
+    return Transform.translate(
+      key: const Key('creatingDefaultArtworkBounce'),
+      offset: Offset(0, -5 * bounce),
+      child: Transform.rotate(
+        angle: 0.012 * sway,
+        child: Transform.scale(
+          scale: 1.04 + (0.025 * bounce),
           child: Image.asset(
             'assets/images/create_video.png',
-            fit: BoxFit.contain,
+            key: const Key('creatingDefaultArtwork'),
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
           ),
         ),
       ),

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../../data/models/user_profile.dart';
 import '../../providers/package_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
+import '../../widgets/generation_failure_dialog.dart';
+import '../support/app_web_view_screen.dart';
+import '../support/support_contact_screen.dart';
 import 'in_app_purchase_screen.dart';
 
 enum ProPlanStatus { none, weekly, yearly }
@@ -91,6 +95,8 @@ class AllPlans extends ConsumerStatefulWidget {
 class _AllPlansState extends ConsumerState<AllPlans> {
   int _selectedPlan = 0;
   bool _muted = true;
+  AppPackage? _lastAttemptedPackage;
+  bool _lastAttemptWasReplacement = false;
 
   @override
   Widget build(BuildContext context) {
@@ -320,6 +326,8 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       );
       return;
     }
+    _lastAttemptedPackage = package;
+    _lastAttemptWasReplacement = replaceExisting;
     ref
         .read(purchaseControllerProvider.notifier)
         .buy(
@@ -333,7 +341,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     ref.read(purchaseControllerProvider.notifier).restore();
   }
 
-  void _onPurchaseState(PurchaseState? previous, PurchaseState next) {
+  void _onPurchaseState(PurchaseState? previous, PurchaseState next) async {
     final shouldNotify = switch (next.status) {
       PurchaseFlowStatus.success ||
       PurchaseFlowStatus.error ||
@@ -343,16 +351,50 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       _ => false,
     };
     if (!shouldNotify || next.message == null || !mounted) return;
+    if (next.status == PurchaseFlowStatus.error) {
+      final error = ApiException(
+        message: next.message!,
+        errorCode: next.errorCode,
+      );
+      final action = await GenerationFailureDialog.showForPurchaseError(
+        context,
+        error: error,
+        fallbackMessage:
+            'We could not complete your subscription purchase. Please try again.',
+      );
+      if (!mounted) return;
+      switch (action) {
+        case GenerationFailureAction.retry:
+        case GenerationFailureAction.renewSubscription:
+          _buySubscription(
+            _lastAttemptedPackage,
+            replaceExisting: _lastAttemptWasReplacement,
+          );
+        case GenerationFailureAction.buyCredits:
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
+        case GenerationFailureAction.contactSupport:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SupportContactScreen(
+                errorCode: next.errorCode,
+                errorMessage: next.message,
+              ),
+            ),
+          );
+        case GenerationFailureAction.chooseImage:
+        case GenerationFailureAction.editInput:
+        case GenerationFailureAction.chooseTheme:
+        case GenerationFailureAction.close:
+        case null:
+          break;
+      }
+      return;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(next.message!),
-          backgroundColor: next.status == PurchaseFlowStatus.error
-              ? Colors.red.shade800
-              : null,
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(next.message!)));
   }
 
   void _exploreProTools() {
@@ -1699,7 +1741,11 @@ class _LegalFooter extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Privacy', style: style),
+          const _LegalWebLink(
+            label: 'Privacy',
+            page: AppWebPage.privacy,
+            style: style,
+          ),
           const _LegalDivider(),
           TextButton(
             onPressed: onRestore,
@@ -1713,9 +1759,40 @@ class _LegalFooter extends StatelessWidget {
             child: const Text('Restore Purchase'),
           ),
           const _LegalDivider(),
-          const Text('Terms of Service', style: style),
+          const _LegalWebLink(
+            label: 'Terms of Service',
+            page: AppWebPage.terms,
+            style: style,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _LegalWebLink extends StatelessWidget {
+  const _LegalWebLink({
+    required this.label,
+    required this.page,
+    required this.style,
+  });
+
+  final String label;
+  final AppWebPage page;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => AppWebViewScreen.open(context, page),
+      style: TextButton.styleFrom(
+        foregroundColor: style.color,
+        textStyle: style,
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label),
     );
   }
 }

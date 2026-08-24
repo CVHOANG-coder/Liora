@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../providers/package_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
+import '../../widgets/generation_failure_dialog.dart';
+import '../support/app_web_view_screen.dart';
+import '../support/support_contact_screen.dart';
+import 'free_trial_screen.dart';
 
 class BuyCredits extends ConsumerStatefulWidget {
   const BuyCredits({super.key});
@@ -46,6 +51,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
   ];
 
   int _selectedIndex = 4;
+  _CreditPackage? _lastAttemptedPackage;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +109,9 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
                           const SizedBox(height: 12),
                       ],
                       const SizedBox(height: 14),
-                      const _SubscriptionBanner(),
+                      _SubscriptionBanner(
+                        onTap: () => FreeTrialScreen.open(context),
+                      ),
                       const SizedBox(height: 18),
                       _BuyButton(
                         label: _buyButtonLabel(purchaseState),
@@ -135,6 +143,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
   }
 
   Future<void> _buy(_CreditPackage package) {
+    _lastAttemptedPackage = package;
     return ref
         .read(purchaseControllerProvider.notifier)
         .buy(productId: package.productId ?? '', consumable: true);
@@ -149,7 +158,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
     _ => 'Buy Now',
   };
 
-  void _onPurchaseState(PurchaseState? previous, PurchaseState next) {
+  void _onPurchaseState(PurchaseState? previous, PurchaseState next) async {
     final shouldNotify = switch (next.status) {
       PurchaseFlowStatus.success ||
       PurchaseFlowStatus.error ||
@@ -159,16 +168,45 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
       _ => false,
     };
     if (!shouldNotify || next.message == null || !mounted) return;
+    if (next.status == PurchaseFlowStatus.error) {
+      final error = ApiException(
+        message: next.message!,
+        errorCode: next.errorCode,
+      );
+      final action = await GenerationFailureDialog.showForPurchaseError(
+        context,
+        error: error,
+        fallbackMessage:
+            'We could not complete your credit purchase. Please try again.',
+      );
+      if (!mounted) return;
+      switch (action) {
+        case GenerationFailureAction.retry:
+          final package = _lastAttemptedPackage;
+          if (package != null) await _buy(package);
+        case GenerationFailureAction.contactSupport:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SupportContactScreen(
+                errorCode: next.errorCode,
+                errorMessage: next.message,
+              ),
+            ),
+          );
+        case GenerationFailureAction.buyCredits:
+        case GenerationFailureAction.renewSubscription:
+        case GenerationFailureAction.chooseImage:
+        case GenerationFailureAction.editInput:
+        case GenerationFailureAction.chooseTheme:
+        case GenerationFailureAction.close:
+        case null:
+          break;
+      }
+      return;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(next.message!),
-          backgroundColor: next.status == PurchaseFlowStatus.error
-              ? Colors.red.shade800
-              : null,
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(next.message!)));
   }
 }
 
@@ -229,6 +267,7 @@ class _CloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const Key('buyCreditsCloseButton'),
       width: 39,
       height: 39,
       padding: const EdgeInsets.all(1.2),
@@ -434,47 +473,64 @@ class _PackageTagChip extends StatelessWidget {
 }
 
 class _SubscriptionBanner extends StatelessWidget {
-  const _SubscriptionBanner();
+  const _SubscriptionBanner({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 126,
-      padding: const EdgeInsets.all(1),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF1CB3), Color(0xFFFF714C)],
-        ),
-      ),
+    return Semantics(
+      button: true,
+      label: 'View subscription plans and save up to 50 percent',
       child: Container(
+        height: 126,
+        padding: const EdgeInsets.all(1),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(15),
           gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF100817), Color(0xFF160812)],
+            colors: [Color(0xFFFF1CB3), Color(0xFFFF714C)],
           ),
         ),
-        child: const Stack(
-          children: [
-            Positioned(
-              right: -5,
-              top: 9,
-              bottom: 3,
-              width: 142,
-              child: Image(
-                image: AssetImage('assets/images/in_app_purchase/gift.png'),
-                fit: BoxFit.contain,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const Key('subscriptionBanner'),
+            onTap: onTap,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xFF100817), Color(0xFF160812)],
+                ),
+              ),
+              child: const Stack(
+                children: [
+                  Positioned(
+                    right: -5,
+                    top: 9,
+                    bottom: 3,
+                    width: 142,
+                    child: Image(
+                      image: AssetImage(
+                        'assets/images/in_app_purchase/gift.png',
+                      ),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    right: 132,
+                    top: 34,
+                    child: _SubscriptionCopy(),
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              left: 18,
-              right: 132,
-              top: 34,
-              child: _SubscriptionCopy(),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -622,7 +678,11 @@ class _PurchaseFooter extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Privacy', style: linkStyle),
+              const _FooterWebLink(
+                label: 'Privacy',
+                page: AppWebPage.privacy,
+                style: linkStyle,
+              ),
               const _FooterDivider(),
               TextButton(
                 onPressed: onRestore,
@@ -636,7 +696,11 @@ class _PurchaseFooter extends StatelessWidget {
                 child: Text(restoring ? 'Restoring...' : 'Restore Purchase'),
               ),
               const _FooterDivider(),
-              const Text('Terms of Service', style: linkStyle),
+              const _FooterWebLink(
+                label: 'Terms of Service',
+                page: AppWebPage.terms,
+                style: linkStyle,
+              ),
             ],
           ),
         ),
@@ -652,6 +716,33 @@ class _PurchaseFooter extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FooterWebLink extends StatelessWidget {
+  const _FooterWebLink({
+    required this.label,
+    required this.page,
+    required this.style,
+  });
+
+  final String label;
+  final AppWebPage page;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => AppWebViewScreen.open(context, page),
+      style: TextButton.styleFrom(
+        foregroundColor: style.color,
+        textStyle: style,
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label),
     );
   }
 }

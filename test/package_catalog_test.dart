@@ -31,6 +31,8 @@ void main() {
     expect(android, isNotNull);
     expect(android!.weeklySubscription?.price, 7.99);
     expect(android.yearlySubscription?.price, 29.99);
+    expect(android.yearlySaleSubscription?.price, 29.99);
+    expect(android.regularYearlySubscription?.price, 49.99);
     expect(android.creditsFor(isSubscribed: true).single.price, 2.59);
     expect(android.creditsFor(isSubscribed: false).single.price, 5.19);
   });

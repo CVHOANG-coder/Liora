@@ -385,7 +385,7 @@ void main() {
   );
 
   test(
-    'generate theme video posts two frames as authenticated multipart',
+    'generate theme video posts only the first frame as authenticated multipart',
     () async {
       final apiAdapter = _CallbackAdapter((options) {
         expect(options.path, '/users/gen-theme');
@@ -403,7 +403,6 @@ void main() {
         );
         expect(formData.files.map((entry) => entry.key), <String>[
           'source_image',
-          'source_image2',
         ]);
         return _jsonResponse(_themeGenerationBody(), 200);
       });
@@ -417,7 +416,6 @@ void main() {
       final generation = await client.generateThemeVideo(
         themeId: 'mad_dance',
         firstImagePath: 'assets/images/create_video.png',
-        lastImagePath: 'assets/images/create_video.png',
         isHd: true,
         isLongTime: true,
       );
@@ -429,63 +427,44 @@ void main() {
     },
   );
 
-  test('generate theme video omits the optional last frame', () async {
-    final apiAdapter = _CallbackAdapter((options) {
-      final formData = options.data as FormData;
-      expect(formData.files.map((entry) => entry.key), <String>[
-        'source_image',
-      ]);
-      return _jsonResponse(_i2vBody(), 200);
-    });
-    final client = ApiClient(
-      authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
-      httpClient: _dioWithAdapter(apiAdapter),
-      deviceIdentity: const _FakeDeviceIdentity(),
-      tokenStorage: _MemoryTokenStorage('saved-token'),
-    );
-
-    await client.generateThemeVideo(
-      themeId: 'mad_dance',
-      firstImagePath: 'assets/images/create_video.png',
-      isHd: false,
-      isLongTime: false,
-    );
-  });
-
-  test('theme generation preserves a nested insufficient-coin error', () async {
-    final client = ApiClient(
-      authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
-      httpClient: _dioWithAdapter(
-        _CallbackAdapter(
-          (_) => _jsonResponse(<String, dynamic>{
-            'success': false,
-            'error': <String, dynamic>{
-              'message': 'Không đủ coin để tạo video.',
-            },
-            'data': null,
-          }, 200),
+  test(
+    'theme generation preserves a nested insufficient-credit error',
+    () async {
+      final client = ApiClient(
+        authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
+        httpClient: _dioWithAdapter(
+          _CallbackAdapter(
+            (_) => _jsonResponse(<String, dynamic>{
+              'success': false,
+              'error': <String, dynamic>{
+                'message': 'Not enough credits to generate this video.',
+                'error_code': ApiErrorCode.insufficientCredit,
+              },
+              'data': null,
+            }, 200),
+          ),
         ),
-      ),
-      deviceIdentity: const _FakeDeviceIdentity(),
-      tokenStorage: _MemoryTokenStorage('saved-token'),
-    );
+        deviceIdentity: const _FakeDeviceIdentity(),
+        tokenStorage: _MemoryTokenStorage('saved-token'),
+      );
 
-    await expectLater(
-      client.generateThemeVideo(
-        themeId: 'mad_dance',
-        firstImagePath: 'assets/images/create_video.png',
-        isHd: false,
-        isLongTime: false,
-      ),
-      throwsA(
-        isA<ApiException>().having(
-          (error) => error.message,
-          'message',
-          contains('Không đủ coin'),
+      await expectLater(
+        client.generateThemeVideo(
+          themeId: 'mad_dance',
+          firstImagePath: 'assets/images/create_video.png',
+          isHd: false,
+          isLongTime: false,
         ),
-      ),
-    );
-  });
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            contains('Not enough credits'),
+          ),
+        ),
+      );
+    },
+  );
 
   test(
     'fetch video request status uses request id and parses result',

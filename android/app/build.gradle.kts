@@ -1,3 +1,8 @@
+val releaseStorePassword = providers.gradleProperty("storePassword").get()
+val releaseKeyPassword = providers.gradleProperty("keyPassword").get()
+val releaseKeyAlias = providers.gradleProperty("keyAlias").get()
+val releaseStoreFile = rootProject.file(providers.gradleProperty("storeFile").get())
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -26,11 +31,18 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+            storeFile = releaseStoreFile
+            storePassword = releaseStorePassword
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

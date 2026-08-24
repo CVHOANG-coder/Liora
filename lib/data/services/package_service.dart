@@ -17,17 +17,17 @@ class PackageService {
         throw const ApiException(message: 'Invalid package data.');
       }
 
-      final result = PackageCatalogResponse.fromJson(
-        Map<String, dynamic>.from(body),
-      );
-      if (!result.success) {
-        throw ApiException(
-          message: result.message.isEmpty
-              ? 'Unable to load package information.'
-              : result.message,
+      if (body['success'] != true) {
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to load package information.',
           statusCode: response.statusCode,
         );
       }
+
+      final result = PackageCatalogResponse.fromJson(
+        Map<String, dynamic>.from(body),
+      );
       return result.data;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

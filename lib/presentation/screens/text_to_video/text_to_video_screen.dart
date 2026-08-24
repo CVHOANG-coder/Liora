@@ -10,7 +10,9 @@ import '../../../data/services/generation_progress_repository.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../image_to_video/creating_video_screen.dart';
-import '../in_app_purchase/in_app_purchase_screen.dart';
+import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/credit_purchase_navigation.dart';
+import '../support/support_contact_screen.dart';
 
 typedef TextToVideoSubmit =
     Future<I2VGeneration> Function({
@@ -136,21 +138,41 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      final message = error is ApiException
-          ? error.message
-          : 'Unable to generate the video. Please try again.';
-      final action = await GenerationFailureDialog.show(
+      final action = await GenerationFailureDialog.showForError(
         context,
-        message: message,
-        outOfCredits: isInsufficientCreditError(error),
+        error: error,
+        fallbackMessage: 'Unable to generate the video. Please try again.',
       );
       if (!mounted) return;
-      if (action == GenerationFailureAction.buyCredits) {
-        await Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
-      } else if (action == GenerationFailureAction.retry) {
-        await _generate();
+      switch (action) {
+        case GenerationFailureAction.buyCredits:
+          await openCreditPurchaseDestination(
+            context,
+            isVip: ref.read(profileProvider)?.isVip == true,
+          );
+        case GenerationFailureAction.renewSubscription:
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+        case GenerationFailureAction.contactSupport:
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SupportContactScreen(
+                errorCode: error is ApiException ? error.errorCode : null,
+                errorMessage: error is ApiException ? error.message : null,
+              ),
+            ),
+          );
+        case GenerationFailureAction.editInput:
+        case GenerationFailureAction.chooseImage:
+          _promptFocusNode.requestFocus();
+        case GenerationFailureAction.chooseTheme:
+          Navigator.maybePop(context);
+        case GenerationFailureAction.retry:
+          await _generate();
+        case GenerationFailureAction.close:
+        case null:
+          break;
       }
     }
   }
@@ -307,7 +329,7 @@ class _PromptBox extends StatelessWidget {
             ),
             decoration: const InputDecoration(
               hintText:
-                  'Describe the scene, action, camera motion,\nlighting, and mood...',
+                  'Describe the scene, action, camera motion, lighting, and mood...',
               hintStyle: TextStyle(
                 color: Color(0xFF88818E),
                 fontSize: 16,

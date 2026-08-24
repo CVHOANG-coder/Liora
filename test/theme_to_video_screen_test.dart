@@ -13,7 +13,7 @@ import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/theme_to_video/theme_to_video_screen.dart';
 
 void main() {
@@ -25,7 +25,7 @@ void main() {
     description: 'Mad dance',
   );
 
-  testWidgets('submits theme, first and last frames to the shared flow', (
+  testWidgets('submits a theme video with only the first frame', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 852);
@@ -45,7 +45,6 @@ void main() {
     var pickerCalls = 0;
     String? submittedTheme;
     String? submittedFirstImage;
-    String? submittedLastImage;
     bool? submittedHd;
     bool? submittedLong;
 
@@ -66,13 +65,11 @@ void main() {
                 ({
                   required themeId,
                   required firstImagePath,
-                  lastImagePath,
                   required isHd,
                   required isLongTime,
                 }) async {
                   submittedTheme = themeId;
                   submittedFirstImage = firstImagePath;
-                  submittedLastImage = lastImagePath;
                   submittedHd = isHd;
                   submittedLong = isLongTime;
                   return _generation();
@@ -84,11 +81,11 @@ void main() {
 
     expect(find.text('Prompt'), findsNothing);
     expect(find.text('First frame'), findsOneWidget);
-    expect(find.text('Last frame'), findsOneWidget);
+    expect(find.text('Last frame'), findsNothing);
+    expect(find.byKey(const Key('lastFrameCard')), findsNothing);
 
     await _selectGalleryFrame(tester, const Key('firstFrameCard'));
-    await _selectGalleryFrame(tester, const Key('lastFrameCard'));
-    expect(pickerCalls, 2);
+    expect(pickerCalls, 1);
 
     expect(find.text('10s'), findsOneWidget);
     expect(find.text('Non-HD'), findsOneWidget);
@@ -108,9 +105,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
+    expect(find.byKey(const Key('creatingSourceImage')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageScanLine')), findsOneWidget);
     expect(submittedTheme, 'mad_dance');
     expect(submittedFirstImage, imagePath);
-    expect(submittedLastImage, imagePath);
     expect(submittedHd, isFalse);
     expect(submittedLong, isTrue);
     expect(container.read(profileProvider)!.totalCredit, 65);
@@ -127,8 +126,6 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final imagePath = File('assets/images/create_video.png').absolute.path;
-    String? submittedLastImage;
-
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -141,11 +138,9 @@ void main() {
                 ({
                   required themeId,
                   required firstImagePath,
-                  lastImagePath,
                   required isHd,
                   required isLongTime,
                 }) async {
-                  submittedLastImage = lastImagePath;
                   return _generation();
                 },
           ),
@@ -160,12 +155,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
-    expect(submittedLastImage, isNull);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'shows Buy Credits when theme generation fails because coins are exhausted',
+    'opens FreeTrial when non-VIP theme generation runs out of credits',
     (tester) async {
       tester.view.physicalSize = const Size(393, 852);
       tester.view.devicePixelRatio = 1;
@@ -185,11 +179,11 @@ void main() {
                   ({
                     required themeId,
                     required firstImagePath,
-                    lastImagePath,
                     required isHd,
                     required isLongTime,
                   }) async => throw const ApiException(
-                    message: 'Không đủ coin để tạo video.',
+                    message: 'Not enough credits to generate this video.',
+                    errorCode: ApiErrorCode.insufficientCredit,
                     statusCode: 400,
                   ),
             ),
@@ -207,7 +201,7 @@ void main() {
       await tester.tap(find.text('Buy Credits'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(BuyCredits), findsOneWidget);
+      expect(find.byType(FreeTrialScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

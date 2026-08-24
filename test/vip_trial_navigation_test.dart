@@ -6,6 +6,7 @@ import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/yearly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 
 void main() {
@@ -35,7 +36,10 @@ void main() {
     tester,
   ) async {
     _configurePhoneSize(tester);
-    final container = _profileContainer(isSubscribed: true);
+    final container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 365,
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -52,12 +56,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('trialClaimButton')), findsNothing);
-    expect(find.text("You're on PRO"), findsOneWidget);
-    expect(find.text('CURRENT PLAN'), findsOneWidget);
+    expect(find.text("You're PRO! 👑"), findsOneWidget);
+    expect(find.text('Unlimited AI video generation'), findsOneWidget);
   });
+
+  testWidgets(
+    'weekly subscriber sees the yearly sale on app entry and resume',
+    (tester) async {
+      _configurePhoneSize(tester);
+      final container = _profileContainer(
+        isSubscribed: true,
+        subscriptionDays: 7,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: MainScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(YearlySaleScreen), findsOneWidget);
+      expect(find.text('Nostalia '), findsOneWidget);
+      expect(find.text('Sale Pro'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));
+      await tester.pumpAndSettle();
+      expect(find.byType(YearlySaleScreen), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(YearlySaleScreen), findsOneWidget);
+    },
+  );
 }
 
-ProviderContainer _profileContainer({required bool isSubscribed}) {
+ProviderContainer _profileContainer({
+  required bool isSubscribed,
+  int subscriptionDays = 7,
+}) {
   final container = ProviderContainer(
     overrides: [
       themeCategoriesProvider.overrideWith(
@@ -75,7 +116,13 @@ ProviderContainer _profileContainer({required bool isSubscribed}) {
           'isVIP': isSubscribed,
           'isSubscribed': isSubscribed,
           'sub_time': isSubscribed ? '2026-08-01T00:00:00Z' : null,
-          'sub_end_time': isSubscribed ? '2026-08-08T00:00:00Z' : null,
+          'sub_end_time': isSubscribed
+              ? DateTime.utc(
+                  2026,
+                  8,
+                  1,
+                ).add(Duration(days: subscriptionDays)).toIso8601String()
+              : null,
           'total_credit': 100,
           'i2v_credit_base': 35,
         }),

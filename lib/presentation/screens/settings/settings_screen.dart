@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/device/image_access_permission.dart';
 import '../../../core/storage/playback_preferences.dart';
+import '../support/app_web_view_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, this.preferences});
@@ -73,43 +74,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _showInfoDialog({
-    required String title,
-    required IconData icon,
-    required String message,
-  }) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        icon: _DialogIcon(icon: icon),
-        title: Text(title, textAlign: TextAlign.center),
-        content: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-            height: 1.5,
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF3DAA),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Got It'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -217,28 +181,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.shield_outlined,
                         title: 'Privacy',
                         subtitle: 'How the app protects your data',
-                        onTap: () => _showInfoDialog(
-                          title: 'Privacy',
-                          icon: Icons.shield_outlined,
-                          message:
-                              'Photos and videos are accessed only when you '
-                              'select them or grant permission. You can change '
-                              'app permissions at any time in system settings.',
-                        ),
+                        onTap: () =>
+                            AppWebViewScreen.open(context, AppWebPage.privacy),
                       ),
                       const _SettingsDivider(),
                       _ActionSettingsTile(
                         icon: Icons.description_outlined,
                         title: 'Terms of Service',
                         subtitle: 'Nostalia terms of use',
-                        onTap: () => _showInfoDialog(
-                          title: 'Terms of Service',
-                          icon: Icons.description_outlined,
-                          message:
-                              'When using Nostalia, you are responsible for '
-                              'uploaded and generated content. Do not use the '
-                              'service for unlawful purposes.',
-                        ),
+                        onTap: () =>
+                            AppWebViewScreen.open(context, AppWebPage.terms),
                       ),
                       const _SettingsDivider(),
                       const _ValueSettingsTile(
@@ -578,26 +530,5 @@ class _SettingsDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Divider(height: 1, indent: 67, color: Color(0xFF302632));
-  }
-}
-
-class _DialogIcon extends StatelessWidget {
-  const _DialogIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 54,
-      height: 54,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFFFF3DAA), Color(0xFFFF7941)],
-        ),
-      ),
-      child: Icon(icon, color: Colors.white),
-    );
   }
 }

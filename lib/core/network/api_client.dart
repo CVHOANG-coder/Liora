@@ -21,6 +21,7 @@ import '../../data/services/theme_generation_service.dart';
 import '../device/device_identity_service.dart';
 import '../storage/token_storage.dart';
 import 'api_config.dart';
+import 'api_exception.dart';
 import 'auth_interceptor.dart';
 
 class ApiClient {
@@ -117,13 +118,11 @@ class ApiClient {
   Future<I2VGeneration> generateThemeVideo({
     required String themeId,
     required String firstImagePath,
-    String? lastImagePath,
     required bool isHd,
     required bool isLongTime,
   }) => themeGenerationService.generate(
     themeId: themeId,
     firstImagePath: firstImagePath,
-    lastImagePath: lastImagePath,
     isHd: isHd,
     isLongTime: isLongTime,
   );
@@ -144,7 +143,12 @@ class ApiClient {
     if (authSession.hasToken) {
       try {
         return await profileService.fetchProfile(allowAuthRefresh: false);
-      } catch (_) {
+      } catch (error) {
+        if (error is ApiException &&
+            (error.hasCode(ApiErrorCode.accountBanned) ||
+                error.hasCode(ApiErrorCode.subscriptionExpired))) {
+          rethrow;
+        }
         // Continue with a fresh device sign-in below.
       }
     }

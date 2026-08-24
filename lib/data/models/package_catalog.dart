@@ -80,9 +80,14 @@ class PlatformPackages {
   AppPackage? get weeklySubscription =>
       _firstWhere(subscriptions, (package) => package.durationDays <= 14);
 
-  AppPackage? get yearlySubscription =>
-      _firstWhere(sales, (package) => package.durationDays >= 300) ??
+  AppPackage? get yearlySaleSubscription =>
+      _firstWhere(sales, (package) => package.durationDays >= 300);
+
+  AppPackage? get regularYearlySubscription =>
       _firstWhere(subscriptions, (package) => package.durationDays >= 300);
+
+  AppPackage? get yearlySubscription =>
+      yearlySaleSubscription ?? regularYearlySubscription;
 }
 
 class AppPackage {

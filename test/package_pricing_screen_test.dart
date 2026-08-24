@@ -6,6 +6,7 @@ import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/presentation/providers/package_provider.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 
 void main() {
@@ -54,6 +55,27 @@ void main() {
     expect(find.text(r'$2.59'), findsOneWidget);
     expect(find.text(r'$5.19'), findsNothing);
   });
+
+  testWidgets(
+    'opens the free trial screen when the subscription banner is tapped',
+    (tester) async {
+      final container = _container(isSubscribed: false);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: BuyCredits()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('subscriptionBanner')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FreeTrialScreen), findsOneWidget);
+    },
+  );
 }
 
 ProviderContainer _container({required bool isSubscribed}) {

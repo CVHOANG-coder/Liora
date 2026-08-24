@@ -12,7 +12,6 @@ class ThemeGenerationService {
   Future<I2VGeneration> generate({
     required String themeId,
     required String firstImagePath,
-    String? lastImagePath,
     required bool isHd,
     required bool isLongTime,
   }) async {
@@ -26,12 +25,6 @@ class ThemeGenerationService {
         'is_hd': isHd.toString(),
         'is_long_time': isLongTime.toString(),
       };
-      if (lastImagePath != null && lastImagePath.isNotEmpty) {
-        fields['source_image2'] = await MultipartFile.fromFile(
-          lastImagePath,
-          filename: Uri.file(lastImagePath).pathSegments.last,
-        );
-      }
 
       final response = await _dio.post<dynamic>(
         ApiConfig.generateThemePath,
@@ -43,10 +36,9 @@ class ThemeGenerationService {
       }
 
       if (body['success'] != true) {
-        throw ApiException(
-          message:
-              extractApiErrorMessage(body) ??
-              'Unable to submit the theme video request.',
+        throw ApiException.fromResponse(
+          responseData: body,
+          fallbackMessage: 'Unable to submit the theme video request.',
           statusCode: response.statusCode,
         );
       }
