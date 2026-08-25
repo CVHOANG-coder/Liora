@@ -54,9 +54,16 @@ class GooglePlayPurchaseGateway implements PurchaseGateway {
     PurchaseParam purchaseParam, {
     PurchaseDetails? oldPurchase,
   }) {
+    final offerToken = purchaseParam is GooglePlayPurchaseParam
+        ? purchaseParam.offerToken
+        : purchaseParam.productDetails is GooglePlayProductDetails
+        ? (purchaseParam.productDetails as GooglePlayProductDetails).offerToken
+        : null;
     final effectiveParam = oldPurchase is GooglePlayPurchaseDetails
         ? GooglePlayPurchaseParam(
             productDetails: purchaseParam.productDetails,
+            applicationUserName: purchaseParam.applicationUserName,
+            offerToken: offerToken,
             changeSubscriptionParam: ChangeSubscriptionParam(
               oldPurchaseDetails: oldPurchase,
               replacementMode: ReplacementMode.withTimeProration,

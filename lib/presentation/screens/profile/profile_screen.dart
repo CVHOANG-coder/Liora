@@ -297,7 +297,7 @@ String _profileIdentifier(UserProfile? profile) {
 }
 
 bool _hasProAccess(UserProfile? profile) {
-  return profile?.isSubscribed == true || profile?.isVip == true;
+  return profile?.isSubscribed == true || profile?.isVIP == true;
 }
 
 String _profileAccountStatus(UserProfile? profile) {

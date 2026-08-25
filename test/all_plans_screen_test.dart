@@ -117,7 +117,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("You're on PRO"), findsOneWidget);
-    expect(find.text('CURRENT PLAN'), findsOneWidget);
+    expect(find.text('CURRENT PLAN'), findsNothing);
+    expect(find.byKey(const Key('weeklyCurrentPlanCard')), findsNothing);
+    expect(find.text('Weekly Pro'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('yearlyUpgradePlanCard')),
+        matching: find.byIcon(Icons.check_rounded),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));

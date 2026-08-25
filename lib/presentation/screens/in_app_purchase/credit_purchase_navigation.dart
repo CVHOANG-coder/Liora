@@ -5,9 +5,9 @@ import 'in_app_purchase_screen.dart';
 
 Future<void> openCreditPurchaseDestination(
   BuildContext context, {
-  required bool isVip,
+  required bool isVIP,
 }) {
-  if (!isVip) return FreeTrialScreen.open(context);
+  if (!isVIP) return FreeTrialScreen.open(context);
   return Navigator.of(
     context,
   ).push<void>(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));

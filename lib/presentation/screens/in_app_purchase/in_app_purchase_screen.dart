@@ -10,6 +10,7 @@ import '../../providers/purchase_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
+import 'all_plans_screen.dart';
 import 'free_trial_screen.dart';
 
 class BuyCredits extends ConsumerStatefulWidget {
@@ -108,10 +109,14 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
                         if (index != packages.length - 1)
                           const SizedBox(height: 12),
                       ],
-                      const SizedBox(height: 14),
-                      _SubscriptionBanner(
-                        onTap: () => FreeTrialScreen.open(context),
-                      ),
+                      if (profile?.isSubscribed != true) ...[
+                        const SizedBox(height: 14),
+                        _SubscriptionBanner(
+                          onTap: () => _openSubscriptionPlans(
+                            isVIP: profile?.isVIP == true,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       _BuyButton(
                         label: _buyButtonLabel(purchaseState),
@@ -147,6 +152,13 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
     return ref
         .read(purchaseControllerProvider.notifier)
         .buy(productId: package.productId ?? '', consumable: true);
+  }
+
+  Future<void> _openSubscriptionPlans({required bool isVIP}) {
+    if (!isVIP) return FreeTrialScreen.open(context);
+    return Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
   }
 
   String _buyButtonLabel(PurchaseState state) => switch (state.status) {

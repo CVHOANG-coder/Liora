@@ -3,9 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/storage/yearly_sale_preferences.dart';
 import '../../data/models/package_catalog.dart';
 import '../../data/models/purchase_verification.dart';
 import '../../data/services/google_play_purchase_gateway.dart';
@@ -84,8 +87,32 @@ final purchaseGatewayProvider = Provider<PurchaseGateway>(
 
 final googlePlayPlatformProvider = Provider<bool>((ref) => Platform.isAndroid);
 
+final yearlySalePreferencesProvider = Provider<YearlySalePreferences>(
+  (ref) => SharedPreferencesYearlySalePreferences(),
+);
+
 final purchaseControllerProvider =
     NotifierProvider<PurchaseController, PurchaseState>(PurchaseController.new);
+
+String? recurringSubscriptionPrice(ProductDetails? product) {
+  if (product is GooglePlayProductDetails) {
+    final offer = _selectedGooglePlayOffer(product);
+    if (offer != null && offer.pricingPhases.isNotEmpty) {
+      return offer.pricingPhases.last.formattedPrice;
+    }
+  }
+  return product?.price;
+}
+
+double? recurringSubscriptionRawPrice(ProductDetails? product) {
+  if (product is GooglePlayProductDetails) {
+    final offer = _selectedGooglePlayOffer(product);
+    if (offer != null && offer.pricingPhases.isNotEmpty) {
+      return offer.pricingPhases.last.priceAmountMicros / 1000000;
+    }
+  }
+  return product?.rawPrice;
+}
 
 class PurchaseController extends Notifier<PurchaseState> {
   static const _profileRefreshAttempts = 3;
@@ -95,8 +122,10 @@ class PurchaseController extends Notifier<PurchaseState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   late PurchaseGateway _gateway;
   late ApiClient _apiClient;
+  late YearlySalePreferences _yearlySalePreferences;
   final Set<String> _consumableProductIds = <String>{};
   final Set<String> _subscriptionProductIds = <String>{};
+  final Set<String> _weeklySubscriptionProductIds = <String>{};
   final Set<String> _processingPurchaseTokens = <String>{};
   bool _billingAvailable = false;
   bool _disposed = false;
@@ -109,6 +138,7 @@ class PurchaseController extends Notifier<PurchaseState> {
 
     _gateway = ref.watch(purchaseGatewayProvider);
     _apiClient = ref.watch(apiClientProvider);
+    _yearlySalePreferences = ref.watch(yearlySalePreferencesProvider);
     ref.onDispose(() {
       _disposed = true;
       unawaited(_purchaseSubscription?.cancel());
@@ -170,6 +200,14 @@ class PurchaseController extends Notifier<PurchaseState> {
           ...packages.sales,
         ].map((package) => package.productId).where((id) => id.isNotEmpty),
       );
+    _weeklySubscriptionProductIds
+      ..clear()
+      ..addAll(
+        packages.subscriptions
+            .where((package) => package.durationDays <= 14)
+            .map((package) => package.productId)
+            .where((id) => id.isNotEmpty),
+      );
     final ids = <AppPackage>[
       ...packages.subscriptions,
       ...packages.sales,
@@ -179,6 +217,29 @@ class PurchaseController extends Notifier<PurchaseState> {
     if (ids.isEmpty) return;
 
     await _queryProducts(ids);
+    await _recoverUnfinishedPurchases();
+  }
+
+  Future<void> _recoverUnfinishedPurchases() async {
+    try {
+      final purchases = await _gateway.queryPastPurchases();
+      for (final purchase in purchases) {
+        final knownProduct =
+            _subscriptionProductIds.contains(purchase.productID) ||
+            _consumableProductIds.contains(purchase.productID);
+        final completedPurchase =
+            purchase.status == PurchaseStatus.purchased ||
+            purchase.status == PurchaseStatus.restored;
+        if (knownProduct &&
+            completedPurchase &&
+            purchase.pendingCompletePurchase) {
+          await _verifyAndFinish(purchase);
+        }
+      }
+    } catch (_) {
+      // Purchase-stream delivery remains the fallback. Catalog loading and app
+      // startup should not fail merely because Play recovery is unavailable.
+    }
   }
 
   Future<void> _queryProducts(Set<String> ids) async {
@@ -186,9 +247,13 @@ class PurchaseController extends Notifier<PurchaseState> {
       final response = await _gateway.queryProductDetails(ids);
       if (_disposed) return;
       final products = Map<String, ProductDetails>.of(state.products);
-      products.addEntries(
-        response.productDetails.map((product) => MapEntry(product.id, product)),
-      );
+      for (final product in response.productDetails) {
+        final current = products[product.id];
+        if (current == null ||
+            _offerPriority(product) > _offerPriority(current)) {
+          products[product.id] = product;
+        }
+      }
       state = state.copyWith(
         status: state.isBusy ? state.status : PurchaseFlowStatus.ready,
         products: products,
@@ -243,7 +308,12 @@ class PurchaseController extends Notifier<PurchaseState> {
       clearMessage: true,
     );
     try {
-      final purchaseParam = PurchaseParam(productDetails: product);
+      final purchaseParam = !consumable && product is GooglePlayProductDetails
+          ? GooglePlayPurchaseParam(
+              productDetails: product,
+              offerToken: product.offerToken,
+            )
+          : PurchaseParam(productDetails: product);
       PurchaseDetails? oldSubscription;
       if (!consumable && replaceExistingSubscription) {
         final purchases = await _gateway.queryPastPurchases();
@@ -352,12 +422,26 @@ class PurchaseController extends Notifier<PurchaseState> {
       final consumable = _consumableProductIds.contains(purchase.productID);
       if (consumable) {
         await _gateway.consume(purchase);
-      } else if (purchase.pendingCompletePurchase) {
+      } else {
+        // Android completePurchase is idempotent: it acknowledges an unfinished
+        // subscription and is a no-op when Google Play already acknowledged it.
+        // Do not rely solely on pendingCompletePurchase because a stale value
+        // would leave the subscription waiting for confirmation in Play Store.
         await _gateway.complete(purchase);
       }
 
       final profileRefreshed = await _refreshProfileAfterPurchase();
       if (!profileRefreshed) _scheduleBackgroundProfileRefresh();
+
+      if (purchase.status == PurchaseStatus.purchased &&
+          _weeklySubscriptionProductIds.contains(purchase.productID)) {
+        try {
+          await _yearlySalePreferences.scheduleAfterWeeklyPurchase();
+        } catch (_) {
+          // A local preference failure must not turn a verified payment into
+          // a failed purchase.
+        }
+      }
 
       if (!_disposed) {
         final successMessage = result.message.isEmpty
@@ -424,4 +508,28 @@ class PurchaseController extends Notifier<PurchaseState> {
     if (error is String && error.trim().isNotEmpty) return error.trim();
     return 'Unable to process the purchase. Please try again.';
   }
+}
+
+int _offerPriority(ProductDetails product) {
+  if (product is! GooglePlayProductDetails) return 0;
+  final offer = _selectedGooglePlayOffer(product);
+  if (offer == null) return 0;
+
+  if (offer.pricingPhases.any((phase) => phase.priceAmountMicros == 0)) {
+    return 3;
+  }
+  return offer.offerId == null ? 1 : 2;
+}
+
+SubscriptionOfferDetailsWrapper? _selectedGooglePlayOffer(
+  GooglePlayProductDetails product,
+) {
+  final subscriptionIndex = product.subscriptionIndex;
+  final offers = product.productDetails.subscriptionOfferDetails;
+  if (subscriptionIndex == null ||
+      offers == null ||
+      subscriptionIndex >= offers.length) {
+    return null;
+  }
+  return offers[subscriptionIndex];
 }

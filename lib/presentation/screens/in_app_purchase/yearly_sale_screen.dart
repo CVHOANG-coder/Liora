@@ -150,7 +150,7 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
         _purchaseStarted = false;
         final message = next.message ?? 'Your Yearly Pro plan is now active.';
         final messenger = ScaffoldMessenger.of(context);
-        await Navigator.maybePop(context);
+        Navigator.of(context).popUntil((route) => route.isFirst);
         messenger
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(message)));
@@ -266,9 +266,12 @@ class _SalePricing {
     final storeRegular = regularPackage == null
         ? null
         : storeProducts[regularPackage.productId];
-    final saleAmount = storeSale?.rawPrice ?? salePackage?.price ?? 29.99;
+    final saleAmount =
+        recurringSubscriptionRawPrice(storeSale) ?? salePackage?.price ?? 29.99;
     final regularAmount =
-        storeRegular?.rawPrice ?? regularPackage?.price ?? 99.99;
+        recurringSubscriptionRawPrice(storeRegular) ??
+        regularPackage?.price ??
+        99.99;
     final safeRegularAmount = regularAmount > saleAmount
         ? regularAmount
         : saleAmount;
@@ -278,9 +281,12 @@ class _SalePricing {
               .round();
 
     return _SalePricing(
-      salePrice: storeSale?.price ?? '\$${saleAmount.toStringAsFixed(2)}',
+      salePrice:
+          recurringSubscriptionPrice(storeSale) ??
+          '\$${saleAmount.toStringAsFixed(2)}',
       regularPrice:
-          storeRegular?.price ?? '\$${safeRegularAmount.toStringAsFixed(2)}',
+          recurringSubscriptionPrice(storeRegular) ??
+          '\$${safeRegularAmount.toStringAsFixed(2)}',
       weeklyPrice: _formatWeeklyPrice(storeSale, saleAmount),
       savingsPercent: percent,
     );
@@ -426,10 +432,10 @@ class _SaleHero extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            right: -28,
-            top: -34,
-            width: 228,
-            height: 253,
+            right: 0,
+            top: -10,
+            width: 171,
+            height: 189.75,
             child: Image.asset(
               'assets/images/in_app_purchase/sale_yearly.png',
               fit: BoxFit.contain,

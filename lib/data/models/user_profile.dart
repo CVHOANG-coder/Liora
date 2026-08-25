@@ -42,7 +42,7 @@ class UserProfile {
     required this.generationCount,
     required this.todayGenerationCount,
     required this.userStatus,
-    required this.isVip,
+    required this.isVIP,
     required this.isSubscribed,
     required this.totalCredit,
     required this.imageToVideoBaseCredit,
@@ -68,7 +68,7 @@ class UserProfile {
       generationCount: (json['gen_count'] as num?)?.toInt() ?? 0,
       todayGenerationCount: (json['today_gen_count'] as num?)?.toInt() ?? 0,
       userStatus: json['user_status']?.toString() ?? '',
-      isVip: json['isVIP'] == true,
+      isVIP: json['isVIP'] == true,
       isSubscribed: json['isSubscribed'] == true,
       totalCredit: (json['total_credit'] as num?)?.toInt() ?? 0,
       imageToVideoBaseCredit: (json['i2v_credit_base'] as num?)?.toInt() ?? 0,
@@ -92,7 +92,7 @@ class UserProfile {
   final int generationCount;
   final int todayGenerationCount;
   final String userStatus;
-  final bool isVip;
+  final bool isVIP;
   final bool isSubscribed;
   final int totalCredit;
   final int imageToVideoBaseCredit;
@@ -116,7 +116,7 @@ class UserProfile {
       generationCount: generationCount,
       todayGenerationCount: todayGenerationCount,
       userStatus: userStatus,
-      isVip: isVip,
+      isVIP: isVIP,
       isSubscribed: isSubscribed,
       totalCredit: totalCredit ?? this.totalCredit,
       imageToVideoBaseCredit: imageToVideoBaseCredit,

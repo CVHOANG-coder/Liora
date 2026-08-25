@@ -2,49 +2,49 @@ name: video_gen
 description: "A lightweight AI content creation app starter."
 publish_to: "none"
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
-  sdk: ^3.12.2
+    sdk: ^3.12.2
 
 dependencies:
-  android_id: ^0.5.2+1
-  device_info_plus: ^13.2.0
-  dio: ^5.11.0
-  firebase_analytics: ^12.4.6
-  firebase_core: ^4.13.0
-  firebase_messaging: ^16.5.0
-  flutter:
-    sdk: flutter
-  flutter_local_notifications: ^22.3.0
-  flutter_riverpod: ^3.4.2
-  flutter_svg: ^2.0.17
-  gal: ^2.3.3
-  image_picker: ^1.2.1
-  in_app_purchase: ^3.3.0
-  in_app_purchase_android: ^0.5.2
-  lottie: ^3.5.1
-  package_info_plus: ^10.2.1
-  permission_handler: ^12.0.3
-  shared_preferences: ^2.5.5
-  video_player: ^2.14.0
-  webview_flutter: ^4.14.1
+    android_id: ^0.5.2+1
+    device_info_plus: ^13.2.0
+    dio: ^5.11.0
+    firebase_analytics: ^12.4.6
+    firebase_core: ^4.13.0
+    firebase_messaging: ^16.5.0
+    flutter:
+        sdk: flutter
+    flutter_local_notifications: ^22.3.0
+    flutter_riverpod: ^3.4.2
+    flutter_svg: ^2.0.17
+    gal: ^2.3.3
+    image_picker: ^1.2.1
+    in_app_purchase: ^3.3.0
+    in_app_purchase_android: ^0.5.2
+    lottie: ^3.5.1
+    package_info_plus: ^10.2.1
+    permission_handler: ^12.0.3
+    shared_preferences: ^2.5.5
+    video_player: ^2.14.0
+    webview_flutter: ^4.14.1
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^6.0.0
+    flutter_test:
+        sdk: flutter
+    flutter_lints: ^6.0.0
 
 flutter:
-  uses-material-design: true
-  assets:
-    - assets/images/bg_splash.png
-    - assets/images/create_video.png
-    - assets/images/home/
-    - assets/images/gen_video/
-    - assets/images/in_app_purchase/
-    - assets/images/templates/
-    - assets/images/profile/
-    - assets/images/on_boarding/
-    - assets/lotties/
-    - assets/svgs/
+    uses-material-design: true
+    assets:
+        - assets/images/bg_splash.png
+        - assets/images/create_video.png
+        - assets/images/home/
+        - assets/images/gen_video/
+        - assets/images/in_app_purchase/
+        - assets/images/templates/
+        - assets/images/profile/
+        - assets/images/on_boarding/
+        - assets/lotties/
+        - assets/svgs/

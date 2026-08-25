@@ -40,7 +40,9 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
         ?.weeklySubscription;
     final storePrice = weeklyPackage == null
         ? null
-        : purchaseState.products[weeklyPackage.productId]?.price;
+        : recurringSubscriptionPrice(
+            purchaseState.products[weeklyPackage.productId],
+          );
     final weeklyPrice =
         storePrice ??
         (weeklyPackage == null

@@ -289,7 +289,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
         case GenerationFailureAction.buyCredits:
           await openCreditPurchaseDestination(
             context,
-            isVip: ref.read(profileProvider)?.isVip == true,
+            isVIP: ref.read(profileProvider)?.isVIP == true,
           );
         case GenerationFailureAction.renewSubscription:
           await Navigator.of(

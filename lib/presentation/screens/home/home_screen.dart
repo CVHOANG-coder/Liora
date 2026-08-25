@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../data/video_categories.dart';
+import '../../providers/home_subscription_plan_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
-import '../in_app_purchase/free_trial_screen.dart';
+import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
 
@@ -23,9 +24,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
-    final isSubscribed = ref.watch(
-      profileProvider.select((profile) => profile?.isSubscribed ?? false),
-    );
+    final profile = ref.watch(profileProvider);
+    final planStatus =
+        ref.watch(homeSubscriptionPlanProvider).value ??
+        homeSubscriptionPlanFromProfile(profile);
+    final planAction = switch (planStatus) {
+      HomeSubscriptionPlan.weekly => _HomePlanAction.upgrade,
+      HomeSubscriptionPlan.yearly => _HomePlanAction.credit,
+      HomeSubscriptionPlan.none => _HomePlanAction.pro,
+    };
     final categories = ref.watch(themeCategoriesProvider);
 
     return ColoredBox(
@@ -41,10 +48,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               sliver: SliverList.list(
                 children: [
                   _HomeHeader(
-                    isSubscribed: isSubscribed,
+                    planAction: planAction,
                     onProPressed: () {
-                      if (!isSubscribed) {
-                        FreeTrialScreen.open(context);
+                      if (planStatus == HomeSubscriptionPlan.yearly) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const BuyCredits(),
+                          ),
+                        );
                         return;
                       }
                       Navigator.of(context).push(
@@ -76,25 +87,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.isSubscribed, required this.onProPressed});
+enum _HomePlanAction { pro, upgrade, credit }
 
-  final bool isSubscribed;
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.planAction, required this.onProPressed});
+
+  final _HomePlanAction planAction;
   final VoidCallback onProPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Align(
+    final isCredit = planAction == _HomePlanAction.credit;
+    final label = switch (planAction) {
+      _HomePlanAction.pro => 'Pro',
+      _HomePlanAction.upgrade => 'Upgrade',
+      _HomePlanAction.credit => 'Credit',
+    };
+    final semanticsLabel = switch (planAction) {
+      _HomePlanAction.pro => 'View Pro offer',
+      _HomePlanAction.upgrade => 'Upgrade to Yearly Pro',
+      _HomePlanAction.credit => 'Buy credits',
+    };
+    final accentColor = isCredit
+        ? const Color(0xFFFFC531)
+        : const Color(0xFFFF42B5);
+
+    return SizedBox(
+      height: 38,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
             alignment: Alignment.centerLeft,
             child: Semantics(
               button: true,
               enabled: true,
-              label: isSubscribed ? 'Open Pro plan' : 'View Pro offer',
+              label: semanticsLabel,
               child: Material(
-                color: const Color(0xFF150A13),
+                color: isCredit
+                    ? const Color(0xFF1B1205)
+                    : const Color(0xFF150A13),
                 borderRadius: BorderRadius.circular(20),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -105,25 +137,33 @@ class _HomeHeader extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFFF42B5)),
+                      border: Border.all(color: accentColor),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SvgPicture.asset(
-                          'assets/svgs/pro.svg',
-                          width: 18,
-                          height: 18,
-                          fit: BoxFit.contain,
-                          colorFilter: const ColorFilter.mode(
-                            Color(0xFFFF48C3),
-                            BlendMode.srcIn,
+                        if (isCredit)
+                          Image.asset(
+                            'assets/images/in_app_purchase/coin3.png',
+                            width: 20,
+                            height: 20,
+                            fit: BoxFit.contain,
+                          )
+                        else
+                          SvgPicture.asset(
+                            'assets/svgs/pro.svg',
+                            width: 18,
+                            height: 18,
+                            fit: BoxFit.contain,
+                            colorFilter: const ColorFilter.mode(
+                              Color(0xFFFF48C3),
+                              BlendMode.srcIn,
+                            ),
                           ),
-                        ),
                         const SizedBox(width: 6),
-                        const Text(
-                          'Pro',
-                          style: TextStyle(
+                        Text(
+                          label,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -136,50 +176,52 @@ class _HomeHeader extends StatelessWidget {
               ),
             ),
           ),
-        ),
-        const _Brand(),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.notifications_none_rounded, size: 28),
-                  Positioned(
-                    right: 1,
-                    top: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF4149),
-                        shape: BoxShape.circle,
+          const _Brand(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_none_rounded, size: 28),
+                    Positioned(
+                      right: 1,
+                      top: 0,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF4149),
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  width: 38,
+                  height: 38,
+                  padding: const EdgeInsets.all(1.5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFF48C3), Color(0xFFFF6A3D)],
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Container(
-                width: 38,
-                height: 38,
-                padding: const EdgeInsets.all(1.5),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF48C3), Color(0xFFFF6A3D)],
+                  child: const CircleAvatar(
+                    backgroundColor: Color(0xFF18131A),
+                    backgroundImage: AssetImage('$_assetRoot/moody-light.jpg'),
                   ),
                 ),
-                child: const CircleAvatar(
-                  backgroundColor: Color(0xFF18131A),
-                  backgroundImage: AssetImage('$_assetRoot/moody-light.jpg'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

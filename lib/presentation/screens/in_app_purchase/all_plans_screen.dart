@@ -48,7 +48,7 @@ class _PlanPrices {
     Map<String, ProductDetails> storeProducts,
   ) {
     final weeklyPackage = packages?.weeklySubscription;
-    final yearlyPackage = packages?.yearlySubscription;
+    final yearlyPackage = packages?.regularYearlySubscription;
     if (weeklyPackage == null || yearlyPackage == null) {
       return const _PlanPrices(
         weekly: 'VND 210,000/week',
@@ -67,8 +67,12 @@ class _PlanPrices {
         ? 0
         : ((savings / weeklyPackage.price) * 100).round();
 
-    final storeWeekly = storeProducts[weeklyPackage.productId]?.price;
-    final storeYearly = storeProducts[yearlyPackage.productId]?.price;
+    final storeWeekly = recurringSubscriptionPrice(
+      storeProducts[weeklyPackage.productId],
+    );
+    final storeYearly = recurringSubscriptionPrice(
+      storeProducts[yearlyPackage.productId],
+    );
     return _PlanPrices(
       weekly:
           '${storeWeekly ?? '\$${weeklyPackage.price.toStringAsFixed(2)}'}/week',
@@ -142,6 +146,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
                       activeUntil,
                       prices,
                       purchaseState,
+                      isVIP: profile?.isVIP == true,
                     ),
                   ),
                 ),
@@ -157,8 +162,9 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     ProPlanStatus activePlan,
     String activeUntil,
     _PlanPrices prices,
-    PurchaseState purchaseState,
-  ) {
+    PurchaseState purchaseState, {
+    required bool isVIP,
+  }) {
     return [
       _TopActions(
         muted: _muted,
@@ -172,7 +178,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       const _NostaliaLogo(),
       const SizedBox(height: 10),
       if (activePlan == ProPlanStatus.none)
-        ..._availablePlanContent(prices, purchaseState),
+        ..._availablePlanContent(prices, purchaseState, isVIP: isVIP),
       if (activePlan == ProPlanStatus.weekly)
         ..._weeklyPlanContent(prices, purchaseState),
       if (activePlan == ProPlanStatus.yearly)
@@ -182,8 +188,9 @@ class _AllPlansState extends ConsumerState<AllPlans> {
 
   List<Widget> _availablePlanContent(
     _PlanPrices prices,
-    PurchaseState purchaseState,
-  ) {
+    PurchaseState purchaseState, {
+    required bool isVIP,
+  }) {
     return [
       const Text(
         'Ready to go PRO?',
@@ -219,13 +226,15 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         popular: true,
         onTap: () => setState(() => _selectedPlan = 0),
       ),
-      const SizedBox(height: 13),
-      _PlanCard(
-        title: 'Weekly Pro',
-        price: prices.weekly,
-        selected: _selectedPlan == 1,
-        onTap: () => setState(() => _selectedPlan = 1),
-      ),
+      if (!isVIP) ...[
+        const SizedBox(height: 13),
+        _PlanCard(
+          title: 'Weekly Pro',
+          price: prices.weekly,
+          selected: _selectedPlan == 1,
+          onTap: () => setState(() => _selectedPlan = 1),
+        ),
+      ],
       const SizedBox(height: 21),
       _SubscribeButton(
         busy: purchaseState.isBusy,
@@ -246,19 +255,12 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       const _WeeklyMemberBanner(),
       const SizedBox(height: 14),
       _OwnedPlanCard(
-        title: 'Weekly Pro',
-        price: prices.weekly,
-        caption: 'Renews weekly',
-        label: 'CURRENT PLAN',
-        selected: true,
-      ),
-      const SizedBox(height: 13),
-      _OwnedPlanCard(
+        key: const Key('yearlyUpgradePlanCard'),
         title: 'Yearly Pro',
         price: prices.yearly,
         caption: 'Billed annually',
         label: 'SAVE MORE',
-        selected: false,
+        selected: true,
         bestValue: true,
       ),
       const SizedBox(height: 12),
@@ -304,8 +306,8 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     final packages = ref
         .read(packageCatalogProvider)
         ?.forPlatform(profile?.platform);
-    final package = _selectedPlan == 0
-        ? packages?.yearlySubscription
+    final package = profile?.isVIP == true || _selectedPlan == 0
+        ? packages?.regularYearlySubscription
         : packages?.weeklySubscription;
     _buySubscription(package);
   }
@@ -315,7 +317,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     final package = ref
         .read(packageCatalogProvider)
         ?.forPlatform(profile?.platform)
-        ?.yearlySubscription;
+        ?.regularYearlySubscription;
     _buySubscription(package, replaceExisting: true);
   }
 
@@ -390,6 +392,17 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         case null:
           break;
       }
+      return;
+    }
+    if (next.status == PurchaseFlowStatus.success &&
+        _lastAttemptedPackage?.durationDays != null &&
+        _lastAttemptedPackage!.durationDays >= 300) {
+      final messenger = ScaffoldMessenger.of(context);
+      _lastAttemptedPackage = null;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(next.message!)));
       return;
     }
     ScaffoldMessenger.of(context)
@@ -1033,8 +1046,7 @@ class _WeeklyIntro extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'Current plan: Weekly Pro. Upgrade to Yearly and save more '
-                'on your subscription.',
+                'Upgrade to Yearly and save more on your subscription.',
                 style: TextStyle(
                   color: Color(0xFFC9C3CB),
                   fontSize: 14.5,
@@ -1099,7 +1111,7 @@ class _WeeklyMemberBanner extends StatelessWidget {
                     ),
                     TextSpan(text: ' creators using '),
                     TextSpan(
-                      text: 'Weekly Pro',
+                      text: 'PRO',
                       style: TextStyle(
                         color: Color(0xFFFFA825),
                         fontWeight: FontWeight.w700,
@@ -1119,6 +1131,7 @@ class _WeeklyMemberBanner extends StatelessWidget {
 
 class _OwnedPlanCard extends StatelessWidget {
   const _OwnedPlanCard({
+    super.key,
     required this.title,
     required this.price,
     required this.caption,
@@ -1299,7 +1312,7 @@ class _SavingsBanner extends StatelessWidget {
                     TextSpan(
                       text:
                           "That’s ${prices.weeklySavings}/week less compared "
-                          'to Weekly Pro.',
+                          'with your current plan.',
                     ),
                   ],
                 ),
