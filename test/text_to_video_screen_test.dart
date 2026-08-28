@@ -133,16 +133,32 @@ void main() {
   testWidgets('opens FreeTrial when non-VIP T2V user runs out of credits', (
     tester,
   ) async {
+    var submitCount = 0;
+    String? originalPrompt;
+    bool? originalIsHd;
+    bool? originalIsLongTime;
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
           home: TextToVideoScreen(
+            progressRepository: _MemoryProgressRepository(),
             submit:
-                ({required prompt, required isHd, required isLongTime}) async =>
+                ({required prompt, required isHd, required isLongTime}) async {
+                  submitCount += 1;
+                  if (submitCount == 1) {
+                    originalPrompt = prompt;
+                    originalIsHd = isHd;
+                    originalIsLongTime = isLongTime;
                     throw const ApiException(
                       message: 'You need 35 credits, current balance is 0.',
                       statusCode: 400,
-                    ),
+                    );
+                  }
+                  expect(prompt, originalPrompt);
+                  expect(isHd, originalIsHd);
+                  expect(isLongTime, originalIsLongTime);
+                  return _generation();
+                },
           ),
         ),
       ),
@@ -155,12 +171,23 @@ void main() {
     await tester.tap(find.byKey(const Key('generateTextToVideo')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Not Enough Credits'), findsOneWidget);
-    expect(find.text('Buy Credits'), findsOneWidget);
-    await tester.tap(find.text('Buy Credits'));
-    await tester.pumpAndSettle();
-
+    expect(find.text('Not Enough Credits'), findsNothing);
     expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(
+      find.widgetWithText(
+        SnackBar,
+        'You need 35 credits, current balance is 0.',
+      ),
+      findsOneWidget,
+    );
+
+    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(submitCount, 2);
+    expect(find.byType(CreatingVideoScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

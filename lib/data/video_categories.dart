@@ -57,7 +57,7 @@ class VideoCategory {
               .map(
                 (item) => VideoPost.fromJson(Map<String, dynamic>.from(item)),
               )
-              .where((post) => post.thumbnailUrl != null)
+              .where((post) => post.previewImageUrl != null)
               .toList(growable: false)
         : <VideoPost>[];
     posts.sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
@@ -76,6 +76,7 @@ class VideoPost {
     required this.thumbnailUrl,
     required this.videoUrl,
     required this.description,
+    this.previewWebpUrl,
     this.themeKey = '',
     this.serviceType = '',
     this.sortOrder = 0,
@@ -83,11 +84,16 @@ class VideoPost {
 
   final String id;
   final String? thumbnailUrl;
+  final String? previewWebpUrl;
   final String? videoUrl;
   final String description;
   final String themeKey;
   final String serviceType;
   final int sortOrder;
+
+  /// Prefer the WebP preview in lists, keeping the still thumbnail as fallback.
+  String? get previewImageUrl =>
+      _nonEmptyString(previewWebpUrl) ?? _nonEmptyString(thumbnailUrl);
 
   factory VideoPost.fromJson(Map<String, dynamic> json) {
     final themeKey = json['theme_key']?.toString() ?? '';
@@ -98,6 +104,7 @@ class VideoPost {
     return VideoPost(
       id: themeKey.isEmpty ? rawId : themeKey,
       thumbnailUrl: thumbnailUrl,
+      previewWebpUrl: _nonEmptyString(json['preview_webp_url']),
       videoUrl: videoUrl,
       description: json['name']?.toString() ?? 'AI video template',
       themeKey: themeKey,

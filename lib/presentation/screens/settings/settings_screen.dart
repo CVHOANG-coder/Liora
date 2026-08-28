@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/device/image_access_permission.dart';
+import '../../../core/media/video_cache_service.dart';
+import '../../../core/media/video_thumbnail_cache.dart';
 import '../../../core/storage/playback_preferences.dart';
 import '../support/app_web_view_screen.dart';
 
@@ -19,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoplayVideos = true;
   bool _startMuted = false;
   bool _isLoading = true;
+  bool _isClearingCache = false;
 
   @override
   void initState() {
@@ -63,11 +67,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _clearImageCache() {
-    PaintingBinding.instance.imageCache
-      ..clear()
-      ..clearLiveImages();
-    _showMessage('Image cache cleared.');
+  Future<void> _clearMediaCache() async {
+    if (_isClearingCache) return;
+    setState(() => _isClearingCache = true);
+    try {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      await Future.wait([
+        DefaultCacheManager().emptyCache(),
+        VideoCacheService.instance.clear(),
+        VideoThumbnailCache.instance.clear(),
+      ]);
+      if (mounted) _showMessage('Image and video cache cleared.');
+    } catch (_) {
+      if (mounted) _showMessage('Unable to clear all cached media.');
+    } finally {
+      if (mounted) setState(() => _isClearingCache = false);
+    }
   }
 
   void _showMessage(String message) {
@@ -164,11 +181,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const _SettingsDivider(),
                       _ActionSettingsTile(
-                        key: const Key('clearImageCacheSetting'),
+                        key: const Key('clearMediaCacheSetting'),
                         icon: Icons.cleaning_services_outlined,
-                        title: 'Clear image cache',
-                        subtitle: 'Remove cached images from this device',
-                        onTap: _clearImageCache,
+                        title: 'Clear media cache',
+                        subtitle: _isClearingCache
+                            ? 'Clearing cached images and videos…'
+                            : 'Remove cached thumbnails and videos',
+                        onTap: _isClearingCache ? null : _clearMediaCache,
                       ),
                     ],
                   ),
@@ -403,7 +422,7 @@ class _ActionSettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

@@ -210,22 +210,31 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('opens completed history item in the video player', (
+  testWidgets('deletes a completed video and refreshes history', (
     tester,
   ) async {
+    var deleted = false;
+    var fetchCalls = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: GenerationHistoryScreen(
-          fetcher: ({required page, required limit}) async =>
-              GenerationHistoryPage.fromJson(
-                _response(
-                  page: 1,
-                  totalPages: 1,
-                  requests: <Map<String, dynamic>>[
-                    _request('completed-1', 'COMPLETED'),
-                  ],
-                ),
+          fetcher: ({required page, required limit}) async {
+            fetchCalls += 1;
+            return GenerationHistoryPage.fromJson(
+              _response(
+                page: 1,
+                totalPages: 1,
+                requests: deleted
+                    ? <Map<String, dynamic>>[]
+                    : <Map<String, dynamic>>[
+                        _request('completed-1', 'COMPLETED'),
+                      ],
               ),
+            );
+          },
+          deleter: (_) async {
+            deleted = true;
+          },
         ),
       ),
     );
@@ -237,6 +246,17 @@ void main() {
 
     expect(find.byType(GeneratedVideoScreen), findsOneWidget);
     expect(find.text('Your Video'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('deleteGeneratedVideo')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirmDeleteGeneratedVideo')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(deleted, isTrue);
+    expect(fetchCalls, 2);
+    expect(find.byType(GeneratedVideoScreen), findsNothing);
+    expect(find.byKey(const ValueKey<String>('completed-1')), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());

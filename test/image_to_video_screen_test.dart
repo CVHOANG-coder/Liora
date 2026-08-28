@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,50 @@ import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_s
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
 void main() {
+  testWidgets('a connection reset closes safely without resubmitting', (
+    tester,
+  ) async {
+    await _setPhoneSize(tester);
+    var submissions = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: ImageToVideoScreen(
+            requestPermission: (_) async => ImageAccessPermissionResult.granted,
+            pickImageFromSource: (_) => _testImagePath(),
+            submit:
+                ({
+                  required imagePath,
+                  required prompt,
+                  required isHd,
+                  required isLongTime,
+                  onUploadProgress,
+                }) async {
+                  submissions++;
+                  onUploadProgress?.call(625851, 625851);
+                  throw ApiException.fromUploadDio(
+                    DioException(
+                      requestOptions: RequestOptions(path: '/users/gen-i2v'),
+                      error: const HttpException('Connection reset by peer'),
+                    ),
+                  );
+                },
+          ),
+        ),
+      ),
+    );
+    await _prepareAndGenerate(tester);
+    expect(find.text('Request Not Confirmed'), findsOneWidget);
+    expect(find.textContaining('Check History'), findsOneWidget);
+    expect(find.text('Try Again'), findsNothing);
+    expect(find.byKey(const Key('generateVideoLoading')), findsNothing);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenerationFailureDialog), findsNothing);
+    expect(submissions, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   test('recognizes insufficient-credit API errors', () {
     expect(
       isInsufficientCreditError(
@@ -71,6 +116,7 @@ void main() {
             submit:
                 ({
                   required imagePath,
+                  onUploadProgress,
                   required prompt,
                   required isHd,
                   required isLongTime,
@@ -151,6 +197,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('dismisses the keyboard when tapping outside the prompt', (
+    tester,
+  ) async {
+    await _setPhoneSize(tester);
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: ImageToVideoScreen())),
+    );
+
+    await tester.tap(find.byKey(const Key('imageToVideoPromptField')));
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+
+    await tester.tapAt(const Offset(380, 20));
+    await tester.pump();
+    final promptField = tester.widget<TextField>(
+      find.byKey(const Key('imageToVideoPromptField')),
+    );
+    expect(promptField.focusNode?.hasFocus, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows a failure dialog for a regular generation error', (
     tester,
   ) async {
@@ -164,6 +231,7 @@ void main() {
             submit:
                 ({
                   required imagePath,
+                  onUploadProgress,
                   required prompt,
                   required isHd,
                   required isLongTime,
@@ -192,22 +260,43 @@ void main() {
     tester,
   ) async {
     await _setPhoneSize(tester);
+    var submitCount = 0;
+    String? originalImagePath;
+    String? originalPrompt;
+    bool? originalIsHd;
+    bool? originalIsLongTime;
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
           home: ImageToVideoScreen(
+            progressRepository: _MemoryProgressRepository(),
             requestPermission: (_) async => ImageAccessPermissionResult.granted,
             pickImageFromSource: (_) => _testImagePath(),
             submit:
                 ({
                   required imagePath,
+                  onUploadProgress,
                   required prompt,
                   required isHd,
                   required isLongTime,
-                }) async => throw const ApiException(
-                  message: 'Insufficient credit balance',
-                  statusCode: 402,
-                ),
+                }) async {
+                  submitCount += 1;
+                  if (submitCount == 1) {
+                    originalImagePath = imagePath;
+                    originalPrompt = prompt;
+                    originalIsHd = isHd;
+                    originalIsLongTime = isLongTime;
+                    throw const ApiException(
+                      message: 'Insufficient credit balance',
+                      statusCode: 402,
+                    );
+                  }
+                  expect(imagePath, originalImagePath);
+                  expect(prompt, originalPrompt);
+                  expect(isHd, originalIsHd);
+                  expect(isLongTime, originalIsLongTime);
+                  return _generation();
+                },
           ),
         ),
       ),
@@ -215,57 +304,72 @@ void main() {
 
     await _prepareAndGenerate(tester);
 
-    expect(find.text('Not Enough Credits'), findsOneWidget);
-    expect(find.text('Buy Credits'), findsOneWidget);
-    await tester.tap(find.text('Buy Credits'));
-    await tester.pumpAndSettle();
-
+    expect(find.byType(GenerationFailureDialog), findsNothing);
     expect(find.byType(FreeTrialScreen), findsOneWidget);
     expect(find.byType(BuyCredits), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('opens BuyCredits when a VIP user has insufficient credit', (
-    tester,
-  ) async {
-    await _setPhoneSize(tester);
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container
-        .read(profileProvider.notifier)
-        .setProfile(UserProfile.fromJson(<String, dynamic>{'isVIP': true}));
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: ImageToVideoScreen(
-            requestPermission: (_) async => ImageAccessPermissionResult.granted,
-            pickImageFromSource: (_) => _testImagePath(),
-            submit:
-                ({
-                  required imagePath,
-                  required prompt,
-                  required isHd,
-                  required isLongTime,
-                }) async => throw const ApiException(
-                  message: 'Insufficient credit balance',
-                  errorCode: ApiErrorCode.insufficientCredit,
-                  statusCode: 402,
-                ),
-          ),
-        ),
-      ),
+    expect(
+      find.widgetWithText(SnackBar, 'Insufficient credit balance'),
+      findsOneWidget,
     );
 
-    await _prepareAndGenerate(tester);
-    await tester.tap(find.text('Buy Credits'));
-    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.byType(BuyCredits), findsOneWidget);
-    expect(find.byType(FreeTrialScreen), findsNothing);
+    expect(submitCount, 2);
+    expect(find.byType(CreatingVideoScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'opens BuyCredits when a subscribed user has insufficient credit',
+    (tester) async {
+      await _setPhoneSize(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(profileProvider.notifier)
+          .setProfile(
+            UserProfile.fromJson(<String, dynamic>{
+              'isSubscribed': true,
+              'isVIP': true,
+            }),
+          );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: ImageToVideoScreen(
+              requestPermission: (_) async =>
+                  ImageAccessPermissionResult.granted,
+              pickImageFromSource: (_) => _testImagePath(),
+              submit:
+                  ({
+                    required imagePath,
+                    onUploadProgress,
+                    required prompt,
+                    required isHd,
+                    required isLongTime,
+                  }) async => throw const ApiException(
+                    message: 'Insufficient credit balance',
+                    errorCode: ApiErrorCode.insufficientCredit,
+                    statusCode: 402,
+                  ),
+            ),
+          ),
+        ),
+      );
+
+      await _prepareAndGenerate(tester);
+
+      expect(find.byType(GenerationFailureDialog), findsNothing);
+      expect(find.byType(BuyCredits), findsOneWidget);
+      expect(find.byType(FreeTrialScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('requests camera permission before opening the camera', (
     tester,

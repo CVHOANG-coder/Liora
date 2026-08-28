@@ -14,7 +14,9 @@ import 'all_plans_screen.dart';
 import 'free_trial_screen.dart';
 
 class BuyCredits extends ConsumerStatefulWidget {
-  const BuyCredits({super.key});
+  const BuyCredits({super.key, this.returnPurchaseResult = false});
+
+  final bool returnPurchaseResult;
 
   @override
   ConsumerState<BuyCredits> createState() => _BuyCreditsState();
@@ -53,6 +55,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
 
   int _selectedIndex = 4;
   _CreditPackage? _lastAttemptedPackage;
+  bool _purchaseStarted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +152,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
 
   Future<void> _buy(_CreditPackage package) {
     _lastAttemptedPackage = package;
+    _purchaseStarted = true;
     return ref
         .read(purchaseControllerProvider.notifier)
         .buy(productId: package.productId ?? '', consumable: true);
@@ -180,6 +184,13 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
       _ => false,
     };
     if (!shouldNotify || next.message == null || !mounted) return;
+    final attemptedProductId = _lastAttemptedPackage?.productId;
+    if (_purchaseStarted &&
+        next.productId != null &&
+        attemptedProductId != null &&
+        next.productId != attemptedProductId) {
+      return;
+    }
     if (next.status == PurchaseFlowStatus.error) {
       final error = ApiException(
         message: next.message!,
@@ -215,6 +226,20 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
           break;
       }
       return;
+    }
+    if (next.status == PurchaseFlowStatus.success && _purchaseStarted) {
+      _purchaseStarted = false;
+      if (widget.returnPurchaseResult) {
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop(true);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(next.message!)));
+        return;
+      }
+    }
+    if (next.status == PurchaseFlowStatus.canceled) {
+      _purchaseStarted = false;
     }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()

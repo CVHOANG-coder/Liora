@@ -65,6 +65,7 @@ void main() {
                 ({
                   required themeId,
                   required firstImagePath,
+                  onUploadProgress,
                   required isHd,
                   required isLongTime,
                 }) async {
@@ -138,6 +139,7 @@ void main() {
                 ({
                   required themeId,
                   required firstImagePath,
+                  onUploadProgress,
                   required isHd,
                   required isLongTime,
                 }) async {
@@ -166,12 +168,18 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final imagePath = File('assets/images/create_video.png').absolute.path;
+      var submitCount = 0;
+      String? originalThemeId;
+      String? originalImagePath;
+      bool? originalIsHd;
+      bool? originalIsLongTime;
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             home: ThemeToVideoScreen(
               theme: theme,
+              progressRepository: _MemoryProgressRepository(),
               requestPermission: (_) async =>
                   ImageAccessPermissionResult.granted,
               pickImage: (_) async => imagePath,
@@ -179,13 +187,28 @@ void main() {
                   ({
                     required themeId,
                     required firstImagePath,
+                    onUploadProgress,
                     required isHd,
                     required isLongTime,
-                  }) async => throw const ApiException(
-                    message: 'Not enough credits to generate this video.',
-                    errorCode: ApiErrorCode.insufficientCredit,
-                    statusCode: 400,
-                  ),
+                  }) async {
+                    submitCount += 1;
+                    if (submitCount == 1) {
+                      originalThemeId = themeId;
+                      originalImagePath = firstImagePath;
+                      originalIsHd = isHd;
+                      originalIsLongTime = isLongTime;
+                      throw const ApiException(
+                        message: 'Not enough credits to generate this video.',
+                        errorCode: ApiErrorCode.insufficientCredit,
+                        statusCode: 400,
+                      );
+                    }
+                    expect(themeId, originalThemeId);
+                    expect(firstImagePath, originalImagePath);
+                    expect(isHd, originalIsHd);
+                    expect(isLongTime, originalIsLongTime);
+                    return _generation();
+                  },
             ),
           ),
         ),
@@ -196,12 +219,23 @@ void main() {
       await tester.tap(find.byKey(const Key('generateThemeVideo')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Not Enough Credits'), findsOneWidget);
-      expect(find.text('Buy Credits'), findsOneWidget);
-      await tester.tap(find.text('Buy Credits'));
-      await tester.pumpAndSettle();
-
+      expect(find.text('Not Enough Credits'), findsNothing);
       expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(
+        find.widgetWithText(
+          SnackBar,
+          'Not enough credits to generate this video.',
+        ),
+        findsOneWidget,
+      );
+
+      Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(submitCount, 2);
+      expect(find.byType(CreatingVideoScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

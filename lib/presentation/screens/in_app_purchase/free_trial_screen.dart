@@ -13,11 +13,19 @@ import 'all_plans_screen.dart';
 import 'in_app_purchase_screen.dart';
 
 class FreeTrialScreen extends ConsumerStatefulWidget {
-  const FreeTrialScreen({super.key});
+  const FreeTrialScreen({super.key, this.returnPurchaseResult = false});
 
-  static Future<void> open(BuildContext context) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const FreeTrialScreen()),
+  final bool returnPurchaseResult;
+
+  static Future<bool?> open(
+    BuildContext context, {
+    bool returnPurchaseResult = false,
+  }) {
+    return Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            FreeTrialScreen(returnPurchaseResult: returnPurchaseResult),
+      ),
     );
   }
 
@@ -144,7 +152,7 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
         _purchaseStarted = false;
         final message = next.message ?? 'Your free trial has started.';
         final messenger = ScaffoldMessenger.of(context);
-        await Navigator.maybePop(context);
+        await Navigator.maybePop(context, true);
         messenger
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(message)));
@@ -206,16 +214,28 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
     }
   }
 
-  void _openAllPlans(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+  Future<void> _openAllPlans(BuildContext context) async {
+    final purchased = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            AllPlans(returnPurchaseResult: widget.returnPurchaseResult),
+      ),
+    );
+    if (purchased == true && mounted && widget.returnPurchaseResult) {
+      Navigator.of(this.context).pop(true);
+    }
   }
 
-  Future<void> _openBuyCredits(BuildContext context) {
-    return Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
+  Future<void> _openBuyCredits(BuildContext context) async {
+    final purchased = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            BuyCredits(returnPurchaseResult: widget.returnPurchaseResult),
+      ),
+    );
+    if (purchased == true && mounted && widget.returnPurchaseResult) {
+      Navigator.of(this.context).pop(true);
+    }
   }
 }
 

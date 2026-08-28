@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -6,8 +7,10 @@ import '../../../data/video_categories.dart';
 import '../../providers/home_subscription_plan_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/cached_video_thumbnail.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
+import '../in_app_purchase/free_trial_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
@@ -39,44 +42,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       color: Colors.black,
       child: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          key: const PageStorageKey('homeScroll'),
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 118),
-              sliver: SliverList.list(
-                children: [
-                  _HomeHeader(
-                    planAction: planAction,
-                    onProPressed: () {
-                      if (planStatus == HomeSubscriptionPlan.yearly) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const BuyCredits(),
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AllPlans(),
-                        ),
-                      );
-                    },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              key: const Key('homeHeader'),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: _HomeHeader(
+                planAction: planAction,
+                onProPressed: () {
+                  if (planStatus == HomeSubscriptionPlan.none &&
+                      profile?.isVIP != true) {
+                    FreeTrialScreen.open(context);
+                    return;
+                  }
+                  if (planStatus == HomeSubscriptionPlan.yearly) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BuyCredits(),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const AllPlans()),
+                  );
+                },
+              ),
+            ),
+            Expanded(
+              child: CustomScrollView(
+                key: const PageStorageKey('homeScroll'),
+                physics: const BouncingScrollPhysics(),
+                // Offscreen animated previews must not keep decoding frames.
+                scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 26),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        children: const [
+                          _Headline(),
+                          SizedBox(height: 24),
+                          _FeatureCards(),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 30),
-                  _Headline(),
-                  const SizedBox(height: 24),
-                  _FeatureCards(),
-                  const SizedBox(height: 26),
-                  _VideoCategories(
-                    categories: categories,
-                    onRetry: () => ref.invalidate(themeCategoriesProvider),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 118),
+                    sliver: _VideoCategories(
+                      categories: categories,
+                      onRetry: () => ref.invalidate(themeCategoriesProvider),
+                    ),
                   ),
-                  // Quick Create is temporarily hidden.
-                  // const SizedBox(height: 26),
-                  // _QuickCreate(),
                 ],
               ),
             ),
@@ -451,17 +470,24 @@ class _VideoCategories extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return categories.when(
-      loading: () => const _CategoriesLoading(),
-      error: (error, _) => _CategoriesError(error: error, onRetry: onRetry),
+      loading: () => const SliverToBoxAdapter(child: _CategoriesLoading()),
+      error: (error, _) => SliverToBoxAdapter(
+        child: _CategoriesError(error: error, onRetry: onRetry),
+      ),
       data: (items) {
-        if (items.isEmpty) return const _CategoriesEmpty();
-        return Column(
-          children: [
-            for (var index = 0; index < items.length; index++) ...[
-              _VideoCategorySection(category: items[index]),
-              if (index != items.length - 1) const SizedBox(height: 24),
-            ],
-          ],
+        if (items.isEmpty) {
+          return const SliverToBoxAdapter(child: _CategoriesEmpty());
+        }
+        return SliverList.builder(
+          itemCount: items.length,
+          // Images request keep-alive while loading; retaining entire rows
+          // would also retain their animated image stream listeners.
+          addAutomaticKeepAlives: false,
+          itemBuilder: (_, index) => Padding(
+            key: ValueKey(items[index].id),
+            padding: EdgeInsets.only(bottom: index < items.length - 1 ? 24 : 0),
+            child: _VideoCategorySection(category: items[index]),
+          ),
         );
       },
     );
@@ -477,6 +503,11 @@ class _VideoCategorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final thumbnailWidth = (screenWidth - 48) / 3;
+    final decodeWidth =
+        (thumbnailWidth * MediaQuery.devicePixelRatioOf(context)).ceil().clamp(
+          1,
+          512,
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,13 +543,19 @@ class _VideoCategorySection extends StatelessWidget {
         SizedBox(
           height: thumbnailWidth * 1.34,
           child: ListView.separated(
+            key: PageStorageKey('homeCategory_${category.id}'),
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+            addAutomaticKeepAlives: false,
             itemCount: category.posts.length,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) => SizedBox(
               width: thumbnailWidth,
-              child: _VideoThumbnail(post: category.posts[index]),
+              child: _VideoThumbnail(
+                post: category.posts[index],
+                decodeWidth: decodeWidth,
+              ),
             ),
           ),
         ),
@@ -528,9 +565,10 @@ class _VideoCategorySection extends StatelessWidget {
 }
 
 class _VideoThumbnail extends StatelessWidget {
-  const _VideoThumbnail({required this.post});
+  const _VideoThumbnail({required this.post, required this.decodeWidth});
 
   final VideoPost post;
+  final int decodeWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -550,12 +588,20 @@ class _VideoThumbnail extends StatelessWidget {
           ),
           child: Hero(
             tag: 'video_${post.id}',
-            child: Image.network(
-              post.thumbnailUrl!,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) =>
-                  progress == null ? child : const _ThumbnailSkeleton(),
-              errorBuilder: (_, _, _) => const _ThumbnailError(),
+            child: RepaintBoundary(
+              child: CachedVideoThumbnail(
+                cacheKey: 'template:${post.id}',
+                imageUrl: post.previewImageUrl ?? '',
+                fallbackImageUrl: post.thumbnailUrl ?? '',
+                videoUrl: post.videoUrl ?? '',
+                fit: BoxFit.cover,
+                maxDecodeWidth: decodeWidth,
+                filterQuality: FilterQuality.low,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholder: const _ThumbnailSkeleton(),
+                errorWidget: const _ThumbnailError(),
+              ),
             ),
           ),
         ),

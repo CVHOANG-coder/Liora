@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/analytics/meta_app_events_service.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -85,6 +86,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeOut,
       );
+      if (!mounted) return;
+      // The first frame is visible and no notification prompt is open yet.
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        await MetaAppEventsService.instance.requestTrackingAuthorization();
+      }
       if (!mounted) return;
       final openedNotification =
           FirebaseService.markNotificationNavigationReady();

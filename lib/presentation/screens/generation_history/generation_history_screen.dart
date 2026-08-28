@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
@@ -10,6 +9,7 @@ import '../../../data/models/generation_progress.dart';
 import '../../../data/models/i2v_generation.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/generation_progress_repository.dart';
+import '../../widgets/cached_video_thumbnail.dart';
 import '../image_to_video/creating_video_screen.dart';
 import '../image_to_video/generated_video_screen.dart';
 
@@ -168,6 +168,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
     if (request.isCompleted && request.resultUrl.isNotEmpty) {
       destination = GeneratedVideoScreen(
         result: request,
+        deleter: widget.deleter,
         returnToPreviousOnBack: true,
       );
     } else if (request.isActive) {
@@ -259,8 +260,10 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        key: const Key('generationHistoryHeader'),
         backgroundColor: const Color(0xF208060B),
         surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         toolbarHeight: 68,
         leadingWidth: 68,
@@ -899,7 +902,7 @@ class _DeleteHistoryDialog extends StatelessWidget {
   }
 }
 
-class _GridPreview extends StatefulWidget {
+class _GridPreview extends StatelessWidget {
   const _GridPreview({
     required this.requestId,
     required this.imageUrl,
@@ -911,124 +914,21 @@ class _GridPreview extends StatefulWidget {
   final String videoUrl;
 
   @override
-  State<_GridPreview> createState() => _GridPreviewState();
-}
-
-class _GridPreviewState extends State<_GridPreview> {
-  VideoPlayerController? _controller;
-  bool _isReady = false;
-  bool _loadFailed = false;
-  int _loadVersion = 0;
-
-  bool get _needsVideoPreview =>
-      widget.imageUrl.isEmpty && widget.videoUrl.isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_needsVideoPreview) unawaited(_loadVideoPreview());
-  }
-
-  @override
-  void didUpdateWidget(covariant _GridPreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl == widget.imageUrl &&
-        oldWidget.videoUrl == widget.videoUrl) {
-      return;
-    }
-    _resetController();
-    if (_needsVideoPreview) unawaited(_loadVideoPreview());
-  }
-
-  Future<void> _loadVideoPreview() async {
-    final uri = Uri.tryParse(widget.videoUrl);
-    if (uri == null || !uri.hasScheme) {
-      if (mounted) setState(() => _loadFailed = true);
-      return;
-    }
-    final version = ++_loadVersion;
-    final controller = VideoPlayerController.networkUrl(uri);
-    _controller = controller;
-    try {
-      await controller.initialize();
-      await controller.setVolume(0);
-      final duration = controller.value.duration;
-      if (duration > const Duration(milliseconds: 350)) {
-        await controller.seekTo(const Duration(milliseconds: 300));
-      }
-      await controller.pause();
-      if (!mounted || version != _loadVersion) {
-        if (identical(controller, _controller)) {
-          _controller = null;
-          await controller.dispose();
-        }
-        return;
-      }
-      setState(() => _isReady = true);
-    } catch (_) {
-      if (identical(controller, _controller)) {
-        _controller = null;
-        await controller.dispose();
-      }
-      if (mounted && version == _loadVersion) {
-        setState(() => _loadFailed = true);
-      }
-    }
-  }
-
-  void _resetController() {
-    _loadVersion += 1;
-    _isReady = false;
-    _loadFailed = false;
-    final controller = _controller;
-    _controller = null;
-    if (controller != null) unawaited(controller.dispose());
-  }
-
-  @override
-  void dispose() {
-    _resetController();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFF271823),
-      child: widget.imageUrl.isNotEmpty
-          ? Image.network(
-              widget.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Icon(
-                Icons.broken_image_outlined,
-                color: Color(0xFF9D668E),
-              ),
-            )
-          : _buildVideoOrPlaceholder(),
+    final needsGeneratedPreview = imageUrl.isEmpty && videoUrl.isNotEmpty;
+    return CachedVideoThumbnail(
+      key: needsGeneratedPreview ? Key('historyVideoPreview_$requestId') : null,
+      cacheKey: 'request:$requestId',
+      imageUrl: imageUrl,
+      videoUrl: videoUrl,
+      fit: BoxFit.cover,
+      placeholder: _previewPlaceholder(showProgress: needsGeneratedPreview),
+      errorWidget: _previewPlaceholder(showProgress: false),
     );
   }
 
-  Widget _buildVideoOrPlaceholder() {
-    final controller = _controller;
-    if (_isReady && controller != null) {
-      final size = controller.value.size;
-      return ClipRect(
-        key: Key('historyVideoPreview_${widget.requestId}'),
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: size.width > 0 ? size.width : 9,
-            height: size.height > 0 ? size.height : 16,
-            child: VideoPlayer(controller),
-          ),
-        ),
-      );
-    }
-
+  Widget _previewPlaceholder({required bool showProgress}) {
     return DecoratedBox(
-      key: _needsVideoPreview
-          ? Key('historyVideoPreview_${widget.requestId}')
-          : null,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -1044,7 +944,7 @@ class _GridPreviewState extends State<_GridPreview> {
             color: Color(0xFFB77AA7),
             size: 32,
           ),
-          if (_needsVideoPreview && !_loadFailed)
+          if (showProgress)
             const Positioned(
               bottom: 22,
               child: SizedBox.square(

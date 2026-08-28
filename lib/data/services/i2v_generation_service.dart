@@ -14,6 +14,7 @@ class I2VGenerationService {
     required String prompt,
     required bool isHd,
     required bool isLongTime,
+    ProgressCallback? onUploadProgress,
   }) async {
     try {
       final fileName = Uri.file(imagePath).pathSegments.last;
@@ -29,6 +30,7 @@ class I2VGenerationService {
       final response = await _dio.post<dynamic>(
         ApiConfig.generateI2VPath,
         data: formData,
+        onSendProgress: onUploadProgress,
       );
       final body = response.data;
       if (body is! Map) {
@@ -56,7 +58,7 @@ class I2VGenerationService {
       }
       return result.data;
     } on DioException catch (error) {
-      throw ApiException.fromDio(error);
+      throw ApiException.fromUploadDio(error);
     } on FormatException catch (error) {
       throw ApiException(message: error.message, cause: error);
     }

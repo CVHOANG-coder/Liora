@@ -1,8 +1,89 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
 void main() {
+  test('non-upload APIs retain their original error messages and retry UI', () {
+    const messages = {
+      DioExceptionType.connectionTimeout: 'The server connection timed out.',
+      DioExceptionType.sendTimeout: 'The server connection timed out.',
+      DioExceptionType.receiveTimeout: 'The server connection timed out.',
+      DioExceptionType.connectionError:
+          'Unable to connect to the server. Check your network connection.',
+      DioExceptionType.unknown:
+          'An error occurred while connecting to the server.',
+      DioExceptionType.badCertificate:
+          'An error occurred while connecting to the server.',
+      DioExceptionType.cancel:
+          'An error occurred while connecting to the server.',
+    };
+    for (final entry in messages.entries) {
+      final cause = DioException(
+        requestOptions: RequestOptions(path: '/users/gen-t2v'),
+        type: entry.key,
+        error: entry.key == DioExceptionType.unknown
+            ? const HttpException('Connection reset by peer')
+            : null,
+      );
+      final error = ApiException.fromDio(cause);
+      expect(error.cause, same(cause));
+      expect(error.isUploadRequest, isFalse);
+      expect(error.message, entry.value, reason: entry.key.name);
+      final presentation = resolveApiErrorPresentation(
+        error,
+        fallbackMessage: 'Unable to submit video.',
+      );
+      expect(presentation.title, 'Video Generation Failed');
+      expect(presentation.primaryLabel, 'Try Again');
+      expect(presentation.primaryAction, GenerationFailureAction.retry);
+      expect(presentation.message, isNot(contains('Check History')));
+    }
+  });
+
+  test('an unknown Dio HttpException is an unconfirmed network request', () {
+    final cause = DioException(
+      requestOptions: RequestOptions(path: '/users/gen-i2v'),
+      error: const HttpException('Connection reset by peer'),
+    );
+    final error = ApiException.fromUploadDio(cause);
+    expect(error.cause, same(cause));
+    expect(error.isNetworkFailure, isTrue);
+    expect(error.message, contains('connection was interrupted'));
+    final presentation = resolveApiErrorPresentation(
+      error,
+      fallbackMessage: 'Unable to submit video.',
+    );
+    expect(presentation.title, 'Request Not Confirmed');
+    expect(presentation.message, contains('Check History'));
+    expect(presentation.primaryAction, GenerationFailureAction.close);
+    expect(presentation.secondaryAction, isNull);
+    expect(presentation.message, isNot(contains('No credits were deducted')));
+  });
+
+  test('timeout messages distinguish connection, upload and response', () {
+    final messages =
+        [
+              DioExceptionType.connectionTimeout,
+              DioExceptionType.sendTimeout,
+              DioExceptionType.receiveTimeout,
+            ]
+            .map(
+              (type) => ApiException.fromUploadDio(
+                DioException(
+                  requestOptions: RequestOptions(path: '/users/gen-i2v'),
+                  type: type,
+                ),
+              ).message,
+            )
+            .toList();
+    expect(messages[0], contains('Connecting'));
+    expect(messages[1], contains('Uploading'));
+    expect(messages[2], contains('did not respond'));
+  });
+
   group('API error parsing', () {
     test('reads error_code from data and preserves the server message', () {
       final error = ApiException.fromResponse(

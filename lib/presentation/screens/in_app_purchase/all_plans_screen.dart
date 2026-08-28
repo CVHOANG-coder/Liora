@@ -90,7 +90,9 @@ class _PlanPrices {
 }
 
 class AllPlans extends ConsumerStatefulWidget {
-  const AllPlans({super.key});
+  const AllPlans({super.key, this.returnPurchaseResult = false});
+
+  final bool returnPurchaseResult;
 
   @override
   ConsumerState<AllPlans> createState() => _AllPlansState();
@@ -231,6 +233,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         _PlanCard(
           title: 'Weekly Pro',
           price: prices.weekly,
+          caption: '3 days free trailer',
           selected: _selectedPlan == 1,
           onTap: () => setState(() => _selectedPlan = 1),
         ),
@@ -295,10 +298,16 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     ];
   }
 
-  void _openBuyCredits() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const BuyCredits()));
+  Future<void> _openBuyCredits() async {
+    final purchased = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            BuyCredits(returnPurchaseResult: widget.returnPurchaseResult),
+      ),
+    );
+    if (purchased == true && mounted && widget.returnPurchaseResult) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   void _subscribe() {
@@ -373,9 +382,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
             replaceExisting: _lastAttemptWasReplacement,
           );
         case GenerationFailureAction.buyCredits:
-          await Navigator.of(
-            context,
-          ).push(MaterialPageRoute<void>(builder: (_) => const BuyCredits()));
+          await _openBuyCredits();
         case GenerationFailureAction.contactSupport:
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -392,6 +399,17 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         case null:
           break;
       }
+      return;
+    }
+    if (next.status == PurchaseFlowStatus.success &&
+        widget.returnPurchaseResult &&
+        _lastAttemptedPackage != null) {
+      final messenger = ScaffoldMessenger.of(context);
+      _lastAttemptedPackage = null;
+      Navigator.of(context).pop(true);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(next.message!)));
       return;
     }
     if (next.status == PurchaseFlowStatus.success &&
@@ -860,11 +878,16 @@ class _PlanCard extends StatelessWidget {
                           ),
                           if (caption != null) ...[
                             const SizedBox(height: 6),
-                            Text(
-                              caption!,
-                              style: const TextStyle(
-                                color: Color(0xFFBDB6C0),
-                                fontSize: 12,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                caption!,
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  color: Color(0xFFBDB6C0),
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],

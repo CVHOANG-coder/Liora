@@ -21,6 +21,7 @@ import '../../data/services/theme_generation_service.dart';
 import '../device/device_identity_service.dart';
 import '../storage/token_storage.dart';
 import 'api_config.dart';
+import 'api_diagnostics_interceptor.dart';
 import 'api_exception.dart';
 import 'auth_interceptor.dart';
 
@@ -28,6 +29,7 @@ class ApiClient {
   ApiClient({
     Dio? httpClient,
     Dio? authClient,
+    Dio? uploadClient,
     DeviceIdentityProvider? deviceIdentity,
     TokenStorage? tokenStorage,
   }) {
@@ -51,20 +53,31 @@ class ApiClient {
 
     dio = httpClient ?? Dio(options.copyWith());
     dio.interceptors.add(AuthInterceptor(dio, authSession));
+
+    // Keep upload diagnostics and multipart retries off the original API client.
+    // Both clients share authentication, but not interceptors or connections.
+    uploadDio =
+        uploadClient ??
+        Dio(options.copyWith(sendTimeout: ApiConfig.uploadSendTimeout));
+    uploadDio.interceptors.add(ApiDiagnosticsInterceptor());
+    uploadDio.interceptors.add(
+      AuthInterceptor(uploadDio, authSession, retryMultipartUploads: true),
+    );
     profileService = ProfileService(dio);
     packageService = PackageService(dio);
     purchaseVerificationService = PurchaseVerificationService(dio);
     themeService = ThemeService(dio);
-    i2vGenerationService = I2VGenerationService(dio);
+    i2vGenerationService = I2VGenerationService(uploadDio);
     i2vRequestStatusService = I2VRequestStatusService(dio);
     t2vGenerationService = T2VGenerationService(dio);
-    themeGenerationService = ThemeGenerationService(dio);
+    themeGenerationService = ThemeGenerationService(uploadDio);
     generationHistoryService = GenerationHistoryService(dio);
   }
 
   static final ApiClient instance = ApiClient();
 
   late final Dio dio;
+  late final Dio uploadDio;
   late final AuthSession authSession;
   late final ProfileService profileService;
   late final PackageService packageService;
@@ -95,11 +108,13 @@ class ApiClient {
     required String prompt,
     required bool isHd,
     required bool isLongTime,
+    ProgressCallback? onUploadProgress,
   }) => i2vGenerationService.generate(
     imagePath: imagePath,
     prompt: prompt,
     isHd: isHd,
     isLongTime: isLongTime,
+    onUploadProgress: onUploadProgress,
   );
 
   Future<I2VRequestStatus> fetchImageToVideoStatus(String requestId) =>
@@ -120,11 +135,13 @@ class ApiClient {
     required String firstImagePath,
     required bool isHd,
     required bool isLongTime,
+    ProgressCallback? onUploadProgress,
   }) => themeGenerationService.generate(
     themeId: themeId,
     firstImagePath: firstImagePath,
     isHd: isHd,
     isLongTime: isLongTime,
+    onUploadProgress: onUploadProgress,
   );
 
   Future<GenerationHistoryPage> fetchGenerationHistory({

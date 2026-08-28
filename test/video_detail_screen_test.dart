@@ -11,6 +11,7 @@ void main() {
   const post = VideoPost(
     id: 'preview-post',
     thumbnailUrl: 'https://example.com/preview.jpg',
+    previewWebpUrl: 'https://example.com/preview.webp',
     videoUrl: null,
     description: 'Cinematic portrait',
   );

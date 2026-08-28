@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 class ApiException implements Exception {
@@ -6,6 +8,7 @@ class ApiException implements Exception {
     this.errorCode,
     this.statusCode,
     this.cause,
+    this.isUploadRequest = false,
   });
 
   factory ApiException.fromResponse({
@@ -52,16 +55,62 @@ class ApiException implements Exception {
     );
   }
 
+  /// Only the image-generation services opt into upload-specific failures.
+  factory ApiException.fromUploadDio(DioException exception) {
+    final original = ApiException.fromDio(exception);
+    final message = switch (exception.type) {
+      DioExceptionType.connectionTimeout =>
+        'Connecting to the server timed out. Check your network connection.',
+      DioExceptionType.sendTimeout =>
+        'Uploading the request timed out. Check your network connection.',
+      DioExceptionType.receiveTimeout => 'The server did not respond in time.',
+      _ when isConnectionInterruption(exception) =>
+        'The connection was interrupted before a response was received.',
+      DioExceptionType.badCertificate =>
+        'A secure connection to the server could not be verified.',
+      DioExceptionType.cancel => 'The request was cancelled.',
+      _ => original.message,
+    };
+    return ApiException(
+      message: message,
+      errorCode: original.errorCode,
+      statusCode: original.statusCode,
+      cause: exception,
+      isUploadRequest: true,
+    );
+  }
+
   final String message;
   final String? errorCode;
   final int? statusCode;
   final Object? cause;
+  final bool isUploadRequest;
 
   bool hasCode(String code) => errorCode == code;
+
+  /// A transport error does not establish whether a paid POST was accepted.
+  /// In particular, Dio can wrap a dart:io reset as `unknown`, not
+  /// `connectionError`. Keep the original cause for diagnostics.
+  bool get isNetworkFailure {
+    final error = cause;
+    if (error is! DioException) return false;
+    return isConnectionInterruption(error) ||
+        const {
+          DioExceptionType.connectionTimeout,
+          DioExceptionType.sendTimeout,
+          DioExceptionType.receiveTimeout,
+          DioExceptionType.connectionError,
+          DioExceptionType.badCertificate,
+        }.contains(error.type);
+  }
 
   @override
   String toString() => message;
 }
+
+bool isConnectionInterruption(DioException error) =>
+    error.response == null &&
+    (error.error is HttpException || error.error is SocketException);
 
 abstract final class ApiErrorCode {
   static const insufficientCredit = 'INSUFFICIENT_CREDIT';

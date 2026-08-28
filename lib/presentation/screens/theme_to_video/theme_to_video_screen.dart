@@ -14,6 +14,8 @@ import '../../../data/services/generation_progress_repository.dart';
 import '../../../data/video_categories.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/generation_form_exit_guard.dart';
+import '../../widgets/image_upload_progress_overlay.dart';
 import '../image_to_video/creating_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/credit_purchase_navigation.dart';
@@ -28,7 +30,22 @@ typedef ThemeVideoSubmit =
       required String firstImagePath,
       required bool isHd,
       required bool isLongTime,
+      void Function(int sent, int total)? onUploadProgress,
     });
+
+class _ThemeToVideoRequest {
+  const _ThemeToVideoRequest({
+    required this.themeId,
+    required this.firstImagePath,
+    required this.isHd,
+    required this.isLongTime,
+  });
+
+  final String themeId;
+  final String firstImagePath;
+  final bool isHd;
+  final bool isLongTime;
+}
 
 class ThemeToVideoScreen extends ConsumerStatefulWidget {
   const ThemeToVideoScreen({
@@ -56,6 +73,11 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
   String? _firstImagePath;
   bool _isPickingImage = false;
   bool _isSubmitting = false;
+  bool _hasLeftForm = false;
+  final _exitGuardKey = GlobalKey<GenerationFormExitGuardState>();
+  int _uploadAttempt = 0;
+  int _uploadSentBytes = 0;
+  int _uploadTotalBytes = 0;
 
   Future<void> _selectFrame() async {
     if (_isPickingImage || _isSubmitting) return;
@@ -106,9 +128,9 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     if (picker != null) return picker(source);
     return (await ImagePicker().pickImage(
       source: source,
-      imageQuality: 95,
-      maxWidth: 4096,
-      maxHeight: 4096,
+      imageQuality: 80,
+      maxWidth: 1920,
+      maxHeight: 1920,
       requestFullMetadata: false,
     ))?.path;
   }
@@ -182,6 +204,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     required String selected,
     required ValueChanged<String> onSelected,
   }) async {
+    if (_isSubmitting) return;
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: const Color(0xFF17101D),
@@ -213,43 +236,70 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     if (choice != null) onSelected(choice);
   }
 
-  Future<void> _generate() async {
-    final firstImagePath = _firstImagePath;
-    if (firstImagePath == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Select the first frame.')));
-      await _selectFrame();
-      return;
-    }
-    final themeId = widget.theme.themeKey.isNotEmpty
-        ? widget.theme.themeKey
-        : widget.theme.id;
-    if (themeId.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Theme ID not found.')));
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    try {
-      final submit = widget.submit ?? ApiClient.instance.generateThemeVideo;
-      final isHd = _quality == 'HD';
-      final videoDurationSeconds = _duration == '10s' ? 10 : 5;
-      final generation = await submit(
+  Future<void> _generate([_ThemeToVideoRequest? pendingRequest]) async {
+    if (_isSubmitting || _hasLeftForm) return;
+    final _ThemeToVideoRequest request;
+    if (pendingRequest != null) {
+      request = pendingRequest;
+    } else {
+      final firstImagePath = _firstImagePath;
+      if (firstImagePath == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select the first frame.')),
+        );
+        await _selectFrame();
+        return;
+      }
+      final themeId = widget.theme.themeKey.isNotEmpty
+          ? widget.theme.themeKey
+          : widget.theme.id;
+      if (themeId.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Theme ID not found.')));
+        return;
+      }
+      request = _ThemeToVideoRequest(
         themeId: themeId,
         firstImagePath: firstImagePath,
-        isHd: isHd,
+        isHd: _quality == 'HD',
         isLongTime: _duration == '10s',
       );
-      if (!mounted) return;
+    }
+
+    final attempt = ++_uploadAttempt;
+    setState(() {
+      _isSubmitting = true;
+      _uploadSentBytes = 0;
+      _uploadTotalBytes = 0;
+    });
+    try {
+      final submit = widget.submit ?? ApiClient.instance.generateThemeVideo;
+      final generation = await submit(
+        themeId: request.themeId,
+        firstImagePath: request.firstImagePath,
+        isHd: request.isHd,
+        isLongTime: request.isLongTime,
+        onUploadProgress: (sent, total) {
+          if (!mounted ||
+              _hasLeftForm ||
+              !_isSubmitting ||
+              attempt != _uploadAttempt) {
+            return;
+          }
+          setState(() {
+            _uploadSentBytes = sent;
+            _uploadTotalBytes = total;
+          });
+        },
+      );
+      if (!mounted || _hasLeftForm) return;
 
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: videoDurationSeconds,
-        isHd: isHd,
+        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        isHd: request.isHd,
       );
       final progressRepository =
           widget.progressRepository ??
@@ -259,11 +309,12 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       } catch (_) {
         // The submitted request remains valid if local persistence fails.
       }
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
 
       ref
           .read(profileProvider.notifier)
           .updateTotalCredit(generation.remainingCredit);
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -272,25 +323,33 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
             initialProgress: progress,
             progressRepository: progressRepository,
             creatorLabel: 'Theme to Video',
-            sourceImagePath: firstImagePath,
+            sourceImagePath: request.firstImagePath,
           ),
         ),
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
-      final action = await GenerationFailureDialog.showForError(
-        context,
-        error: error,
-        fallbackMessage: 'Unable to generate the video. Please try again.',
-      );
+      final action = isInsufficientCreditError(error)
+          ? GenerationFailureAction.buyCredits
+          : await GenerationFailureDialog.showForError(
+              context,
+              error: error,
+              fallbackMessage:
+                  'Unable to generate the video. Please try again.',
+            );
       if (!mounted) return;
       switch (action) {
         case GenerationFailureAction.buyCredits:
-          await openCreditPurchaseDestination(
+          final profile = ref.read(profileProvider);
+          final purchased = await openCreditPurchaseDestination(
             context,
-            isVIP: ref.read(profileProvider)?.isVIP == true,
+            isSubscribed: profile?.isSubscribed == true,
+            isVIP: profile?.isVIP == true,
+            error: error,
           );
+          if (purchased && mounted) await _generate(request);
         case GenerationFailureAction.renewSubscription:
           await Navigator.of(
             context,
@@ -320,65 +379,79 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-              sliver: SliverList.list(
-                children: [
-                  _Header(onBack: () => Navigator.maybePop(context)),
-                  const SizedBox(height: 20),
-                  _ThemeBadge(theme: widget.theme),
-                  const SizedBox(height: 18),
-                  _FrameCard(
-                    key: const Key('firstFrameCard'),
-                    label: 'First frame',
-                    requirement: 'Required',
-                    imagePath: _firstImagePath,
-                    isLoading: _isPickingImage,
-                    onTap: _selectFrame,
-                    onRemove: _firstImagePath == null
-                        ? null
-                        : () => setState(() => _firstImagePath = null),
+    return GenerationFormExitGuard(
+      key: _exitGuardKey,
+      isSubmitting: _isSubmitting,
+      onLeave: () => _hasLeftForm = true,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                  sliver: SliverList.list(
+                    children: [
+                      _Header(onBack: () => Navigator.maybePop(context)),
+                      const SizedBox(height: 20),
+                      _ThemeBadge(theme: widget.theme),
+                      const SizedBox(height: 18),
+                      _FrameCard(
+                        key: const Key('firstFrameCard'),
+                        label: 'First frame',
+                        requirement: 'Required',
+                        imagePath: _firstImagePath,
+                        isLoading: _isPickingImage,
+                        isSubmitting: _isSubmitting,
+                        uploadSentBytes: _uploadSentBytes,
+                        uploadTotalBytes: _uploadTotalBytes,
+                        onTap: _selectFrame,
+                        onRemove: _firstImagePath == null || _isSubmitting
+                            ? null
+                            : () => setState(() => _firstImagePath = null),
+                      ),
+                      const SizedBox(height: 18),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/clock.png',
+                        title: 'Duration',
+                        value: _duration,
+                        onTap: () => _pickOption(
+                          title: 'Duration',
+                          options: const ['5s', '10s'],
+                          selected: _duration,
+                          onSelected: (value) =>
+                              setState(() => _duration = value),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/HD_icon.png',
+                        title: 'Quality',
+                        value: _quality,
+                        onTap: () => _pickOption(
+                          title: 'Quality',
+                          options: const ['Non-HD', 'HD'],
+                          selected: _quality,
+                          onSelected: (value) =>
+                              setState(() => _quality = value),
+                        ),
+                      ),
+                      const SizedBox(height: 27),
+                      _GenerateButton(
+                        onPressed: _generate,
+                        isLoading: _isSubmitting,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/clock.png',
-                    title: 'Duration',
-                    value: _duration,
-                    onTap: () => _pickOption(
-                      title: 'Duration',
-                      options: const ['5s', '10s'],
-                      selected: _duration,
-                      onSelected: (value) => setState(() => _duration = value),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/HD_icon.png',
-                    title: 'Quality',
-                    value: _quality,
-                    onTap: () => _pickOption(
-                      title: 'Quality',
-                      options: const ['Non-HD', 'HD'],
-                      selected: _quality,
-                      onSelected: (value) => setState(() => _quality = value),
-                    ),
-                  ),
-                  const SizedBox(height: 27),
-                  _GenerateButton(
-                    onPressed: _isSubmitting ? null : _generate,
-                    isLoading: _isSubmitting,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -484,6 +557,9 @@ class _FrameCard extends StatelessWidget {
     required this.requirement,
     required this.imagePath,
     required this.isLoading,
+    required this.isSubmitting,
+    required this.uploadSentBytes,
+    required this.uploadTotalBytes,
     required this.onTap,
     required this.onRemove,
   });
@@ -492,6 +568,9 @@ class _FrameCard extends StatelessWidget {
   final String requirement;
   final String? imagePath;
   final bool isLoading;
+  final bool isSubmitting;
+  final int uploadSentBytes;
+  final int uploadTotalBytes;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
 
@@ -540,7 +619,7 @@ class _FrameCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(15),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: onTap,
+                onTap: isSubmitting ? null : onTap,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -552,7 +631,7 @@ class _FrameCard extends StatelessWidget {
                       )
                     else
                       const _FramePlaceholder(),
-                    if (imagePath != null)
+                    if (imagePath != null && !isSubmitting)
                       const DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -563,7 +642,7 @@ class _FrameCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (imagePath != null)
+                    if (imagePath != null && !isSubmitting)
                       const Positioned(
                         left: 10,
                         bottom: 10,
@@ -599,6 +678,11 @@ class _FrameCard extends StatelessWidget {
                           ),
                           icon: const Icon(Icons.close_rounded, size: 18),
                         ),
+                      ),
+                    if (isSubmitting)
+                      ImageUploadProgressOverlay(
+                        sentBytes: uploadSentBytes,
+                        totalBytes: uploadTotalBytes,
                       ),
                     if (isLoading)
                       const ColoredBox(
@@ -885,37 +969,38 @@ class _GenerateButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           key: const Key('generateThemeVideo'),
-          onTap: onPressed,
+          onTap: isLoading ? null : onPressed,
           borderRadius: BorderRadius.circular(14),
           child: Center(
-            child: isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Generate',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (isLoading)
+                  const SizedBox.square(
+                    key: Key('generateVideoLoading'),
+                    dimension: 18,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
+                      strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Generate',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(width: 6),
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
+                else
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
+              ],
+            ),
           ),
         ),
       ),

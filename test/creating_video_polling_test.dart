@@ -252,6 +252,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     var downloadCalled = false;
+    var shareCalled = false;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -261,6 +262,11 @@ void main() {
               'COMPLETED',
               resultUrl: 'https://example.test/result.mp4',
             ),
+            sharer: (url, requestId) async {
+              shareCalled = true;
+              expect(url, endsWith('result.mp4'));
+              expect(requestId, 'request-001');
+            },
             downloader: (url, requestId, onProgress) async {
               downloadCalled = true;
               expect(url, endsWith('result.mp4'));
@@ -277,6 +283,9 @@ void main() {
     expect(find.byKey(const Key('generatedVideoControls')), findsOneWidget);
     expect(find.byKey(const Key('generatedVideoPlayPause')), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('shareGeneratedVideo')));
+    await tester.pump();
+    expect(shareCalled, isTrue);
     final downloadButton = find.byKey(const Key('downloadGeneratedVideo'));
     expect(tester.getSize(downloadButton).height, 42);
     expect(tester.getSize(downloadButton).width, lessThan(120));
@@ -292,6 +301,46 @@ void main() {
     expect(find.byType(MainScreen), findsOneWidget);
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('deletes the generated video and returns to history', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    var deletedRequestId = '';
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Text('Video history')),
+      ),
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => GeneratedVideoScreen(
+          result: _status(
+            'COMPLETED',
+            resultUrl: 'https://example.test/result.mp4',
+          ),
+          returnToPreviousOnBack: true,
+          deleter: (requestId) async => deletedRequestId = requestId,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.byKey(const Key('deleteGeneratedVideo')));
+    await tester.pump();
+    expect(find.byKey(const Key('deleteGeneratedVideoDialog')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirmDeleteGeneratedVideo')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(deletedRequestId, 'request-001');
+    expect(find.byType(GeneratedVideoScreen), findsNothing);
+    expect(find.text('Video history'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

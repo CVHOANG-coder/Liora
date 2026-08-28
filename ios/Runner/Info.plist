@@ -14,6 +14,27 @@
 	<string>Save your generated AI videos to the photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Allow camera access so you can take a photo to create your AI video.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Allow Nostalia to use your advertising identifier to measure which ads lead to app installs and improve our advertising.</string>
+	<key>FacebookAppID</key>
+	<string>2116175409267246</string>
+	<key>FacebookClientToken</key>
+	<string>9c366b6034e7de3352ff8b00728b07bc</string>
+	<key>FacebookDisplayName</key>
+	<string>Nostalia</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb2116175409267246</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

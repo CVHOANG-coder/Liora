@@ -1,0 +1,40 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_video_thumbnail_plus (0.0.1):
+    - Flutter
+    - libwebp
+  - libwebp (1.5.0):
+    - libwebp/demux (= 1.5.0)
+    - libwebp/mux (= 1.5.0)
+    - libwebp/sharpyuv (= 1.5.0)
+    - libwebp/webp (= 1.5.0)
+  - libwebp/demux (1.5.0):
+    - libwebp/webp
+  - libwebp/mux (1.5.0):
+    - libwebp/demux
+  - libwebp/sharpyuv (1.5.0)
+  - libwebp/webp (1.5.0):
+    - libwebp/sharpyuv
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_video_thumbnail_plus (from `.symlinks/plugins/flutter_video_thumbnail_plus/ios`)
+
+SPEC REPOS:
+  trunk:
+    - libwebp
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_video_thumbnail_plus:
+    :path: ".symlinks/plugins/flutter_video_thumbnail_plus/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_video_thumbnail_plus: 0a83dc7bed8cc47940c32f951c638181601de2cb
+  libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+
+PODFILE CHECKSUM: 528a7b5be0cb18adf4282ac1bcb2eac9a18bcae2
+
+COCOAPODS: 1.16.2

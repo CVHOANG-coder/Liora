@@ -326,6 +326,22 @@ AppErrorPresentation resolveApiErrorPresentation(
     );
   }
 
+  if (exception != null &&
+      exception.isUploadRequest &&
+      exception.isNetworkFailure) {
+    return AppErrorPresentation(
+      title: 'Request Not Confirmed',
+      message:
+          '$message\nCheck History before generating again to avoid duplicate requests.',
+      primaryLabel: 'Close',
+      primaryAction: GenerationFailureAction.close,
+      primaryIcon: Icons.close_rounded,
+      visual: AppErrorVisual.system,
+      secondaryLabel: null,
+      secondaryAction: null,
+    );
+  }
+
   return AppErrorPresentation(
     title: 'Video Generation Failed',
     message: message,

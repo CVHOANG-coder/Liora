@@ -360,70 +360,82 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
             const Positioned.fill(child: _LoadingGlow()),
             SafeArea(
               bottom: false,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      12,
-                      20,
-                      18 + MediaQuery.paddingOf(context).bottom,
-                    ),
-                    sliver: SliverList.list(
-                      children: [
-                        _Header(onBack: _confirmLeaveForHistory),
-                        const SizedBox(height: 26),
-                        _Artwork(
-                          sourceImagePath: widget.sourceImagePath,
-                          sourceImageUrl: widget.generation.imageUrl,
-                        ),
-                        const SizedBox(height: 8),
-                        const _GeneratingTitle(),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "We're turning your idea into a cinematic result.\n"
-                          'This may take a few moments.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFFC5BFC9),
-                            fontSize: 14,
-                            height: 1.45,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    key: const Key('creatingVideoHeader'),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    child: _Header(onBack: _confirmLeaveForHistory),
+                  ),
+                  Expanded(
+                    child: CustomScrollView(
+                      key: const PageStorageKey('creatingVideoScroll'),
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            20,
+                            14,
+                            20,
+                            18 + MediaQuery.paddingOf(context).bottom,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        _ProgressPercent(progress: _displayProgress),
-                        const SizedBox(height: 8),
-                        _NeonProgressBar(progress: _displayProgress),
-                        const SizedBox(height: 18),
-                        _GenerationSteps(
-                          currentStepIndex: _currentStepIndex,
-                          totalSteps: _generationProgress?.totalSteps ?? 10,
-                        ),
-                        const SizedBox(height: 18),
-                        const _BackgroundTip(),
-                        const SizedBox(height: 18),
-                        _ContinueButton(onTap: _continueInBackground),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: _confirmLeaveForHistory,
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: Color(0xFFFF52B1),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Request ${widget.generation.requestId}',
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF655E69),
-                            fontSize: 10,
+                          sliver: SliverList.list(
+                            children: [
+                              _Artwork(
+                                sourceImagePath: widget.sourceImagePath,
+                                sourceImageUrl: widget.generation.imageUrl,
+                              ),
+                              const SizedBox(height: 8),
+                              const _GeneratingTitle(),
+                              const SizedBox(height: 8),
+                              const Text(
+                                "We're turning your idea into a cinematic result.\n"
+                                'This may take a few moments.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFFC5BFC9),
+                                  fontSize: 14,
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _ProgressPercent(progress: _displayProgress),
+                              const SizedBox(height: 8),
+                              _NeonProgressBar(progress: _displayProgress),
+                              const SizedBox(height: 18),
+                              _GenerationSteps(
+                                currentStepIndex: _currentStepIndex,
+                                totalSteps:
+                                    _generationProgress?.totalSteps ?? 10,
+                              ),
+                              const SizedBox(height: 18),
+                              const _BackgroundTip(),
+                              const SizedBox(height: 18),
+                              _ContinueButton(onTap: _continueInBackground),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: _confirmLeaveForHistory,
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Color(0xFFFF52B1),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Request ${widget.generation.requestId}',
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF655E69),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -633,12 +645,18 @@ class _Header extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          const Text(
-            'Creating Video',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.w600,
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 48),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Creating Video',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
@@ -1171,12 +1189,17 @@ class _ContinueButton extends StatelessWidget {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Continue in Background',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Continue in Background',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               SizedBox(width: 18),

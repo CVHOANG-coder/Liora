@@ -173,6 +173,52 @@ void main() {
     expect(find.text(r'$5.19'), findsNothing);
   });
 
+  testWidgets('returns success after buying credits for a pending request', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    final container = _container(isSubscribed: true, recordPurchases: true);
+    addTearDown(container.dispose);
+    bool? purchaseResult;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                purchaseResult = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute<bool>(
+                    builder: (_) =>
+                        const BuyCredits(returnPurchaseResult: true),
+                  ),
+                );
+              },
+              child: const Text('Open credits'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open credits'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Buy Now'));
+    await tester.tap(find.text('Buy Now'));
+    await tester.pump();
+
+    final controller =
+        container.read(purchaseControllerProvider.notifier)
+            as _RecordingPurchaseController;
+    controller.completeSuccessfully();
+    await tester.pumpAndSettle();
+
+    expect(purchaseResult, isTrue);
+    expect(find.byType(BuyCredits), findsNothing);
+    expect(find.text('Open credits'), findsOneWidget);
+  });
+
   testWidgets(
     'opens the free trial screen when the subscription banner is tapped',
     (tester) async {

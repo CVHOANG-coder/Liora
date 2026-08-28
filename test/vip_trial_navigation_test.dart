@@ -13,12 +13,13 @@ import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/yearly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 
 void main() {
-  testWidgets('non-subscriber opens All Plans from the Home Pro button', (
+  testWidgets('non-VIP opens Free Trial from the Home Pro button', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -43,8 +44,9 @@ void main() {
     await tester.tap(find.byKey(const Key('homeProButton')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AllPlans), findsOneWidget);
-    expect(find.byKey(const Key('trialClaimButton')), findsNothing);
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(AllPlans), findsNothing);
+    expect(find.byKey(const Key('trialClaimButton')), findsOneWidget);
   });
 
   testWidgets('yearly subscriber sees Credit and opens Buy Credits', (

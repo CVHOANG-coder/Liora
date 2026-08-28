@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../core/media/video_cache_service.dart';
 import '../../../core/storage/playback_preferences.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/video_download_service.dart';
+import '../../widgets/cached_video_thumbnail.dart';
 import '../main/main_screen.dart';
 
 typedef GeneratedVideoDownloader =
@@ -14,16 +18,24 @@ typedef GeneratedVideoDownloader =
       void Function(int received, int total) onProgress,
     );
 
+typedef GeneratedVideoSharer =
+    Future<void> Function(String videoUrl, String requestId);
+typedef GeneratedVideoDeleter = Future<void> Function(String requestId);
+
 class GeneratedVideoScreen extends StatefulWidget {
   const GeneratedVideoScreen({
     super.key,
     required this.result,
     this.downloader,
+    this.sharer,
+    this.deleter,
     this.returnToPreviousOnBack = false,
   });
 
   final I2VRequestStatus result;
   final GeneratedVideoDownloader? downloader;
+  final GeneratedVideoSharer? sharer;
+  final GeneratedVideoDeleter? deleter;
   final bool returnToPreviousOnBack;
 
   @override
@@ -36,6 +48,8 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   bool _isMuted = false;
   bool _isDownloading = false;
   double? _downloadProgress;
+  bool _isSharing = false;
+  bool _isDeleting = false;
   bool _leaving = false;
 
   @override
@@ -47,7 +61,14 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   Future<void> _initializePlayer() async {
     final uri = Uri.tryParse(widget.result.resultUrl);
     if (uri == null || !uri.hasScheme) return;
-    final controller = VideoPlayerController.networkUrl(uri);
+    final controller = await VideoCacheService.instance.createController(
+      uri,
+      cacheKey: 'request:${widget.result.requestId}',
+    );
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     _controller = controller;
     try {
       await controller.initialize();
@@ -146,6 +167,66 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
     );
   }
 
+  Future<void> _shareVideo() async {
+    if (_isSharing || _isDeleting) return;
+    setState(() => _isSharing = true);
+    try {
+      final sharer = widget.sharer ?? _defaultSharer;
+      await sharer(widget.result.resultUrl, widget.result.requestId);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share this video.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
+
+  Future<void> _defaultSharer(String videoUrl, String requestId) async {
+    final uri = Uri.tryParse(videoUrl);
+    if (uri == null || !uri.hasScheme) {
+      throw const FormatException('The video URL is invalid.');
+    }
+    await SharePlus.instance.share(
+      ShareParams(uri: uri, title: 'Share your Nostalia video'),
+    );
+  }
+
+  Future<void> _deleteVideo() async {
+    if (_isDeleting || _isSharing) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0xCC000000),
+      builder: (_) => const _DeleteVideoDialog(),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final deleter = widget.deleter ?? _defaultDeleter;
+      await deleter(widget.result.requestId);
+      if (!mounted) return;
+      // History refreshes after this route returns. When the result was opened
+      // from another screen, navigate to the history tab as usual.
+      if (widget.returnToPreviousOnBack) {
+        Navigator.of(context).pop(true);
+      } else {
+        _leaveScreen();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not delete video: $error')));
+      setState(() => _isDeleting = false);
+    }
+  }
+
+  Future<void> _defaultDeleter(String requestId) {
+    return ApiClient.instance.deleteGenerationRequest(requestId);
+  }
+
   void _leaveScreen() {
     if (_leaving) return;
     _leaving = true;
@@ -184,6 +265,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
               _VideoSurface(
                 controller: _controller,
                 isReady: _isReady,
+                cacheKey: 'request:${widget.result.requestId}',
                 fallbackImage: widget.result.thumbnailUrl.isNotEmpty
                     ? widget.result.thumbnailUrl
                     : widget.result.imageUrl,
@@ -239,6 +321,10 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
                       isDownloading: _isDownloading,
                       downloadProgress: _downloadProgress,
                       onDownload: _downloadVideo,
+                      isSharing: _isSharing,
+                      isDeleting: _isDeleting,
+                      onShare: _shareVideo,
+                      onDelete: _deleteVideo,
                     ),
                   ],
                 ),
@@ -255,12 +341,14 @@ class _VideoSurface extends StatelessWidget {
   const _VideoSurface({
     required this.controller,
     required this.isReady,
+    required this.cacheKey,
     required this.fallbackImage,
     required this.onTap,
   });
 
   final VideoPlayerController? controller;
   final bool isReady;
+  final String cacheKey;
   final String fallbackImage;
   final VoidCallback onTap;
 
@@ -273,12 +361,14 @@ class _VideoSurface extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (fallbackImage.isNotEmpty)
-              Image.network(
-                fallbackImage,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
+            CachedVideoThumbnail(
+              cacheKey: cacheKey,
+              imageUrl: fallbackImage,
+              fit: BoxFit.cover,
+              placeholder: const SizedBox.shrink(),
+              errorWidget: const SizedBox.shrink(),
+              maxDecodeWidth: 1080,
+            ),
             if (isReady && controller != null)
               Center(
                 child: AspectRatio(
@@ -355,6 +445,10 @@ class _PlaybackControls extends StatelessWidget {
     required this.isDownloading,
     required this.downloadProgress,
     required this.onDownload,
+    required this.isSharing,
+    required this.isDeleting,
+    required this.onShare,
+    required this.onDelete,
   });
 
   final VideoPlayerController? controller;
@@ -363,6 +457,10 @@ class _PlaybackControls extends StatelessWidget {
   final bool isDownloading;
   final double? downloadProgress;
   final VoidCallback onDownload;
+  final bool isSharing;
+  final bool isDeleting;
+  final VoidCallback onShare;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -431,16 +529,35 @@ class _PlaybackControls extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                '${_formatDuration(value?.position ?? Duration.zero)} / '
-                '${_formatDuration(value?.duration ?? Duration.zero)}',
-                style: const TextStyle(
-                  color: Color(0xFFC7C0CA),
-                  fontSize: 12,
-                  fontFeatures: [FontFeature.tabularFigures()],
+              Flexible(
+                child: Text(
+                  '${_formatDuration(value?.position ?? Duration.zero)} / '
+                  '${_formatDuration(value?.duration ?? Duration.zero)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFC7C0CA),
+                    fontSize: 12,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
               const Spacer(),
+              _CompactAction(
+                key: const Key('shareGeneratedVideo'),
+                icon: isSharing
+                    ? Icons.hourglass_top_rounded
+                    : Icons.share_rounded,
+                onTap: onShare,
+                enabled: !isSharing && !isDeleting,
+              ),
+              _CompactAction(
+                key: const Key('deleteGeneratedVideo'),
+                icon: Icons.delete_outline_rounded,
+                onTap: onDelete,
+                enabled: !isSharing && !isDeleting,
+              ),
+              const SizedBox(width: 3),
               _DownloadButton(
                 isDownloading: isDownloading,
                 progress: downloadProgress,
@@ -533,6 +650,37 @@ class _DownloadButton extends StatelessWidget {
   }
 }
 
+class _CompactAction extends StatelessWidget {
+  const _CompactAction({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 42,
+      child: IconButton(
+        onPressed: enabled ? onTap : null,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 36, height: 42),
+        icon: Icon(
+          icon,
+          color: enabled ? Colors.white : const Color(0xFF77717A),
+          size: 22,
+        ),
+      ),
+    );
+  }
+}
+
 class _RoundAction extends StatelessWidget {
   const _RoundAction({super.key, required this.icon, required this.onTap});
 
@@ -542,8 +690,8 @@ class _RoundAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 44,
-      height: 44,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xBB0B0710),
@@ -552,9 +700,43 @@ class _RoundAction extends StatelessWidget {
       ),
       child: IconButton(
         onPressed: onTap,
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
         padding: EdgeInsets.zero,
         icon: Icon(icon, color: Colors.white, size: 22),
       ),
+    );
+  }
+}
+
+class _DeleteVideoDialog extends StatelessWidget {
+  const _DeleteVideoDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('deleteGeneratedVideoDialog'),
+      backgroundColor: const Color(0xFF17101D),
+      surfaceTintColor: Colors.transparent,
+      title: const Text('Delete video?'),
+      content: const Text(
+        'This video will be permanently removed from your history.',
+      ),
+      actions: [
+        TextButton(
+          key: const Key('cancelDeleteGeneratedVideo'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('confirmDeleteGeneratedVideo'),
+          onPressed: () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFE53965),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
     );
   }
 }

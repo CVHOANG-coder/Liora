@@ -36,3 +36,8 @@ flutter run
 flutter analyze
 flutter test
 ```
+
+## Meta / Facebook app ads
+
+Meta SDK configuration, tracking consent, and the dashboard/device verification
+checklist are documented in [docs/meta_app_events.md](docs/meta_app_events.md).

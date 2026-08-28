@@ -66,11 +66,54 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
     await tester.pumpAndSettle();
     expect(find.text('Weekly Pro'), findsOneWidget);
+    expect(find.text('3 days free trailer'), findsOneWidget);
     await tester.tap(find.text('Weekly Pro'));
     await tester.pumpAndSettle();
 
+    expect(find.text('3 days free trailer'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 393.0]) {
+    testWidgets('weekly trial text follows isVIP at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = _profileContainer();
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: AllPlans()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Weekly Pro'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 days free trailer'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      container
+          .read(profileProvider.notifier)
+          .setProfile(
+            UserProfile.fromJson({'isSubscribed': false, 'isVIP': true}),
+          );
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 days free trailer'), findsNothing);
+      expect(find.text('Weekly Pro'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('opens BuyCredits from the credit button', (tester) async {
     tester.view.physicalSize = const Size(393, 852);

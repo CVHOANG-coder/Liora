@@ -99,6 +99,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    bool? purchaseResult;
 
     final container = ProviderContainer(
       overrides: [
@@ -145,7 +146,12 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
-                onPressed: () => FreeTrialScreen.open(context),
+                onPressed: () async {
+                  purchaseResult = await FreeTrialScreen.open(
+                    context,
+                    returnPurchaseResult: true,
+                  );
+                },
                 child: const Text('Open trial'),
               ),
             ),
@@ -175,6 +181,7 @@ void main() {
     expect(find.byType(FreeTrialScreen), findsNothing);
     expect(find.text('Open trial'), findsOneWidget);
     expect(find.text('Weekly trial started.'), findsOneWidget);
+    expect(purchaseResult, isTrue);
     expect(tester.takeException(), isNull);
   });
 }

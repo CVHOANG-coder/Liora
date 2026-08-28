@@ -114,7 +114,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          for (var index = 0; index < _screens.length; index++)
+            TickerMode(
+              enabled: index == _selectedIndex,
+              child: _screens[index],
+            ),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: _CreateButton(onPressed: _openCreateSheet),
       bottomNavigationBar: _BottomBar(

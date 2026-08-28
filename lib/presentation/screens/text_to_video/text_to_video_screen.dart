@@ -9,6 +9,7 @@ import '../../../data/models/i2v_generation.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/generation_form_exit_guard.dart';
 import '../image_to_video/creating_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/credit_purchase_navigation.dart';
@@ -20,6 +21,18 @@ typedef TextToVideoSubmit =
       required bool isHd,
       required bool isLongTime,
     });
+
+class _TextToVideoRequest {
+  const _TextToVideoRequest({
+    required this.prompt,
+    required this.isHd,
+    required this.isLongTime,
+  });
+
+  final String prompt;
+  final bool isHd;
+  final bool isLongTime;
+}
 
 class TextToVideoScreen extends ConsumerStatefulWidget {
   const TextToVideoScreen({super.key, this.submit, this.progressRepository});
@@ -34,15 +47,33 @@ class TextToVideoScreen extends ConsumerStatefulWidget {
 class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
   final _promptController = TextEditingController();
   final _promptFocusNode = FocusNode();
+  final _keyboardDismissFocusNode = FocusNode(skipTraversal: true);
+  final _promptBoxKey = GlobalKey();
   String _duration = '10s';
   String _quality = 'Non-HD';
   bool _isSubmitting = false;
+  bool _hasLeftForm = false;
+  final _exitGuardKey = GlobalKey<GenerationFormExitGuardState>();
 
   @override
   void dispose() {
     _promptController.dispose();
     _promptFocusNode.dispose();
+    _keyboardDismissFocusNode.dispose();
     super.dispose();
+  }
+
+  void _dismissKeyboardOutsidePrompt(PointerDownEvent event) {
+    final renderObject = _promptBoxKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox) {
+      final localPosition = renderObject.globalToLocal(event.position);
+      if (renderObject.paintBounds.contains(localPosition)) return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_keyboardDismissFocusNode);
+      }
+    });
   }
 
   Future<void> _pickOption({
@@ -82,34 +113,43 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
     if (choice != null) onSelected(choice);
   }
 
-  Future<void> _generate() async {
-    final prompt = _promptController.text.trim();
-    if (prompt.isEmpty) {
-      _promptFocusNode.requestFocus();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter a video prompt.')));
-      return;
+  Future<void> _generate([_TextToVideoRequest? pendingRequest]) async {
+    if (_isSubmitting || _hasLeftForm) return;
+    final _TextToVideoRequest request;
+    if (pendingRequest != null) {
+      request = pendingRequest;
+    } else {
+      final prompt = _promptController.text.trim();
+      if (prompt.isEmpty) {
+        _promptFocusNode.requestFocus();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Enter a video prompt.')));
+        return;
+      }
+      request = _TextToVideoRequest(
+        prompt: prompt,
+        isHd: _quality == 'HD',
+        isLongTime: _duration == '10s',
+      );
     }
 
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _isSubmitting = true);
     try {
       final submit = widget.submit ?? ApiClient.instance.generateTextToVideo;
-      final isHd = _quality == 'HD';
-      final videoDurationSeconds = _duration == '10s' ? 10 : 5;
       final generation = await submit(
-        prompt: prompt,
-        isHd: isHd,
-        isLongTime: _duration == '10s',
+        prompt: request.prompt,
+        isHd: request.isHd,
+        isLongTime: request.isLongTime,
       );
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
 
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: videoDurationSeconds,
-        isHd: isHd,
+        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        isHd: request.isHd,
       );
       final progressRepository =
           widget.progressRepository ??
@@ -119,11 +159,12 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
       } catch (_) {
         // The submitted request remains valid if local persistence fails.
       }
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
 
       ref
           .read(profileProvider.notifier)
           .updateTotalCredit(generation.remainingCredit);
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -136,20 +177,28 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
         ),
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
-      final action = await GenerationFailureDialog.showForError(
-        context,
-        error: error,
-        fallbackMessage: 'Unable to generate the video. Please try again.',
-      );
+      final action = isInsufficientCreditError(error)
+          ? GenerationFailureAction.buyCredits
+          : await GenerationFailureDialog.showForError(
+              context,
+              error: error,
+              fallbackMessage:
+                  'Unable to generate the video. Please try again.',
+            );
       if (!mounted) return;
       switch (action) {
         case GenerationFailureAction.buyCredits:
-          await openCreditPurchaseDestination(
+          final profile = ref.read(profileProvider);
+          final purchased = await openCreditPurchaseDestination(
             context,
-            isVIP: ref.read(profileProvider)?.isVIP == true,
+            isSubscribed: profile?.isSubscribed == true,
+            isVIP: profile?.isVIP == true,
+            error: error,
           );
+          if (purchased && mounted) await _generate(request);
         case GenerationFailureAction.renewSubscription:
           await Navigator.of(
             context,
@@ -179,58 +228,70 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-              sliver: SliverList.list(
-                children: [
-                  _Header(onBack: () => Navigator.maybePop(context)),
-                  const SizedBox(height: 24),
-                  const _PromptHeader(),
-                  const SizedBox(height: 9),
-                  _PromptBox(
-                    controller: _promptController,
-                    focusNode: _promptFocusNode,
+    return GenerationFormExitGuard(
+      key: _exitGuardKey,
+      isSubmitting: _isSubmitting,
+      onLeave: () => _hasLeftForm = true,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _dismissKeyboardOutsidePrompt,
+          child: SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                  sliver: SliverList.list(
+                    children: [
+                      _Header(onBack: () => Navigator.maybePop(context)),
+                      const SizedBox(height: 24),
+                      const _PromptHeader(),
+                      const SizedBox(height: 9),
+                      _PromptBox(
+                        key: _promptBoxKey,
+                        controller: _promptController,
+                        focusNode: _promptFocusNode,
+                      ),
+                      const SizedBox(height: 11),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/clock.png',
+                        title: 'Duration',
+                        value: _duration,
+                        onTap: () => _pickOption(
+                          title: 'Duration',
+                          options: const ['5s', '10s'],
+                          selected: _duration,
+                          onSelected: (value) =>
+                              setState(() => _duration = value),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/HD_icon.png',
+                        title: 'Quality',
+                        value: _quality,
+                        onTap: () => _pickOption(
+                          title: 'Quality',
+                          options: const ['Non-HD', 'HD'],
+                          selected: _quality,
+                          onSelected: (value) =>
+                              setState(() => _quality = value),
+                        ),
+                      ),
+                      const SizedBox(height: 27),
+                      _GenerateButton(
+                        onPressed: _isSubmitting ? null : _generate,
+                        isLoading: _isSubmitting,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 11),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/clock.png',
-                    title: 'Duration',
-                    value: _duration,
-                    onTap: () => _pickOption(
-                      title: 'Duration',
-                      options: const ['5s', '10s'],
-                      selected: _duration,
-                      onSelected: (value) => setState(() => _duration = value),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/HD_icon.png',
-                    title: 'Quality',
-                    value: _quality,
-                    onTap: () => _pickOption(
-                      title: 'Quality',
-                      options: const ['Non-HD', 'HD'],
-                      selected: _quality,
-                      onSelected: (value) => setState(() => _quality = value),
-                    ),
-                  ),
-                  const SizedBox(height: 27),
-                  _GenerateButton(
-                    onPressed: _isSubmitting ? null : _generate,
-                    isLoading: _isSubmitting,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -296,7 +357,11 @@ class _PromptHeader extends StatelessWidget {
 }
 
 class _PromptBox extends StatelessWidget {
-  const _PromptBox({required this.controller, required this.focusNode});
+  const _PromptBox({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+  });
 
   final TextEditingController controller;
   final FocusNode focusNode;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import 'core/analytics/meta_app_events_service.dart';
 import 'core/firebase/firebase_service.dart';
 import 'shared/themes/app_theme.dart';
 import 'presentation/screens/splash/splash_screen.dart';
@@ -13,6 +14,7 @@ import 'presentation/providers/purchase_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.initialize();
+  await MetaAppEventsService.instance.initialize();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
@@ -36,7 +38,8 @@ class VideoGenApp extends ConsumerStatefulWidget {
   ConsumerState<VideoGenApp> createState() => _VideoGenAppState();
 }
 
-class _VideoGenAppState extends ConsumerState<VideoGenApp> {
+class _VideoGenAppState extends ConsumerState<VideoGenApp>
+    with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final Set<String> _openingRequestIds = <String>{};
   StreamSubscription<VideoNotificationOpen>? _notificationOpenSubscription;
@@ -44,9 +47,17 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _notificationOpenSubscription = FirebaseService.notificationOpens.listen(
       (notification) => unawaited(_openVideoNotification(notification)),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(MetaAppEventsService.instance.refreshTrackingAuthorization());
+    }
   }
 
   Future<void> _openVideoNotification(
@@ -82,6 +93,7 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationOpenSubscription?.cancel();
     super.dispose();
   }

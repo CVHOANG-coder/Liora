@@ -13,6 +13,8 @@ import '../../../data/models/i2v_generation.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/generation_form_exit_guard.dart';
+import '../../widgets/image_upload_progress_overlay.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/credit_purchase_navigation.dart';
 import '../support/support_contact_screen.dart';
@@ -29,7 +31,22 @@ typedef ImageToVideoSubmit =
       required String prompt,
       required bool isHd,
       required bool isLongTime,
+      void Function(int sent, int total)? onUploadProgress,
     });
+
+class _ImageToVideoRequest {
+  const _ImageToVideoRequest({
+    required this.imagePath,
+    required this.prompt,
+    required this.isHd,
+    required this.isLongTime,
+  });
+
+  final String imagePath;
+  final String prompt;
+  final bool isHd;
+  final bool isLongTime;
+}
 
 class ImageToVideoScreen extends ConsumerStatefulWidget {
   const ImageToVideoScreen({
@@ -55,17 +72,38 @@ class ImageToVideoScreen extends ConsumerStatefulWidget {
 class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
   final _promptController = TextEditingController();
   final _promptFocusNode = FocusNode();
+  final _keyboardDismissFocusNode = FocusNode(skipTraversal: true);
+  final _promptBoxKey = GlobalKey();
   String _duration = '10s';
   String _quality = 'Non-HD';
   String? _selectedImagePath;
   bool _isPickingImage = false;
   bool _isSubmitting = false;
+  bool _hasLeftForm = false;
+  final _exitGuardKey = GlobalKey<GenerationFormExitGuardState>();
+  int _uploadAttempt = 0;
+  int _uploadSentBytes = 0;
+  int _uploadTotalBytes = 0;
 
   @override
   void dispose() {
     _promptController.dispose();
     _promptFocusNode.dispose();
+    _keyboardDismissFocusNode.dispose();
     super.dispose();
+  }
+
+  void _dismissKeyboardOutsidePrompt(PointerDownEvent event) {
+    final renderObject = _promptBoxKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox) {
+      final localPosition = renderObject.globalToLocal(event.position);
+      if (renderObject.paintBounds.contains(localPosition)) return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_keyboardDismissFocusNode);
+      }
+    });
   }
 
   Future<void> _showImagePicker() async {
@@ -119,9 +157,9 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
     if (legacyPicker != null) return legacyPicker();
     return (await ImagePicker().pickImage(
       source: source,
-      imageQuality: 95,
-      maxWidth: 4096,
-      maxHeight: 4096,
+      imageQuality: 80,
+      maxWidth: 1920,
+      maxHeight: 1920,
       requestFullMetadata: false,
     ))?.path;
   }
@@ -196,6 +234,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
     required String selected,
     required ValueChanged<String> onSelected,
   }) async {
+    if (_isSubmitting) return;
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: const Color(0xFF17101D),
@@ -227,37 +266,65 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
     if (choice != null) onSelected(choice);
   }
 
-  Future<void> _generate() async {
-    final imagePath = _selectedImagePath;
-    if (imagePath == null) {
-      await _showImagePicker();
-      return;
-    }
-    if (_promptController.text.trim().isEmpty) {
-      _promptFocusNode.requestFocus();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Describe the motion for your video.')),
-      );
-      return;
-    }
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _isSubmitting = true);
-    try {
-      final submit = widget.submit ?? ApiClient.instance.generateImageToVideo;
-      final isHd = _quality == 'HD';
-      final videoDurationSeconds = _duration == '10s' ? 10 : 5;
-      final generation = await submit(
+  Future<void> _generate([_ImageToVideoRequest? pendingRequest]) async {
+    if (_isSubmitting || _hasLeftForm) return;
+    final _ImageToVideoRequest request;
+    if (pendingRequest != null) {
+      request = pendingRequest;
+    } else {
+      final imagePath = _selectedImagePath;
+      if (imagePath == null) {
+        await _showImagePicker();
+        return;
+      }
+      final prompt = _promptController.text.trim();
+      if (prompt.isEmpty) {
+        _promptFocusNode.requestFocus();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Describe the motion for your video.')),
+        );
+        return;
+      }
+      request = _ImageToVideoRequest(
         imagePath: imagePath,
-        prompt: _promptController.text.trim(),
-        isHd: isHd,
+        prompt: prompt,
+        isHd: _quality == 'HD',
         isLongTime: _duration == '10s',
       );
-      if (!mounted) return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    final attempt = ++_uploadAttempt;
+    setState(() {
+      _isSubmitting = true;
+      _uploadSentBytes = 0;
+      _uploadTotalBytes = 0;
+    });
+    try {
+      final submit = widget.submit ?? ApiClient.instance.generateImageToVideo;
+      final generation = await submit(
+        imagePath: request.imagePath,
+        prompt: request.prompt,
+        isHd: request.isHd,
+        isLongTime: request.isLongTime,
+        onUploadProgress: (sent, total) {
+          if (!mounted ||
+              _hasLeftForm ||
+              !_isSubmitting ||
+              attempt != _uploadAttempt) {
+            return;
+          }
+          setState(() {
+            _uploadSentBytes = sent;
+            _uploadTotalBytes = total;
+          });
+        },
+      );
+      if (!mounted || _hasLeftForm) return;
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: videoDurationSeconds,
-        isHd: isHd,
+        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        isHd: request.isHd,
       );
       final progressRepository =
           widget.progressRepository ??
@@ -267,10 +334,11 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
       } catch (_) {
         // Keep the submitted request alive even if local persistence fails.
       }
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
       ref
           .read(profileProvider.notifier)
           .updateTotalCredit(generation.remainingCredit);
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -278,25 +346,33 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
             generation: generation,
             initialProgress: progress,
             progressRepository: progressRepository,
-            sourceImagePath: imagePath,
+            sourceImagePath: request.imagePath,
           ),
         ),
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _hasLeftForm) return;
+      _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
-      final action = await GenerationFailureDialog.showForError(
-        context,
-        error: error,
-        fallbackMessage: 'Unable to generate the video. Please try again.',
-      );
+      final action = isInsufficientCreditError(error)
+          ? GenerationFailureAction.buyCredits
+          : await GenerationFailureDialog.showForError(
+              context,
+              error: error,
+              fallbackMessage:
+                  'Unable to generate the video. Please try again.',
+            );
       if (!mounted) return;
       switch (action) {
         case GenerationFailureAction.buyCredits:
-          await openCreditPurchaseDestination(
+          final profile = ref.read(profileProvider);
+          final purchased = await openCreditPurchaseDestination(
             context,
-            isVIP: ref.read(profileProvider)?.isVIP == true,
+            isSubscribed: profile?.isSubscribed == true,
+            isVIP: profile?.isVIP == true,
+            error: error,
           );
+          if (purchased && mounted) await _generate(request);
         case GenerationFailureAction.renewSubscription:
           await Navigator.of(
             context,
@@ -327,68 +403,85 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-              sliver: SliverList.list(
-                children: [
-                  _Header(onBack: () => Navigator.maybePop(context)),
-                  const SizedBox(height: 24),
-                  _UploadCard(
-                    imagePath: _selectedImagePath,
-                    onTap: _showImagePicker,
-                    onRemove: _selectedImagePath == null
-                        ? null
-                        : () => setState(() => _selectedImagePath = null),
-                    isLoading: _isPickingImage,
+    return GenerationFormExitGuard(
+      key: _exitGuardKey,
+      isSubmitting: _isSubmitting,
+      onLeave: () => _hasLeftForm = true,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _dismissKeyboardOutsidePrompt,
+          child: SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+                  sliver: SliverList.list(
+                    children: [
+                      _Header(onBack: () => Navigator.maybePop(context)),
+                      const SizedBox(height: 24),
+                      _UploadCard(
+                        key: const Key('imageToVideoImageCard'),
+                        imagePath: _selectedImagePath,
+                        onTap: _showImagePicker,
+                        onRemove: _selectedImagePath == null || _isSubmitting
+                            ? null
+                            : () => setState(() => _selectedImagePath = null),
+                        isLoading: _isPickingImage,
+                        isSubmitting: _isSubmitting,
+                        uploadSentBytes: _uploadSentBytes,
+                        uploadTotalBytes: _uploadTotalBytes,
+                      ),
+                      const SizedBox(height: 24),
+                      const _PromptHeader(),
+                      const SizedBox(height: 9),
+                      _PromptBox(
+                        key: _promptBoxKey,
+                        controller: _promptController,
+                        focusNode: _promptFocusNode,
+                        readOnly: _isSubmitting,
+                      ),
+                      const SizedBox(height: 11),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/clock.png',
+                        title: 'Duration',
+                        value: _duration,
+                        onTap: () => _pickOption(
+                          title: 'Duration',
+                          options: const ['5s', '10s'],
+                          selected: _duration,
+                          onSelected: (value) =>
+                              setState(() => _duration = value),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      _SettingRow(
+                        asset: 'assets/images/gen_video/HD_icon.png',
+                        title: 'Quality',
+                        value: _quality,
+                        onTap: () => _pickOption(
+                          title: 'Quality',
+                          options: const ['Non-HD', 'HD'],
+                          selected: _quality,
+                          onSelected: (value) =>
+                              setState(() => _quality = value),
+                        ),
+                      ),
+                      // Motion style is hidden until the API supports this field.
+                      const SizedBox(height: 27),
+                      _GenerateButton(
+                        onPressed: _generate,
+                        isLoading: _isSubmitting,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  const _PromptHeader(),
-                  const SizedBox(height: 9),
-                  _PromptBox(
-                    controller: _promptController,
-                    focusNode: _promptFocusNode,
-                  ),
-                  const SizedBox(height: 11),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/clock.png',
-                    title: 'Duration',
-                    value: _duration,
-                    onTap: () => _pickOption(
-                      title: 'Duration',
-                      options: const ['5s', '10s'],
-                      selected: _duration,
-                      onSelected: (value) => setState(() => _duration = value),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  _SettingRow(
-                    asset: 'assets/images/gen_video/HD_icon.png',
-                    title: 'Quality',
-                    value: _quality,
-                    onTap: () => _pickOption(
-                      title: 'Quality',
-                      options: const ['Non-HD', 'HD'],
-                      selected: _quality,
-                      onSelected: (value) => setState(() => _quality = value),
-                    ),
-                  ),
-                  // Motion style is hidden until the API supports this field.
-                  const SizedBox(height: 27),
-                  _GenerateButton(
-                    onPressed: _isSubmitting ? null : _generate,
-                    isLoading: _isSubmitting,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -433,16 +526,23 @@ class _Header extends StatelessWidget {
 
 class _UploadCard extends StatelessWidget {
   const _UploadCard({
+    super.key,
     required this.imagePath,
     required this.onTap,
     required this.onRemove,
     required this.isLoading,
+    required this.isSubmitting,
+    required this.uploadSentBytes,
+    required this.uploadTotalBytes,
   });
 
   final String? imagePath;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
   final bool isLoading;
+  final bool isSubmitting;
+  final int uploadSentBytes;
+  final int uploadTotalBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -451,8 +551,9 @@ class _UploadCard extends StatelessWidget {
       child: Material(
         color: const Color(0xFF090009),
         borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: isSubmitting ? null : onTap,
           borderRadius: BorderRadius.circular(16),
           child: SizedBox(
             height: 256,
@@ -511,7 +612,7 @@ class _UploadCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                ] else ...[
+                ] else if (!isSubmitting) ...[
                   const Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -582,6 +683,13 @@ class _UploadCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (isSubmitting)
+                  Positioned.fill(
+                    child: ImageUploadProgressOverlay(
+                      sentBytes: uploadSentBytes,
+                      totalBytes: uploadTotalBytes,
+                    ),
+                  ),
                 if (isLoading)
                   const Positioned.fill(
                     child: ColoredBox(
@@ -879,10 +987,16 @@ class _PromptHeader extends StatelessWidget {
 }
 
 class _PromptBox extends StatelessWidget {
-  const _PromptBox({required this.controller, required this.focusNode});
+  const _PromptBox({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    this.readOnly = false,
+  });
 
   final TextEditingController controller;
   final FocusNode focusNode;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -898,6 +1012,7 @@ class _PromptBox extends StatelessWidget {
       child: Stack(
         children: [
           TextField(
+            readOnly: readOnly,
             key: const Key('imageToVideoPromptField'),
             controller: controller,
             focusNode: focusNode,
@@ -1050,37 +1165,39 @@ class _GenerateButton extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          onTap: onPressed,
+          key: const Key('generateImageVideo'),
+          onTap: isLoading ? null : onPressed,
           borderRadius: BorderRadius.circular(14),
           child: Center(
-            child: isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Generate',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (isLoading)
+                  const SizedBox.square(
+                    key: Key('generateVideoLoading'),
+                    dimension: 18,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
+                      strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Generate',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(width: 6),
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
+                else
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
+              ],
+            ),
           ),
         ),
       ),

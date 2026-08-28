@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/media/video_cache_service.dart';
 import '../../../data/video_categories.dart';
+import '../../widgets/cached_video_thumbnail.dart';
 import '../theme_to_video/theme_to_video_screen.dart';
 
 const _pink = Color(0xFFFF28A9);
@@ -117,7 +119,14 @@ class _VideoCoverState extends State<_VideoCover> with WidgetsBindingObserver {
     final uri = Uri.tryParse(videoUrl);
     if (uri == null) return;
 
-    final controller = VideoPlayerController.networkUrl(uri);
+    final controller = await VideoCacheService.instance.createController(
+      uri,
+      cacheKey: 'template:${widget.post.id}',
+    );
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     _controller = controller;
 
     try {
@@ -191,23 +200,24 @@ class _VideoCoverState extends State<_VideoCover> with WidgetsBindingObserver {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              widget.post.thumbnailUrl!,
+            CachedVideoThumbnail(
+              cacheKey: 'template:${widget.post.id}',
+              imageUrl: widget.post.thumbnailUrl ?? '',
+              videoUrl: widget.post.videoUrl ?? '',
               fit: BoxFit.cover,
               filterQuality: FilterQuality.high,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const ColoredBox(
-                  color: Color(0xFF171016),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: _pink,
-                      strokeWidth: 2,
-                    ),
+              maxDecodeWidth: 1080,
+              placeholder: const ColoredBox(
+                color: Color(0xFF171016),
+                child: Center(
+                  child: Icon(
+                    Icons.movie_creation_outlined,
+                    color: Color(0xFF837680),
+                    size: 46,
                   ),
-                );
-              },
-              errorBuilder: (_, _, _) => const ColoredBox(
+                ),
+              ),
+              errorWidget: const ColoredBox(
                 color: Color(0xFF171016),
                 child: Center(
                   child: Icon(
