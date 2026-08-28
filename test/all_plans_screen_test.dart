@@ -236,23 +236,7 @@ void main() {
     expect(find.text('YOUR LOLA PRO PLAN'), findsOneWidget);
     expect(find.text('Active until 12/08/2027'), findsOneWidget);
     expect(find.text('Explore PRO Tools'), findsOneWidget);
-    for (final flex in tester.allRenderObjects.whereType<RenderFlex>()) {
-      final children = <String>[];
-      var child = flex.firstChild;
-      while (child != null) {
-        final data = child.parentData as FlexParentData;
-        children.add('${child.runtimeType}:${child.size}:${data.offset}');
-        child = data.nextSibling;
-      }
-      // ignore: avoid_print
-      print('FLEX ${flex.size} ${flex.debugCreator} children=$children');
-    }
     final layoutException = tester.takeException();
-    if (layoutException != null) {
-      // Keep the widget test diagnostic visible while tuning compact layouts.
-      // ignore: avoid_print
-      print(layoutException.toString());
-    }
     expect(layoutException, isNull);
   });
 }
