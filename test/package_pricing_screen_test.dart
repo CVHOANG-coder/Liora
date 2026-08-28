@@ -48,6 +48,8 @@ void main() {
       350,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
+    expect(button.hitTestable(), findsOneWidget);
     await tester.tap(button);
     await tester.pump();
 
@@ -129,6 +131,8 @@ void main() {
       350,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
+    expect(subscribeButton.hitTestable(), findsOneWidget);
     await tester.tap(subscribeButton);
     await tester.pump();
 

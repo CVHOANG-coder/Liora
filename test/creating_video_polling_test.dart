@@ -1,4 +1,9 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
@@ -10,8 +15,167 @@ import 'package:video_gen/presentation/screens/image_to_video/creating_video_scr
 import 'package:video_gen/presentation/screens/image_to_video/generated_video_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
+import 'package:video_gen/shared/themes/app_theme.dart';
+
+const _previewPath = String.fromEnvironment('CREATING_PREVIEW_PATH');
+const _sansPath = String.fromEnvironment('CREATING_PREVIEW_SANS');
+const _serifPath = String.fromEnvironment('CREATING_PREVIEW_SERIF');
 
 void main() {
+  setUpAll(() async {
+    if (_previewPath.isEmpty) return;
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
+    for (final font in [
+      ('Roboto', _sansPath),
+      ('Times New Roman', _serifPath),
+    ]) {
+      if (font.$2.isEmpty) continue;
+      final loader = FontLoader(font.$1)
+        ..addFont(File(font.$2).readAsBytes().then(ByteData.sublistView));
+      await loader.load();
+    }
+  });
+
+  for (final size in [
+    const Size(320, 568),
+    const Size(393, 852),
+    const Size(568, 320),
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('waiting layout and leave dialog at $size, text $scale', (
+        tester,
+      ) async {
+        _setWaitingView(tester, size);
+        final theme = _previewPath.isEmpty
+            ? AppTheme.dark
+            : AppTheme.dark.copyWith(
+                textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Roboto'),
+              );
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: const Key('creatingPreview'),
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: theme,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: CreatingVideoScreen(
+                generation: _generation(),
+                initialProgress: _progress(),
+                progressRepository: _MemoryProgressRepository(),
+                notificationPermissionRequester: () async =>
+                    NotificationPermissionFlowResult.granted,
+                historyDestinationBuilder: (_) =>
+                    const Scaffold(body: Text('Video history destination')),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+        if (_previewPath.isNotEmpty &&
+            size == const Size(393, 852) &&
+            scale == 1) {
+          await _captureWaitingPreview(tester);
+        }
+        final scroll = find
+            .descendant(
+              of: find.byKey(const PageStorageKey('creatingVideoScroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('continueCreatingInBackground')),
+          180,
+          scrollable: scroll,
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.byKey(const Key('continueCreatingInBackground')).hitTestable(),
+          findsOneWidget,
+        );
+        if (_previewPath.isNotEmpty &&
+            size == const Size(393, 852) &&
+            scale == 1) {
+          await _captureWaitingPreview(tester, suffix: '-actions');
+        }
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const Key('creatingVideoBack')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.byKey(const Key('leaveCreatingVideoDialog')),
+          findsOneWidget,
+        );
+        if (_previewPath.isNotEmpty &&
+            size == const Size(393, 852) &&
+            scale == 1) {
+          await _captureWaitingPreview(tester, suffix: '-dialog');
+        }
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(
+          find.byKey(const Key('keepWaitingForVideo')),
+        );
+        await tester.tap(find.byKey(const Key('keepWaitingForVideo')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byKey(const Key('leaveCreatingVideoDialog')), findsNothing);
+        await tester.tap(find.byKey(const Key('continueCreatingInBackground')));
+        await tester.pumpAndSettle();
+        expect(find.text('Video history destination'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  }
+
+  testWidgets(
+    'failure content stays scrollable with large text on a small phone',
+    (tester) async {
+      _setWaitingView(tester, const Size(320, 568));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: CreatingVideoScreen(
+            generation: _generation(),
+            initialProgress: _progress(),
+            initialRequestStatus: _status(
+              'FAILED',
+              errorMessage:
+                  'The video could not be generated. Please try another image or prompt.',
+            ),
+            progressRepository: _MemoryProgressRepository(),
+            notificationPermissionRequester: () async =>
+                NotificationPermissionFlowResult.granted,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Video Generation Failed'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('backToImageToVideo')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('backToImageToVideo')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('shows Settings fallback after the second permission attempt', (
     tester,
   ) async {
@@ -287,8 +451,8 @@ void main() {
     await tester.pump();
     expect(shareCalled, isTrue);
     final downloadButton = find.byKey(const Key('downloadGeneratedVideo'));
-    expect(tester.getSize(downloadButton).height, 42);
-    expect(tester.getSize(downloadButton).width, lessThan(120));
+    expect(tester.getSize(downloadButton).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(downloadButton).width, greaterThanOrEqualTo(120));
 
     await tester.tap(downloadButton);
     await tester.pump();
@@ -300,7 +464,7 @@ void main() {
 
     expect(find.byType(MainScreen), findsOneWidget);
     expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('SETTINGS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -386,6 +550,46 @@ void main() {
     expect(find.textContaining('credits have been refunded'), findsOneWidget);
     expect(await progressRepository.load('request-001'), isNull);
     expect(tester.takeException(), isNull);
+  });
+}
+
+void _setWaitingView(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPadding);
+}
+
+Future<void> _captureWaitingPreview(
+  WidgetTester tester, {
+  String suffix = '',
+}) async {
+  final context = tester.element(find.byType(CreatingVideoScreen));
+  await tester.runAsync(() async {
+    await precacheImage(
+      const AssetImage('assets/images/create_video.png'),
+      context,
+    );
+    await precacheImage(
+      const AssetImage('assets/images/gen_video/clock.png'),
+      context,
+    );
+  });
+  await tester.pump(const Duration(milliseconds: 300));
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const Key('creatingPreview')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 2);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final path = _previewPath.replaceFirst(RegExp(r'\.png$'), '$suffix.png');
+      await File(path).writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
   });
 }
 

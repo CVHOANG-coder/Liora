@@ -52,6 +52,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).title, 'Liora');
+    expect(find.text('Liora'), findsOneWidget);
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
     expect(find.text('Create AI'), findsOneWidget);
@@ -69,7 +71,7 @@ void main() {
     await tester.tap(find.byKey(const Key('profileTab')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nostalia User'), findsOneWidget);
+    expect(find.text('Liora User'), findsOneWidget);
     expect(find.text('Profile unavailable'), findsOneWidget);
   });
 

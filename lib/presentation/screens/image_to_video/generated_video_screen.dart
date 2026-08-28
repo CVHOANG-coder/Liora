@@ -9,6 +9,8 @@ import '../../../core/storage/playback_preferences.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/video_download_service.dart';
 import '../../widgets/cached_video_thumbnail.dart';
+import '../../widgets/video_form_style.dart';
+import '../../widgets/video_library_widgets.dart';
 import '../main/main_screen.dart';
 
 typedef GeneratedVideoDownloader =
@@ -21,6 +23,8 @@ typedef GeneratedVideoDownloader =
 typedef GeneratedVideoSharer =
     Future<void> Function(String videoUrl, String requestId);
 typedef GeneratedVideoDeleter = Future<void> Function(String requestId);
+typedef GeneratedVideoControllerFactory =
+    Future<VideoPlayerController> Function(Uri uri);
 
 class GeneratedVideoScreen extends StatefulWidget {
   const GeneratedVideoScreen({
@@ -29,6 +33,7 @@ class GeneratedVideoScreen extends StatefulWidget {
     this.downloader,
     this.sharer,
     this.deleter,
+    this.controllerFactory,
     this.returnToPreviousOnBack = false,
   });
 
@@ -36,6 +41,7 @@ class GeneratedVideoScreen extends StatefulWidget {
   final GeneratedVideoDownloader? downloader;
   final GeneratedVideoSharer? sharer;
   final GeneratedVideoDeleter? deleter;
+  final GeneratedVideoControllerFactory? controllerFactory;
   final bool returnToPreviousOnBack;
 
   @override
@@ -51,6 +57,8 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   bool _isSharing = false;
   bool _isDeleting = false;
   bool _leaving = false;
+  String? _playerError;
+  bool _isInitializing = false;
 
   @override
   void initState() {
@@ -59,18 +67,32 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   }
 
   Future<void> _initializePlayer() async {
+    if (_isInitializing) return;
+    _isInitializing = true;
+    setState(() {
+      _playerError = null;
+      _isReady = false;
+    });
     final uri = Uri.tryParse(widget.result.resultUrl);
-    if (uri == null || !uri.hasScheme) return;
-    final controller = await VideoCacheService.instance.createController(
-      uri,
-      cacheKey: 'request:${widget.result.requestId}',
-    );
-    if (!mounted) {
-      await controller.dispose();
-      return;
-    }
-    _controller = controller;
+    VideoPlayerController? controller;
     try {
+      final previous = _controller;
+      _controller = null;
+      await previous?.dispose();
+      if (uri == null || !uri.hasScheme) {
+        throw const FormatException('Missing video URL');
+      }
+      controller =
+          await (widget.controllerFactory?.call(uri) ??
+              VideoCacheService.instance.createController(
+                uri,
+                cacheKey: 'request:${widget.result.requestId}',
+              ));
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      _controller = controller;
       await controller.initialize();
       if (!mounted || !identical(controller, _controller)) return;
       var playbackSettings = const PlaybackSettings(
@@ -94,7 +116,10 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
       }
     } catch (_) {
       if (identical(controller, _controller)) _controller = null;
-      await controller.dispose();
+      await controller?.dispose();
+      if (mounted) setState(() => _playerError = 'Preview unavailable');
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -118,7 +143,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   }
 
   Future<void> _downloadVideo() async {
-    if (_isDownloading) return;
+    if (_isDownloading || _isSharing || _isDeleting) return;
     setState(() {
       _isDownloading = true;
       _downloadProgress = null;
@@ -130,7 +155,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
         total,
       ) {
         if (!mounted || total <= 0) return;
-        setState(() => _downloadProgress = received / total);
+        setState(() => _downloadProgress = (received / total).clamp(0.0, 1.0));
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +193,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   }
 
   Future<void> _shareVideo() async {
-    if (_isSharing || _isDeleting) return;
+    if (_isSharing || _isDeleting || _isDownloading) return;
     setState(() => _isSharing = true);
     try {
       final sharer = widget.sharer ?? _defaultSharer;
@@ -189,12 +214,12 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
       throw const FormatException('The video URL is invalid.');
     }
     await SharePlus.instance.share(
-      ShareParams(uri: uri, title: 'Share your Nostalia video'),
+      ShareParams(uri: uri, title: 'Share your Liora video'),
     );
   }
 
   Future<void> _deleteVideo() async {
-    if (_isDeleting || _isSharing) return;
+    if (_isDeleting || _isSharing || _isDownloading) return;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierColor: const Color(0xCC000000),
@@ -244,97 +269,130 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return PopScope<void>(
-      canPop: widget.returnToPreviousOnBack,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _leaveScreen();
-      },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: Colors.black,
-          systemNavigationBarIconBrightness: Brightness.light,
-        ),
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              _VideoSurface(
-                controller: _controller,
-                isReady: _isReady,
-                cacheKey: 'request:${widget.result.requestId}',
-                fallbackImage: widget.result.thumbnailUrl.isNotEmpty
-                    ? widget.result.thumbnailUrl
-                    : widget.result.imageUrl,
-                onTap: _togglePlayback,
+  Widget build(BuildContext context) => PopScope<void>(
+    canPop: widget.returnToPreviousOnBack,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop) _leaveScreen();
+    },
+    child: AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: VideoFormStyle.background,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: VideoFormStyle.background,
+        appBar: AppBar(
+          key: const Key('generatedVideoHeader'),
+          backgroundColor: VideoFormStyle.background,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          toolbarHeight: 64,
+          leadingWidth: 64,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: _RoundAction(
+              key: const Key('generatedVideoBack'),
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Back',
+              onTap: _leaveScreen,
+            ),
+          ),
+          title: Text(
+            'Your Video',
+            style: VideoFormStyle.serif(25),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _RoundAction(
+                key: const Key('generatedVideoMute'),
+                icon: _isMuted
+                    ? Icons.volume_off_outlined
+                    : Icons.volume_up_outlined,
+                tooltip: _isMuted ? 'Turn sound on' : 'Mute',
+                onTap: _isReady ? _toggleMuted : null,
               ),
-              const _VideoOverlay(),
-              SafeArea(
-                minimum: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final previewHeight = (constraints.maxHeight - 254).clamp(
+                180.0,
+                560.0,
+              );
+              return SingleChildScrollView(
+                key: const PageStorageKey<String>('generatedVideoScroll'),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _RoundAction(
-                          key: const Key('generatedVideoBack'),
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          onTap: _leaveScreen,
-                        ),
-                        const Text(
-                          'Your Video',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          key: const Key('generatedVideoFrame'),
+                          height: previewHeight,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF050914),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0xFF3C3C56),
+                              width: .7,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(1),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(21),
+                            child: _VideoSurface(
+                              controller: _controller,
+                              isReady: _isReady,
+                              cacheKey: 'request:${widget.result.requestId}',
+                              fallbackImage:
+                                  widget.result.thumbnailUrl.isNotEmpty
+                                  ? widget.result.thumbnailUrl
+                                  : widget.result.imageUrl,
+                              error: _playerError,
+                              onRetry: _initializePlayer,
+                              onTap: _togglePlayback,
+                            ),
                           ),
                         ),
-                        _RoundAction(
-                          icon: _isMuted
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
-                          onTap: _toggleMuted,
+                        _PlaybackControls(
+                          controller: _controller,
+                          isReady: _isReady,
+                          onTogglePlayback: _togglePlayback,
+                        ),
+                        const SizedBox(height: 16),
+                        _VideoDetails(result: widget.result),
+                        const SizedBox(height: 20),
+                        _ResultActions(
+                          isDownloading: _isDownloading,
+                          downloadProgress: _downloadProgress,
+                          onDownload: _downloadVideo,
+                          isSharing: _isSharing,
+                          isDeleting: _isDeleting,
+                          onShare: _shareVideo,
+                          onDelete: _deleteVideo,
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    if (_isReady && _controller != null)
-                      ValueListenableBuilder<VideoPlayerValue>(
-                        valueListenable: _controller!,
-                        builder: (context, value, _) => IgnorePointer(
-                          ignoring: value.isPlaying,
-                          child: AnimatedOpacity(
-                            opacity: value.isPlaying ? 0 : 1,
-                            duration: const Duration(milliseconds: 180),
-                            child: _CenterPlayButton(onTap: _togglePlayback),
-                          ),
-                        ),
-                      ),
-                    const Spacer(),
-                    _PlaybackControls(
-                      controller: _controller,
-                      isReady: _isReady,
-                      onTogglePlayback: _togglePlayback,
-                      isDownloading: _isDownloading,
-                      downloadProgress: _downloadProgress,
-                      onDownload: _downloadVideo,
-                      isSharing: _isSharing,
-                      isDeleting: _isDeleting,
-                      onShare: _shareVideo,
-                      onDelete: _deleteVideo,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _VideoSurface extends StatelessWidget {
@@ -343,98 +401,170 @@ class _VideoSurface extends StatelessWidget {
     required this.isReady,
     required this.cacheKey,
     required this.fallbackImage,
+    required this.error,
+    required this.onRetry,
     required this.onTap,
   });
-
   final VideoPlayerController? controller;
   final bool isReady;
   final String cacheKey;
   final String fallbackImage;
+  final String? error;
+  final VoidCallback onRetry;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ColoredBox(
-        color: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedVideoThumbnail(
-              cacheKey: cacheKey,
-              imageUrl: fallbackImage,
-              fit: BoxFit.cover,
-              placeholder: const SizedBox.shrink(),
-              errorWidget: const SizedBox.shrink(),
-              maxDecodeWidth: 1080,
-            ),
-            if (isReady && controller != null)
-              Center(
+    final player = controller;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (isReady && player != null)
+          GestureDetector(
+            onTap: onTap,
+            child: ColoredBox(
+              color: const Color(0xFF050914),
+              child: Center(
                 child: AspectRatio(
-                  aspectRatio: controller!.value.aspectRatio,
-                  child: VideoPlayer(controller!),
-                ),
-              )
-            else
-              const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFFF35AD),
-                  strokeWidth: 2.5,
+                  aspectRatio: player.value.aspectRatio > 0
+                      ? player.value.aspectRatio
+                      : 9 / 16,
+                  child: VideoPlayer(player),
                 ),
               ),
-          ],
-        ),
-      ),
+            ),
+          )
+        else
+          CachedVideoThumbnail(
+            cacheKey: cacheKey,
+            imageUrl: fallbackImage,
+            fit: BoxFit.contain,
+            placeholder: _placeholder,
+            errorWidget: _placeholder,
+            maxDecodeWidth: 1080,
+          ),
+        if (isReady && player != null)
+          ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: player,
+            builder: (context, value, _) => Center(
+              child: IgnorePointer(
+                ignoring: value.isPlaying,
+                child: AnimatedOpacity(
+                  opacity: value.isPlaying ? 0 : 1,
+                  duration: const Duration(milliseconds: 160),
+                  child: Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: const Color(0xD90E1421),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF9990B6),
+                        width: .7,
+                      ),
+                    ),
+                    child: IconButton(
+                      key: const Key('generatedVideoCenterPlay'),
+                      tooltip: 'Play',
+                      onPressed: onTap,
+                      icon: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 34,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: error == null
+                  ? const SizedBox.square(
+                      dimension: 28,
+                      child: CircularProgressIndicator(
+                        color: VideoFormStyle.accent,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Container(
+                      key: const Key('generatedVideoPreviewError'),
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xEC0B1020),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.videocam_off_outlined,
+                              color: VideoFormStyle.accent,
+                              size: 26,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'You can still save or share this video.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: VideoFormStyle.secondary,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                            TextButton(
+                              key: const Key('retryGeneratedVideo'),
+                              onPressed: onRetry,
+                              style: TextButton.styleFrom(
+                                foregroundColor: VideoFormStyle.accent,
+                              ),
+                              child: const Text('Retry preview'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+      ],
     );
   }
-}
 
-class _VideoOverlay extends StatelessWidget {
-  const _VideoOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x88000000), Colors.transparent, Color(0xDD050208)],
-          stops: [0, 0.55, 1],
+  Widget get _placeholder => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: RadialGradient(
+        center: Alignment(.2, -.3),
+        radius: 1,
+        colors: [Color(0xFF17182C), Color(0xFF070C18)],
+      ),
+    ),
+    child: Center(
+      child: Opacity(
+        opacity: .2,
+        child: Image.asset(
+          'assets/images/profile/video_icon.png',
+          width: 110,
+          height: 110,
+          excludeFromSemantics: true,
         ),
       ),
-    );
-  }
-}
-
-class _CenterPlayButton extends StatelessWidget {
-  const _CenterPlayButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xB30A070D),
-        border: Border.all(color: const Color(0xCCFFFFFF)),
-        boxShadow: const [BoxShadow(color: Color(0x77FF2BA7), blurRadius: 24)],
-      ),
-      child: IconButton(
-        key: const Key('generatedVideoCenterPlay'),
-        onPressed: onTap,
-        icon: const Icon(
-          Icons.play_arrow_rounded,
-          color: Colors.white,
-          size: 42,
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _PlaybackControls extends StatelessWidget {
@@ -442,6 +572,141 @@ class _PlaybackControls extends StatelessWidget {
     required this.controller,
     required this.isReady,
     required this.onTogglePlayback,
+  });
+  final VideoPlayerController? controller;
+  final bool isReady;
+  final VoidCallback onTogglePlayback;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = controller;
+    if (player == null) return _buildPanel(null);
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: player,
+      builder: (context, value, _) => _buildPanel(value),
+    );
+  }
+
+  Widget _buildPanel(VideoPlayerValue? value) => Container(
+    key: const Key('generatedVideoControls'),
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      children: [
+        SizedBox.square(
+          dimension: 44,
+          child: IconButton(
+            key: const Key('generatedVideoPlayPause'),
+            tooltip: value?.isPlaying == true ? 'Pause' : 'Play',
+            onPressed: isReady ? onTogglePlayback : null,
+            padding: EdgeInsets.zero,
+            icon: Icon(
+              value?.isPlaying == true
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              size: 28,
+              color: isReady ? VideoFormStyle.accent : VideoFormStyle.muted,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            children: [
+              if (isReady && controller != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: VideoProgressIndicator(
+                    controller!,
+                    allowScrubbing: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    colors: const VideoProgressColors(
+                      playedColor: VideoFormStyle.accent,
+                      bufferedColor: Color(0xFF55516A),
+                      backgroundColor: Color(0xFF22273A),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22273A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _formatDuration(value?.position ?? Duration.zero),
+                    style: _timeStyle,
+                  ),
+                  Text(
+                    _formatDuration(value?.duration ?? Duration.zero),
+                    style: _timeStyle,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  static const _timeStyle = TextStyle(
+    color: VideoFormStyle.muted,
+    fontSize: 10,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+  static String _formatDuration(Duration duration) =>
+      '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+}
+
+class _VideoDetails extends StatelessWidget {
+  const _VideoDetails({required this.result});
+  final I2VRequestStatus result;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'MADE WITH LIORA',
+        style: TextStyle(
+          color: VideoFormStyle.accent,
+          fontSize: 9,
+          letterSpacing: 1.8,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 7),
+      Text(
+        result.prompt.trim().isEmpty ? 'Your latest creation' : result.prompt,
+        key: const Key('generatedVideoPrompt'),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: VideoFormStyle.serif(22).copyWith(height: 1.2),
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 7,
+        runSpacing: 7,
+        children: [
+          VideoLibraryTag(
+            result.isTextToVideo ? 'Text to video' : 'Image to video',
+          ),
+          if (result.duration > 0) VideoLibraryTag('${result.duration}s'),
+          VideoLibraryTag(result.isHd ? 'HD' : 'Standard'),
+        ],
+      ),
+    ],
+  );
+}
+
+class _ResultActions extends StatelessWidget {
+  const _ResultActions({
     required this.isDownloading,
     required this.downloadProgress,
     required this.onDownload,
@@ -450,10 +715,6 @@ class _PlaybackControls extends StatelessWidget {
     required this.onShare,
     required this.onDelete,
   });
-
-  final VideoPlayerController? controller;
-  final bool isReady;
-  final VoidCallback onTogglePlayback;
   final bool isDownloading;
   final double? downloadProgress;
   final VoidCallback onDownload;
@@ -463,280 +724,108 @@ class _PlaybackControls extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = this.controller;
-    if (controller == null) {
-      return _buildPanel(context, null);
-    }
-    return ValueListenableBuilder<VideoPlayerValue>(
-      valueListenable: controller,
-      builder: (context, value, _) => _buildPanel(context, value),
-    );
-  }
-
-  Widget _buildPanel(BuildContext context, VideoPlayerValue? value) {
-    return Container(
-      key: const Key('generatedVideoControls'),
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-      decoration: BoxDecoration(
-        color: const Color(0xD90B080E),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF43243D)),
-        boxShadow: const [BoxShadow(color: Color(0x88000000), blurRadius: 22)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isReady && controller != null)
-            VideoProgressIndicator(
-              controller!,
-              allowScrubbing: true,
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              colors: const VideoProgressColors(
-                playedColor: Color(0xFFFF3CA9),
-                bufferedColor: Color(0xFF705168),
-                backgroundColor: Color(0xFF332C35),
-              ),
-            )
-          else
-            Container(
-              height: 3,
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFF332C35),
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: IconButton(
-                  key: const Key('generatedVideoPlayPause'),
-                  tooltip: value?.isPlaying == true ? 'Pause' : 'Play',
-                  onPressed: isReady ? onTogglePlayback : null,
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    value?.isPlaying == true
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    size: 30,
-                    color: isReady ? Colors.white : const Color(0xFF77717A),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  '${_formatDuration(value?.position ?? Duration.zero)} / '
-                  '${_formatDuration(value?.duration ?? Duration.zero)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFC7C0CA),
-                    fontSize: 12,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-              const Spacer(),
-              _CompactAction(
-                key: const Key('shareGeneratedVideo'),
-                icon: isSharing
-                    ? Icons.hourglass_top_rounded
-                    : Icons.share_rounded,
-                onTap: onShare,
-                enabled: !isSharing && !isDeleting,
-              ),
-              _CompactAction(
-                key: const Key('deleteGeneratedVideo'),
-                icon: Icons.delete_outline_rounded,
-                onTap: onDelete,
-                enabled: !isSharing && !isDeleting,
-              ),
-              const SizedBox(width: 3),
-              _DownloadButton(
-                isDownloading: isDownloading,
-                progress: downloadProgress,
-                onTap: onDownload,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _formatDuration(Duration duration) {
-    final totalSeconds = duration.inSeconds;
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-}
-
-class _DownloadButton extends StatelessWidget {
-  const _DownloadButton({
-    required this.isDownloading,
-    required this.progress,
-    required this.onTap,
-  });
-
-  final bool isDownloading;
-  final double? progress;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = progress == null ? null : (progress! * 100).round();
-    return Container(
-      height: 42,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(21),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF16A8), Color(0xFFFF4E5D), Color(0xFFFFA42B)],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x66FF1AA7), blurRadius: 12)],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(21),
-        child: InkWell(
-          key: const Key('downloadGeneratedVideo'),
-          onTap: isDownloading ? null : onTap,
-          borderRadius: BorderRadius.circular(21),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final busy = isDownloading || isSharing || isDeleting;
+      final percent = downloadProgress == null
+          ? null
+          : (downloadProgress! * 100).round();
+      final save = VideoLibraryAction(
+        key: const Key('downloadGeneratedVideo'),
+        label: isDownloading
+            ? (percent == null ? 'Saving' : 'Saving $percent%')
+            : 'Save',
+        icon: Icons.download_rounded,
+        primary: true,
+        busy: isDownloading,
+        onTap: busy ? null : onDownload,
+      );
+      final share = VideoLibraryAction(
+        key: const Key('shareGeneratedVideo'),
+        label: isSharing ? 'Sharing' : 'Share',
+        icon: Icons.ios_share_rounded,
+        busy: isSharing,
+        onTap: busy ? null : onShare,
+      );
+      final delete = VideoLibraryAction(
+        key: const Key('deleteGeneratedVideo'),
+        label: isDeleting ? 'Deleting' : 'Delete',
+        icon: Icons.delete_outline_rounded,
+        destructive: true,
+        busy: isDeleting,
+        onTap: busy ? null : onDelete,
+      );
+      if (constraints.maxWidth < 320 ||
+          MediaQuery.textScalerOf(context).scale(13) > 17) {
+        return Column(
+          children: [
+            save,
+            const SizedBox(height: 10),
+            Row(
               children: [
-                if (isDownloading)
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.download_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                const SizedBox(width: 7),
-                Text(
-                  isDownloading
-                      ? percent == null
-                            ? 'Saving'
-                            : '$percent%'
-                      : 'Save',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Expanded(child: share),
+                const SizedBox(width: 10),
+                Expanded(child: delete),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactAction extends StatelessWidget {
-  const _CompactAction({
-    super.key,
-    required this.icon,
-    required this.onTap,
-    required this.enabled,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 36,
-      height: 42,
-      child: IconButton(
-        onPressed: enabled ? onTap : null,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 36, height: 42),
-        icon: Icon(
-          icon,
-          color: enabled ? Colors.white : const Color(0xFF77717A),
-          size: 22,
-        ),
-      ),
-    );
-  }
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(flex: 5, child: save),
+          const SizedBox(width: 9),
+          Expanded(flex: 4, child: share),
+          const SizedBox(width: 9),
+          Expanded(flex: 4, child: delete),
+        ],
+      );
+    },
+  );
 }
 
 class _RoundAction extends StatelessWidget {
-  const _RoundAction({super.key, required this.icon, required this.onTap});
-
+  const _RoundAction({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
   final IconData icon;
-  final VoidCallback onTap;
+  final String tooltip;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xBB0B0710),
-        border: Border.all(color: const Color(0xFFFF3AAD)),
-        boxShadow: const [BoxShadow(color: Color(0x66FF22A9), blurRadius: 12)],
+        color: const Color(0xFF0D1220),
+        border: Border.all(color: VideoFormStyle.border, width: .6),
       ),
       child: IconButton(
+        tooltip: tooltip,
         onPressed: onTap,
-        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
         padding: EdgeInsets.zero,
-        icon: Icon(icon, color: Colors.white, size: 22),
+        icon: Icon(
+          icon,
+          color: onTap == null ? VideoFormStyle.muted : VideoFormStyle.accent,
+          size: 21,
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _DeleteVideoDialog extends StatelessWidget {
   const _DeleteVideoDialog();
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const Key('deleteGeneratedVideoDialog'),
-      backgroundColor: const Color(0xFF17101D),
-      surfaceTintColor: Colors.transparent,
-      title: const Text('Delete video?'),
-      content: const Text(
-        'This video will be permanently removed from your history.',
-      ),
-      actions: [
-        TextButton(
-          key: const Key('cancelDeleteGeneratedVideo'),
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const Key('confirmDeleteGeneratedVideo'),
-          onPressed: () => Navigator.pop(context, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFE53965),
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Delete'),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const VideoLibraryDeleteDialog(
+    key: Key('deleteGeneratedVideoDialog'),
+    cancelKey: Key('cancelDeleteGeneratedVideo'),
+    confirmKey: Key('confirmDeleteGeneratedVideo'),
+  );
 }

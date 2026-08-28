@@ -26,9 +26,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
-    expect(find.text('Make Nostalia yours'), findsOneWidget);
+    expect(find.text('Make Liora yours'), findsOneWidget);
     expect(find.text('Autoplay videos'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('settingsBackButton')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsNothing);
+    expect(find.byType(ProfileScreen), findsOneWidget);
   });
 
   testWidgets('loads and saves playback preferences', (tester) async {
@@ -65,18 +70,42 @@ void main() {
     expect(preferences.settings.startMuted, isFalse);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('failed saves restore switch values and show feedback', (
+    tester,
+  ) async {
+    final preferences = _MemoryPlaybackPreferences(
+      const PlaybackSettings(autoplayVideos: true, startMuted: false),
+    )..failWrites = true;
+    await tester.pumpWidget(
+      MaterialApp(home: SettingsScreen(preferences: preferences)),
+    );
+    await tester.pumpAndSettle();
+    final autoplay = find.descendant(
+      of: find.byKey(const Key('autoplayVideosSetting')),
+      matching: find.byType(Switch),
+    );
+    await tester.tap(autoplay);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(autoplay).value, isTrue);
+    expect(preferences.settings.autoplayVideos, isTrue);
+    expect(find.text('Unable to save settings.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _MemoryPlaybackPreferences implements PlaybackPreferences {
   _MemoryPlaybackPreferences(this.settings);
 
   PlaybackSettings settings;
+  bool failWrites = false;
 
   @override
   Future<PlaybackSettings> load() async => settings;
 
   @override
   Future<void> setAutoplayVideos(bool value) async {
+    if (failWrites) throw StateError('Settings storage unavailable');
     settings = PlaybackSettings(
       autoplayVideos: value,
       startMuted: settings.startMuted,
@@ -85,6 +114,7 @@ class _MemoryPlaybackPreferences implements PlaybackPreferences {
 
   @override
   Future<void> setStartMuted(bool value) async {
+    if (failWrites) throw StateError('Settings storage unavailable');
     settings = PlaybackSettings(
       autoplayVideos: settings.autoplayVideos,
       startMuted: value,

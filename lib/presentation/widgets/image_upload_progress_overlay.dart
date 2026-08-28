@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'video_form_style.dart';
 
 /// A compact status footer over the existing photo, without changing card size.
 /// Bytes describe upload only; 100% still waits for the generation API response.
@@ -40,7 +41,7 @@ class ImageUploadProgressOverlay extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Color(0x66090009), Color(0xF2090009)],
+            colors: [Colors.transparent, Color(0x6602050C), Color(0xF202050C)],
             stops: [0.25, 0.5, 1],
           ),
         ),
@@ -58,7 +59,7 @@ class ImageUploadProgressOverlay extends StatelessWidget {
                       uploaded
                           ? Icons.check_circle_rounded
                           : Icons.cloud_upload_outlined,
-                      color: const Color(0xFFFF63B5),
+                      color: VideoFormStyle.accent,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -103,13 +104,7 @@ class ImageUploadProgressOverlay extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Color(0xFFFF1594),
-                        Color(0xFFFF4D55),
-                        Color(0xFFFFAE25),
-                      ],
-                    ).createShader(bounds),
+                    shaderCallback: VideoFormStyle.gradient.createShader,
                     child: LinearProgressIndicator(
                       key: const Key('imageUploadProgressBar'),
                       value: progress,

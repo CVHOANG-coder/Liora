@@ -184,7 +184,7 @@ void main() {
           )
           .first,
     );
-    expect(lottieClip.borderRadius, BorderRadius.circular(29));
+    expect(lottieClip.borderRadius, BorderRadius.circular(19));
     expect(submittedPath, endsWith('assets/images/create_video.png'));
     expect(submittedPrompt, 'Gentle cinematic camera movement');
     expect(submittedHd, isFalse);

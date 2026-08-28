@@ -214,7 +214,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(YearlySaleScreen), findsOneWidget);
-    expect(find.text('Nostalia '), findsOneWidget);
+    expect(find.text('Lola '), findsOneWidget);
     expect(find.text('Sale Pro'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));

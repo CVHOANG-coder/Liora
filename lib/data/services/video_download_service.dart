@@ -23,7 +23,7 @@ class VideoDownloadService {
 
     final safeId = requestId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     final output = File(
-      '${Directory.systemTemp.path}/nostalia_${safeId}_${DateTime.now().millisecondsSinceEpoch}.mp4',
+      '${Directory.systemTemp.path}/lola_${safeId}_${DateTime.now().millisecondsSinceEpoch}.mp4',
     );
 
     try {

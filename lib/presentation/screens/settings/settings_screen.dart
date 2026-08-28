@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/device/image_access_permission.dart';
 import '../../../core/media/video_cache_service.dart';
 import '../../../core/media/video_thumbnail_cache.dart';
 import '../../../core/storage/playback_preferences.dart';
 import '../support/app_web_view_screen.dart';
+
+// Match the navy surfaces and violet icon treatment used by Profile.
+const _settingsBackground = Color(0xFF02050C);
+const _settingsSecondary = Color(0xFFB4B1BD);
+const _settingsBorder = Color(0xFF343743);
+const _settingsSurface = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF0B101D), Color(0xFF070C17)],
+);
+const _settingsIconGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFE49CEE), Color(0xFFB640F1)],
+);
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, this.preferences});
@@ -96,13 +111,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: _settingsBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xF208060B),
+        key: const Key('settingsHeader'),
+        backgroundColor: _settingsBackground,
         surfaceTintColor: Colors.transparent,
-        centerTitle: true,
-        toolbarHeight: 66,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: _settingsBackground,
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+        centerTitle: false,
+        toolbarHeight: 84,
         leadingWidth: 68,
+        titleSpacing: 8,
         leading: Padding(
           padding: const EdgeInsets.only(left: 14),
           child: _HeaderButton(
@@ -110,25 +137,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.maybePop(context),
           ),
         ),
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-          ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Settings',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Times New Roman',
+                fontFamilyFallback: ['Times', 'serif'],
+                fontSize: 32,
+                height: 1.1,
+                fontWeight: FontWeight.w400,
+                letterSpacing: -0.8,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: 26,
+              height: 2.5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEC5FB6), Color(0xFF6657FF)],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.85),
-            radius: 1.05,
-            colors: [Color(0x4D4B123F), AppColors.background],
-          ),
-        ),
+      body: ColoredBox(
+        color: _settingsBackground,
         child: CustomScrollView(
+          key: const PageStorageKey('settingsScroll'),
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverPadding(
@@ -145,6 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const _SectionTitle('PLAYBACK'),
                   const SizedBox(height: 9),
                   _SettingsGroup(
+                    key: const Key('playbackSettingsGroup'),
                     children: [
                       _SwitchSettingsTile(
                         key: const Key('autoplayVideosSetting'),
@@ -171,6 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const _SectionTitle('APP & DATA'),
                   const SizedBox(height: 9),
                   _SettingsGroup(
+                    key: const Key('appDataSettingsGroup'),
                     children: [
                       _ActionSettingsTile(
                         key: const Key('appPermissionsSetting'),
@@ -188,6 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ? 'Clearing cached images and videos…'
                             : 'Remove cached thumbnails and videos',
                         onTap: _isClearingCache ? null : _clearMediaCache,
+                        isBusy: _isClearingCache,
                       ),
                     ],
                   ),
@@ -195,8 +242,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const _SectionTitle('LEGAL & ABOUT'),
                   const SizedBox(height: 9),
                   _SettingsGroup(
+                    key: const Key('legalSettingsGroup'),
                     children: [
                       _ActionSettingsTile(
+                        key: const Key('privacySetting'),
                         icon: Icons.shield_outlined,
                         title: 'Privacy',
                         subtitle: 'How the app protects your data',
@@ -205,9 +254,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const _SettingsDivider(),
                       _ActionSettingsTile(
+                        key: const Key('termsSetting'),
                         icon: Icons.description_outlined,
                         title: 'Terms of Service',
-                        subtitle: 'Nostalia terms of use',
+                        subtitle: 'Liora terms of use',
                         onTap: () =>
                             AppWebViewScreen.open(context, AppWebPage.terms),
                       ),
@@ -222,8 +272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 26),
                   const Center(
                     child: Text(
-                      'Nostalia • Create beyond imagination',
-                      style: TextStyle(color: Color(0xFF77717C), fontSize: 11),
+                      'Liora • Create beyond imagination',
+                      style: TextStyle(color: Color(0xFF777585), fontSize: 11),
                     ),
                   ),
                 ],
@@ -243,22 +293,24 @@ class _HeaderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xCC160D17),
-        border: Border.all(color: const Color(0xFF6A2457)),
-        boxShadow: const [BoxShadow(color: Color(0x44FF2FA8), blurRadius: 12)],
-      ),
-      child: IconButton(
-        onPressed: onTap,
-        padding: EdgeInsets.zero,
-        icon: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: Colors.white,
-          size: 20,
+    return Center(
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: _settingsSurface,
+          border: Border.all(color: _settingsBorder, width: 0.6),
+        ),
+        child: IconButton(
+          tooltip: 'Back',
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
         ),
       ),
     );
@@ -271,63 +323,52 @@ class _SettingsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(17),
+      key: const Key('settingsHero'),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0x99150C17),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF5A234E)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 20,
-            offset: Offset(0, 9),
-          ),
-        ],
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF21172E), Color(0xFF0B101D), Color(0xFF070C17)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _settingsBorder, width: 0.6),
       ),
       child: Row(
         children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF36AE), Color(0xFFFF7A42)],
-              ),
-              boxShadow: const [
-                BoxShadow(color: Color(0x77FF2EA8), blurRadius: 18),
-              ],
-            ),
-            child: const Icon(
-              Icons.tune_rounded,
-              color: Colors.white,
-              size: 29,
-            ),
-          ),
-          const SizedBox(width: 14),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Make Nostalia yours',
+                  'Make Liora yours',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
-                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: 5),
+                SizedBox(height: 7),
                 Text(
                   'Manage video playback and app data.',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: _settingsSecondary,
                     fontSize: 12,
-                    height: 1.35,
+                    height: 1.4,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 12),
+          Image.asset(
+            'assets/images/profile/setting_icon.png',
+            width: 76,
+            height: 76,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
           ),
         ],
       ),
@@ -347,10 +388,10 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         title,
         style: const TextStyle(
-          color: Color(0xFFFF72C2),
+          color: Color(0xFFB052F5),
           fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -358,7 +399,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _SettingsGroup extends StatelessWidget {
-  const _SettingsGroup({required this.children});
+  const _SettingsGroup({super.key, required this.children});
 
   final List<Widget> children;
 
@@ -366,9 +407,9 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0x99150F19),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF3D293C)),
+        gradient: _settingsSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _settingsBorder, width: 0.6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -400,11 +441,23 @@ class _SwitchSettingsTile extends StatelessWidget {
       icon: icon,
       title: title,
       subtitle: subtitle,
-      trailing: Switch.adaptive(
-        value: value,
-        onChanged: enabled ? onChanged : null,
-        activeTrackColor: const Color(0xFFFF4DB3),
-        activeThumbColor: Colors.white,
+      trailing: Semantics(
+        label: title,
+        child: Switch.adaptive(
+          value: value,
+          onChanged: enabled ? onChanged : null,
+          activeTrackColor: const Color(0xFFA850CF),
+          activeThumbColor: Colors.white,
+          inactiveTrackColor: const Color(0xFF242638),
+          inactiveThumbColor: const Color(0xFF9295A3),
+          trackOutlineWidth: const WidgetStatePropertyAll(0.6),
+          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const Color(0xFFC875E1);
+            }
+            return const Color(0xFF454655);
+          }),
+        ),
       ),
     );
   }
@@ -417,12 +470,14 @@ class _ActionSettingsTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.isBusy = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -434,11 +489,28 @@ class _ActionSettingsTile extends StatelessWidget {
           icon: icon,
           title: title,
           subtitle: subtitle,
-          trailing: const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFFB9B1BD),
-            size: 27,
-          ),
+          trailing: isBusy
+              ? const SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: Color(0xFFB052F5),
+                    semanticsLabel: 'Clearing cached media',
+                  ),
+                )
+              : Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF211E36),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white,
+                    size: 17,
+                  ),
+                ),
         ),
       ),
     );
@@ -464,9 +536,9 @@ class _ValueSettingsTile extends StatelessWidget {
       trailing: Text(
         value,
         style: const TextStyle(
-          color: AppColors.textSecondary,
+          color: _settingsSecondary,
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -489,20 +561,28 @@ class _SettingsTileLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 76),
+      constraints: const BoxConstraints(minHeight: 78),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(13, 10, 10, 10),
+        padding: const EdgeInsets.fromLTRB(13, 13, 12, 13),
         child: Row(
           children: [
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF291525),
-                border: Border.all(color: const Color(0xFF552047)),
+                borderRadius: BorderRadius.circular(10),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF252139), Color(0xFF17172B)],
+                ),
+                border: Border.all(color: const Color(0xFF3A304C), width: 0.5),
               ),
-              child: Icon(icon, color: const Color(0xFFFF69BD), size: 21),
+              child: ShaderMask(
+                shaderCallback: _settingsIconGradient.createShader,
+                blendMode: BlendMode.srcIn,
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -513,21 +593,23 @@ class _SettingsTileLayout extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.25,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.textSecondary,
+                        color: _settingsSecondary,
                         fontSize: 11,
-                        height: 1.3,
+                        height: 1.4,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -548,6 +630,12 @@ class _SettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, indent: 67, color: Color(0xFF302632));
+    return const Divider(
+      height: 0.6,
+      thickness: 0.6,
+      indent: 67,
+      endIndent: 14,
+      color: Color(0xFF262A39),
+    );
   }
 }

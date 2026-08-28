@@ -90,8 +90,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: false,
+      elevation: 0,
+      constraints: const BoxConstraints(maxWidth: 560),
       backgroundColor: Colors.transparent,
-      barrierColor: const Color(0xC7000000),
+      barrierColor: const Color(0xB802050C),
       builder: (_) => const CreateBottomSheet(),
     );
 
@@ -124,62 +126,77 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: _CreateButton(onPressed: _openCreateSheet),
       bottomNavigationBar: _BottomBar(
         currentIndex: _selectedIndex,
         onChanged: _selectTab,
+        onCreate: _openCreateSheet,
       ),
     );
   }
 }
 
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.currentIndex, required this.onChanged});
+  const _BottomBar({
+    required this.currentIndex,
+    required this.onChanged,
+    required this.onCreate,
+  });
 
   final int currentIndex;
   final ValueChanged<int> onChanged;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      minimum: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Container(
-        height: 82,
+        height: 54,
         decoration: BoxDecoration(
-          color: const Color(0xF5101015),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: const Color(0xFF292830)),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xF5121727), Color(0xF50B1020)],
+          ),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFF2D3346)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 28,
-              offset: Offset(0, 12),
+              color: Color(0x66000000),
+              blurRadius: 12,
+              offset: Offset(0, 5),
             ),
           ],
         ),
-        child: Row(
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Expanded(
-              child: _NavItem(
-                key: const Key('homeTab'),
-                icon: Icons.home_rounded,
-                label: 'Home',
-                selected: currentIndex == 0,
-                onTap: () => onChanged(0),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: _NavItem(
+                    key: const Key('homeTab'),
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    selected: currentIndex == 0,
+                    onTap: () => onChanged(0),
+                  ),
+                ),
+                const SizedBox(width: 110),
+                Expanded(
+                  child: _NavItem(
+                    key: const Key('profileTab'),
+                    icon: Icons.person_rounded,
+                    label: 'Me',
+                    selected: currentIndex == 1,
+                    showDot: currentIndex == 1,
+                    onTap: () => onChanged(1),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 80),
-            Expanded(
-              child: _NavItem(
-                key: const Key('profileTab'),
-                icon: Icons.person_rounded,
-                label: 'Me',
-                selected: currentIndex == 1,
-                onTap: () => onChanged(1),
-              ),
-            ),
+            Positioned(top: 4, child: _CreateButton(onPressed: onCreate)),
           ],
         ),
       ),
@@ -191,6 +208,7 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool showDot;
   final VoidCallback onTap;
 
   const _NavItem({
@@ -198,12 +216,28 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.selected = false,
+    this.showDot = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFFFF4DA6) : const Color(0xFF929198);
+    const activeGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFEC5FB6), Color(0xFFA850CF)],
+    );
+    final color = selected ? null : const Color(0xFF9295A3);
+
+    Widget applyActiveGradient(Widget child) {
+      if (!selected) return child;
+
+      return ShaderMask(
+        shaderCallback: (bounds) => activeGradient.createShader(bounds),
+        blendMode: BlendMode.srcIn,
+        child: child,
+      );
+    }
 
     return Semantics(
       selected: selected,
@@ -216,16 +250,33 @@ class _NavItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 26),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            applyActiveGradient(
+              Icon(icon, color: color ?? Colors.white, size: 30),
+            ),
+            const SizedBox(height: 1),
+            applyActiveGradient(
+              Text(
+                label,
+                style: TextStyle(
+                  color: color ?? Colors.white,
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                ),
               ),
             ),
+            if (showDot) ...[
+              const SizedBox(height: 2),
+              applyActiveGradient(
+                Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: color ?? Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -244,22 +295,26 @@ class _CreateButton extends StatelessWidget {
       button: true,
       label: 'Create',
       child: Container(
-        width: 68,
-        height: 68,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: const Color(0xFF111116),
-          border: Border.all(color: const Color(0xFFFF4DB7), width: 2),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFD744C7), Color(0xFF754DEB), Color(0xFF3F86FF)],
+          ),
+          border: Border.all(color: const Color(0xFFB96BFF), width: 0.8),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF30A8).withValues(alpha: 0.72),
-              blurRadius: 24,
-              spreadRadius: 1,
+              color: const Color(0xFFFF30A8).withValues(alpha: 0.18),
+              blurRadius: 8,
+              spreadRadius: 0,
             ),
             BoxShadow(
-              color: const Color(0xFFFF763C).withValues(alpha: 0.38),
-              blurRadius: 20,
-              offset: const Offset(6, 5),
+              color: const Color(0xFF4F80FF).withValues(alpha: 0.16),
+              blurRadius: 8,
+              offset: const Offset(2, 2),
             ),
           ],
         ),
@@ -270,7 +325,7 @@ class _CreateButton extends StatelessWidget {
           child: InkWell(
             key: const Key('createButton'),
             onTap: onPressed,
-            child: const Icon(Icons.add_rounded, size: 39, color: Colors.white),
+            child: const Icon(Icons.add_rounded, size: 30, color: Colors.white),
           ),
         ),
       ),

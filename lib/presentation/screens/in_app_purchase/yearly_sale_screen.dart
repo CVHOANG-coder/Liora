@@ -8,6 +8,7 @@ import '../../providers/package_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/video_form_style.dart';
 import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
 import 'all_plans_screen.dart';
@@ -49,7 +50,7 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF030208),
+      backgroundColor: VideoFormStyle.background,
       body: Stack(
         children: [
           const Positioned.fill(child: _SaleBackground()),
@@ -328,7 +329,7 @@ class _SaleBackground extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x72030208), Color(0xF2030208), Color(0xFF030208)],
+              colors: [Color(0x7202050C), Color(0xF202050C), Color(0xFF02050C)],
               stops: [0, 0.34, 0.72],
             ),
           ),
@@ -338,7 +339,7 @@ class _SaleBackground extends StatelessWidget {
             gradient: RadialGradient(
               center: Alignment(0.75, -0.66),
               radius: 0.72,
-              colors: [Color(0x423D0051), Color(0x00030208)],
+              colors: [Color(0x423D0051), Color(0x0002050C)],
             ),
           ),
         ),
@@ -361,7 +362,6 @@ class _TopActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _RoundButton(
           key: const Key('yearlySaleCloseButton'),
@@ -369,6 +369,9 @@ class _TopActions extends StatelessWidget {
           icon: Icons.close_rounded,
           onTap: onClose,
         ),
+        const SizedBox(width: 13),
+        const _LolaPro(),
+        const Spacer(),
         _RoundButton(
           label: muted ? 'Turn sound on' : 'Mute sound',
           icon: muted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
@@ -402,13 +405,10 @@ class _RoundButton extends StatelessWidget {
         padding: const EdgeInsets.all(1.2),
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF24B7), Color(0xFFFF8A32)],
-          ),
-          boxShadow: [BoxShadow(color: Color(0x88FF24AA), blurRadius: 13)],
+          gradient: VideoFormStyle.gradient,
         ),
         child: Material(
-          color: const Color(0xE20B0610),
+          color: const Color(0xE20B1020),
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -441,7 +441,6 @@ class _SaleHero extends StatelessWidget {
               fit: BoxFit.contain,
             ),
           ),
-          const Positioned(left: 4, top: 13, child: _NostaliaPro()),
           const Positioned(left: 4, top: 53, child: _GradientTitle()),
           const Positioned(
             left: 4,
@@ -479,24 +478,24 @@ class _SaleHero extends StatelessWidget {
   }
 }
 
-class _NostaliaPro extends StatelessWidget {
-  const _NostaliaPro();
+class _LolaPro extends StatelessWidget {
+  const _LolaPro();
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF19BE), Color(0xFFFF9C22)],
-          ).createShader(bounds),
-          child: const Icon(Icons.play_arrow_rounded, size: 29),
+        Image.asset(
+          'assets/images/home/lola_logo.png',
+          width: 39,
+          height: 39,
+          fit: BoxFit.contain,
+          excludeFromSemantics: true,
         ),
         const SizedBox(width: 3),
         const Text(
-          'Nostalia ',
+          'Lola ',
           style: TextStyle(
             color: Colors.white,
             fontSize: 17,
@@ -506,7 +505,7 @@ class _NostaliaPro extends StatelessWidget {
         const Text(
           'Pro',
           style: TextStyle(
-            color: Color(0xFFFF794A),
+            color: VideoFormStyle.accent,
             fontSize: 17,
             fontWeight: FontWeight.w800,
           ),
@@ -537,7 +536,7 @@ class _GradientTitle extends StatelessWidget {
         ShaderMask(
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF16BD), Color(0xFFFF9C22)],
+            colors: [VideoFormStyle.pink, VideoFormStyle.accent],
           ).createShader(bounds),
           child: const Text(
             'Sale Pro',
@@ -568,7 +567,7 @@ class _SaleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = orange ? const Color(0xFFFF9C21) : const Color(0xFFFF28B1);
+    final color = orange ? VideoFormStyle.accent : VideoFormStyle.pink;
     return Container(
       height: 35,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -577,7 +576,7 @@ class _SaleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(19),
         border: Border.all(color: color),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.42), blurRadius: 10),
+          BoxShadow(color: color.withValues(alpha: 0.18), blurRadius: 8),
         ],
       ),
       child: Row(
@@ -657,9 +656,8 @@ class _BenefitIcon extends StatelessWidget {
       height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF250B20),
-        border: Border.all(color: const Color(0xFFFF28AC)),
-        boxShadow: const [BoxShadow(color: Color(0x70FF24AA), blurRadius: 8)],
+        color: const Color(0xFF14152B),
+        border: Border.all(color: VideoFormStyle.accent),
       ),
       child: Icon(icon, color: const Color(0xFFFF42B7), size: 20),
     );
@@ -675,22 +673,24 @@ class _NeonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(highlight ? 1.4 : 1),
+      padding: EdgeInsets.all(highlight ? 1.1 : .8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: LinearGradient(
           colors: highlight
-              ? const [Color(0xFFFF19B9), Color(0xFFFFA01E)]
-              : const [Color(0xFFB32882), Color(0xFF742256)],
+              ? const [
+                  VideoFormStyle.pink,
+                  VideoFormStyle.accent,
+                  Color(0xFF294CD7),
+                ]
+              : const [Color(0xFF474253), Color(0xFF29263B)],
         ),
-        boxShadow: highlight
-            ? const [BoxShadow(color: Color(0x75FF23A9), blurRadius: 16)]
-            : null,
+        boxShadow: null,
       ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(17, 11, 17, 12),
         decoration: BoxDecoration(
-          color: const Color(0xF20A0610),
+          gradient: VideoFormStyle.surface,
           borderRadius: BorderRadius.circular(21),
         ),
         child: child,
@@ -756,7 +756,7 @@ class _PriceCard extends StatelessWidget {
                       ShaderMask(
                         blendMode: BlendMode.srcIn,
                         shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFFFF16B7), Color(0xFFFF9E20)],
+                          colors: [VideoFormStyle.pink, VideoFormStyle.accent],
                         ).createShader(bounds),
                         child: Text(
                           pricing.salePrice,
@@ -782,7 +782,7 @@ class _PriceCard extends StatelessWidget {
                 Text(
                   'Save ${pricing.savingsPercent}%',
                   style: const TextStyle(
-                    color: Color(0xFFFF3EB1),
+                    color: VideoFormStyle.pink,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -800,23 +800,23 @@ class _PriceCard extends StatelessWidget {
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 17),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF190B18),
+                    color: const Color(0xFF14152B),
                     borderRadius: BorderRadius.circular(19),
-                    border: Border.all(color: const Color(0xFFFF29A8)),
+                    border: Border.all(color: VideoFormStyle.accent),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.calendar_month_outlined,
-                        color: Color(0xFFFF37AC),
+                        color: VideoFormStyle.pink,
                         size: 19,
                       ),
                       SizedBox(width: 8),
                       Text(
                         '7-day free trial',
                         style: TextStyle(
-                          color: Color(0xFFFF4DB6),
+                          color: VideoFormStyle.pink,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -839,7 +839,7 @@ class _PriceCard extends StatelessWidget {
                 bottomLeft: Radius.circular(20),
               ),
               gradient: LinearGradient(
-                colors: [Color(0xFFFF10BF), Color(0xFFFFA11C)],
+                colors: [VideoFormStyle.pink, VideoFormStyle.accent],
               ),
             ),
             child: Text(
@@ -867,9 +867,8 @@ class _SelectedPlanIcon extends StatelessWidget {
       height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF43132E),
-        border: Border.all(color: const Color(0xFFFF2BA9)),
-        boxShadow: const [BoxShadow(color: Color(0x80FF25AA), blurRadius: 10)],
+        color: const Color(0xFF171531),
+        border: Border.all(color: VideoFormStyle.pink),
       ),
       child: const Icon(Icons.check_rounded, color: Colors.white, size: 24),
     );
@@ -885,9 +884,9 @@ class _BillingNote extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
         decoration: BoxDecoration(
-          color: const Color(0xA10C0810),
+          color: const Color(0xA10D1220),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF4A2445)),
+          border: Border.all(color: VideoFormStyle.border),
         ),
         child: const Text(
           'ⓘ  Billed annually  •  Cancel anytime',
@@ -911,22 +910,7 @@ class _PrimaryButton extends StatelessWidget {
       height: 66,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFF0BC5),
-            Color(0xFFFF268E),
-            Color(0xFFFF742B),
-            Color(0xFFFFAE00),
-          ],
-        ),
-        boxShadow: const [
-          BoxShadow(color: Color(0xA0FF1AA8), blurRadius: 20),
-          BoxShadow(
-            color: Color(0x66FF8E18),
-            blurRadius: 14,
-            offset: Offset(5, 0),
-          ),
-        ],
+        gradient: VideoFormStyle.gradient,
       ),
       child: Material(
         color: Colors.transparent,
@@ -1023,11 +1007,11 @@ class _BuyCreditsButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(27),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF31AD), Color(0xFF7E2C65)],
+          colors: [VideoFormStyle.pink, VideoFormStyle.accent],
         ),
       ),
       child: Material(
-        color: const Color(0xED0A0610),
+        color: const Color(0xED0B1020),
         borderRadius: BorderRadius.circular(26),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1035,12 +1019,12 @@ class _BuyCreditsButton extends StatelessWidget {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.toll_outlined, color: Color(0xFFFF55B7), size: 25),
+              Icon(Icons.toll_outlined, color: VideoFormStyle.pink, size: 25),
               SizedBox(width: 11),
               Text(
                 'Buy more credits',
                 style: TextStyle(
-                  color: Color(0xFFD88BB8),
+                  color: VideoFormStyle.accent,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1048,7 +1032,7 @@ class _BuyCreditsButton extends StatelessWidget {
               SizedBox(width: 13),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFFD88BB8),
+                color: VideoFormStyle.accent,
                 size: 24,
               ),
             ],
@@ -1137,7 +1121,7 @@ class _LegalDivider extends StatelessWidget {
       width: 1,
       height: 14,
       margin: const EdgeInsets.symmetric(horizontal: 9),
-      color: const Color(0xFFFF2AAB),
+      color: VideoFormStyle.accent,
     );
   }
 }

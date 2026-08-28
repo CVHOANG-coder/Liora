@@ -208,7 +208,7 @@ class _WelcomeCopy extends StatelessWidget {
                       ],
                     ).createShader(bounds),
                     child: const Text(
-                      'Nostalia',
+                      'Liora',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 38,

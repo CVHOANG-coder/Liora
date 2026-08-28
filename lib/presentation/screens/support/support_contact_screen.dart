@@ -12,7 +12,7 @@ class SupportContactScreen extends StatelessWidget {
 
   Future<void> _copyDetails(BuildContext context) async {
     final details = <String>[
-      'Nostalia support request',
+      'Liora support request',
       if (errorCode case final code?) 'Error code: $code',
       if (errorMessage case final message?) 'Message: $message',
     ].join('\n');
@@ -126,7 +126,7 @@ class _SupportHero extends StatelessWidget {
         ),
         SizedBox(height: 9),
         Text(
-          'Share the details below with the Nostalia support team so we can investigate quickly.',
+          'Share the details below with the Liora support team so we can investigate quickly.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textSecondary,

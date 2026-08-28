@@ -80,6 +80,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         }
       }
 
+      if (!mounted) return;
       await loadingAnimation.orCancel;
       await _controller.animateTo(
         1,
@@ -105,8 +106,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     } on TickerCanceled {
       return;
     } catch (error) {
-      _controller.stop();
       if (!mounted) return;
+      _controller.stop();
       final errorCode = error is ApiException ? error.errorCode : null;
       if (errorCode == ApiErrorCode.userNotFound ||
           errorCode == ApiErrorCode.internalError) {
@@ -208,7 +209,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             return Stack(
               fit: StackFit.expand,
               children: [
-                _SplashArtwork(size: size),
+                _SplashArtwork(size: size, compact: !_isAuthenticating),
                 _SplashContent(
                   size: size,
                   progress: _controller,
@@ -230,47 +231,115 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 }
 
+// Limit the composition by height as well as width on landscape/tablet layouts.
+double _splashLayoutWidth(Size size) =>
+    size.width.clamp(0.0, size.height * 941 / 1672);
+
+const _splashGradient = LinearGradient(
+  colors: [Color(0xFFEC5FB6), Color(0xFFB14DE4), Color(0xFF5B5FF4)],
+);
+
 class _SplashArtwork extends StatelessWidget {
-  const _SplashArtwork({required this.size});
+  const _SplashArtwork({required this.size, required this.compact});
 
   final Size size;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    // The source artwork intentionally includes generous dark space above and
-    // below the logo. Shifting it upward reproduces the reference composition
-    // while keeping it responsive on taller and shorter phones.
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: Color(0xFF03020A)),
-        Transform.translate(
-          offset: Offset(0, -size.height * 0.17),
-          child: Image.asset(
-            'assets/images/bg_splash.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            filterQuality: FilterQuality.high,
-          ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.transparent,
-                Color(0x1703020A),
-                Color(0xFF03020A),
-              ],
-              stops: [0.0, 0.66, 0.78, 1.0],
+    final width = _splashLayoutWidth(size);
+    final artworkWidth = width * (compact ? 0.56 : 0.66);
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: Color(0xFF03020A)),
+          Positioned(
+            left: (size.width - width) / 2,
+            top: size.height * (compact ? 0.1 : 0.2),
+            width: width,
+            height: size.height * 0.53,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x553C1A64),
+                    Color(0x182B134B),
+                    Colors.transparent,
+                  ],
+                  stops: [0, 0.5, 1],
+                  radius: 0.65,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+          CustomPaint(painter: _SplashStarsPainter()),
+          Positioned(
+            top: size.height * (compact ? 0.17 : 0.272),
+            left: (size.width - artworkWidth) / 2,
+            width: artworkWidth,
+            height: artworkWidth * 1040 / 1027,
+            child: Image.asset(
+              'assets/images/splash_icon.png',
+              key: const Key('splashArtwork'),
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class _SplashStarsPainter extends CustomPainter {
+  static const _stars = [
+    Offset(0.25, 0.225),
+    Offset(0.31, 0.245),
+    Offset(0.44, 0.24),
+    Offset(0.68, 0.222),
+    Offset(0.79, 0.235),
+    Offset(0.19, 0.294),
+    Offset(0.77, 0.282),
+    Offset(0.21, 0.358),
+    Offset(0.145, 0.388),
+    Offset(0.2, 0.453),
+    Offset(0.215, 0.505),
+    Offset(0.77, 0.484),
+    Offset(0.83, 0.441),
+    Offset(0.29, 0.576),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = _splashLayoutWidth(size);
+    final scale = width / 393;
+    final left = (size.width - width) / 2;
+    for (var index = 0; index < _stars.length; index++) {
+      final star = _stars[index];
+      final center = Offset(left + star.dx * width, star.dy * size.height);
+      final bright = index == 8 || index == 9 || index == 11;
+      final radius = (bright ? 1.2 : 0.6) * scale;
+      canvas.drawCircle(
+        center,
+        radius * 2,
+        Paint()
+          ..color = Color(bright ? 0x447D4CA4 : 0x225E3989)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2 * scale),
+      );
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = Color(bright ? 0xB9C08AE1 : 0x59684691)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 0.7 * scale),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashStarsPainter oldDelegate) => false;
 }
 
 class _SplashContent extends StatelessWidget {
@@ -296,172 +365,224 @@ class _SplashContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleSize = (size.width * 0.135).clamp(46.0, 70.0);
-    final subtitleSize = (size.width * 0.039).clamp(14.0, 20.0);
+    final width = _splashLayoutWidth(size);
+    final scale = width / 393;
+    final titleSize = width * (isAuthenticating ? 0.18 : 0.14);
+    final footerWidth = width * 0.68;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
 
     return Stack(
       children: [
         Positioned(
-          left: 20,
-          right: 20,
-          top: size.height * 0.655,
+          left: (size.width - width * 0.9) / 2,
+          width: width * 0.9,
+          top: size.height * (isAuthenticating ? 0.669 : 0.56),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [
-                    Color(0xFFFF35D4),
-                    Color(0xFFFF397D),
-                    Color(0xFFFFB044),
-                  ],
-                ).createShader(bounds),
-                child: Text(
-                  'Nostalia',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: titleSize,
-                    height: 1,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -1.8,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: _splashGradient.createShader,
+                  child: Text(
+                    'Liora',
+                    key: const Key('splashTitle'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Times New Roman',
+                      fontFamilyFallback: const ['Times', 'serif'],
+                      fontSize: titleSize,
+                      height: 1,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.7 * scale,
+                    ),
                   ),
                 ),
               ),
-              SizedBox(height: size.height * 0.012),
-              Text(
-                'Create cinematic AI videos',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: const Color(0xFFBEB8C8),
-                  fontSize: subtitleSize,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0.2,
+              SizedBox(height: size.height * 0.009),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Create cinematic AI videos',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color(0xFF9C99A6),
+                    fontSize: 13.4 * scale,
+                    height: 1.2,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.6 * scale,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        Positioned(
-          left: size.width * 0.24,
-          right: size.width * 0.24,
-          top: size.height * 0.835,
-          child: AnimatedBuilder(
-            animation: progress,
-            builder: (context, child) {
-              return Column(
+        if (isAuthenticating)
+          Positioned(
+            left: (size.width - footerWidth) / 2,
+            width: footerWidth,
+            // Keep the loader clear of system navigation on short devices.
+            bottom: (size.height * 0.067).clamp(safeBottom + 8, size.height),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: progress,
+                  builder: (context, child) => _GradientProgressBar(
+                    progress: progress.value,
+                    scale: scale,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.026),
+                Text(
+                  'Loading...',
+                  key: const Key('splashLoadingLabel'),
+                  style: TextStyle(
+                    color: const Color(0xFF8171B2),
+                    fontSize: 12 * scale,
+                    height: 1.3,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 3.5 * scale,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Positioned(
+            left: (size.width - width * 0.84) / 2,
+            width: width * 0.84,
+            top: size.height * 0.735,
+            bottom: safeBottom + 12,
+            child: SingleChildScrollView(
+              key: const Key('splashErrorScroll'),
+              child: Column(
                 children: [
-                  _GradientProgressBar(progress: progress.value),
-                  SizedBox(height: size.height * 0.022),
-                  if (isAuthenticating)
-                    const Text(
-                      'Loading...',
-                      style: TextStyle(
-                        color: Color(0xFFE34CFF),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 4.2,
-                      ),
-                    )
-                  else ...[
-                    Text(
-                      errorMessage ?? 'Unable to connect to the server.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFFD6CFDE),
-                        fontSize: 13,
-                        height: 1.3,
-                      ),
+                  Text(
+                    errorMessage ?? 'Unable to connect to the server.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFD6CFDE),
+                      fontSize: 13,
+                      height: 1.3,
                     ),
-                    const SizedBox(height: 8),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('splashRetryButton'),
+                    onPressed: onPrimaryAction,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFEC5FB6),
+                    ),
+                    child: Text(switch (errorCode) {
+                      ApiErrorCode.accountBanned => 'Contact Support',
+                      ApiErrorCode.subscriptionExpired => 'Renew Plan',
+                      _ => 'Retry',
+                    }),
+                  ),
+                  if (showSupport && errorCode != ApiErrorCode.accountBanned)
                     TextButton(
-                      key: const Key('splashRetryButton'),
-                      onPressed: onPrimaryAction,
+                      onPressed: onContactSupport,
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFFF56D5),
-                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFFBEB8C8),
                       ),
-                      child: Text(switch (errorCode) {
-                        ApiErrorCode.accountBanned => 'Contact Support',
-                        ApiErrorCode.subscriptionExpired => 'Renew Plan',
-                        _ => 'Retry',
-                      }),
+                      child: const Text('Contact Support'),
                     ),
-                    if (showSupport && errorCode != ApiErrorCode.accountBanned)
-                      TextButton(
-                        onPressed: onContactSupport,
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFBEB8C8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: const Text('Contact Support'),
-                      ),
-                  ],
                 ],
-              );
-            },
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
 class _GradientProgressBar extends StatelessWidget {
-  const _GradientProgressBar({required this.progress});
+  const _GradientProgressBar({required this.progress, required this.scale});
 
   final double progress;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 10,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final indicatorX = (constraints.maxWidth - 10) * progress;
-          return Stack(
-            alignment: Alignment.centerLeft,
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                height: 3,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFC92CFF),
-                      Color(0xFFFF329C),
-                      Color(0xFFFF763B),
-                    ],
+    final value = progress.clamp(0.0, 1.0);
+    final dotSize = 11 * scale;
+    return Semantics(
+      label: 'Loading',
+      value: '${(value * 100).round()}%',
+      child: SizedBox(
+        key: const Key('splashProgress'),
+        height: dotSize,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fillWidth = constraints.maxWidth * value;
+            return Stack(
+              alignment: Alignment.centerLeft,
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  key: const Key('splashProgressTrack'),
+                  height: 5.5 * scale,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF252432),
+                    borderRadius: BorderRadius.circular(99),
                   ),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x99FF2FA6), blurRadius: 8),
-                  ],
                 ),
-              ),
-              Positioned(
-                left: indicatorX,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
+                Container(
+                  key: const Key('splashProgressFill'),
+                  width: fillWidth,
+                  height: 5.5 * scale,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFEE3ECD),
+                        Color(0xFFAD45F4),
+                        Color(0xFF4366FF),
+                      ],
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFFFF3B93),
-                        blurRadius: 10,
-                        spreadRadius: 2,
+                        color: const Color(0x339C3FEA),
+                        blurRadius: 8 * scale,
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+                if (value > 0)
+                  Positioned(
+                    // Follow the fill all the way to completion, keeping the
+                    // dot inside the track at either end.
+                    left: (fillWidth - dotSize / 2).clamp(
+                      0.0,
+                      (constraints.maxWidth - dotSize).clamp(
+                        0.0,
+                        double.infinity,
+                      ),
+                    ),
+                    child: Container(
+                      key: const Key('splashProgressHighlight'),
+                      width: dotSize,
+                      height: dotSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xE4A254FB),
+                            blurRadius: 8 * scale,
+                            spreadRadius: 2 * scale,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

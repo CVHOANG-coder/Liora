@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../widgets/video_form_style.dart';
+import '../../widgets/video_library_widgets.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/generation_history.dart';
 import '../../../data/models/generation_progress.dart';
@@ -256,90 +257,79 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        key: const Key('generationHistoryHeader'),
-        backgroundColor: const Color(0xF208060B),
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        toolbarHeight: 68,
-        leadingWidth: 68,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 14),
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: VideoFormStyle.background,
+    appBar: AppBar(
+      key: const Key('generationHistoryHeader'),
+      backgroundColor: VideoFormStyle.background,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      toolbarHeight: 64,
+      leadingWidth: 64,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: _HeaderAction(
+          key: const Key('generationHistoryBack'),
+          icon: Icons.arrow_back_rounded,
+          tooltip: 'Back',
+          onTap: () => Navigator.maybePop(context),
+        ),
+      ),
+      centerTitle: true,
+      title: Text(
+        'Video History',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: VideoFormStyle.serif(25),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
           child: _HeaderAction(
-            key: const Key('generationHistoryBack'),
-            icon: Icons.arrow_back_ios_new_rounded,
-            tooltip: 'Back',
-            onTap: () => Navigator.maybePop(context),
+            icon: Icons.refresh_rounded,
+            tooltip: 'Refresh videos',
+            onTap: _isFirstPageLoading ? null : _loadFirstPage,
           ),
         ),
-        title: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Video History',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.35,
-              ),
-            ),
-            SizedBox(height: 2),
-            Text(
-              'Your AI creations',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: _HeaderAction(
-              icon: Icons.refresh_rounded,
-              tooltip: 'Refresh videos',
-              onTap: _isFirstPageLoading ? null : _loadFirstPage,
-            ),
-          ),
-        ],
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.8),
-            radius: 1.05,
-            colors: [Color(0x4D4B123F), AppColors.background],
-          ),
-        ),
-        child: _buildBody(),
-      ),
-    );
-  }
+      ],
+    ),
+    body: _buildBody(),
+  );
 
   Widget _buildBody() {
     if (_isInitialLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFFFF3CAE),
-          strokeWidth: 2.5,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox.square(
+              dimension: 26,
+              child: CircularProgressIndicator(
+                color: VideoFormStyle.accent,
+                strokeWidth: 2,
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Opening your library…',
+              style: TextStyle(color: VideoFormStyle.secondary, fontSize: 13),
+            ),
+          ],
         ),
       );
     }
-
     if (_requests.isEmpty && _errorMessage != null) {
       return _ErrorState(message: _errorMessage!, onRetry: _loadFirstPage);
     }
-
+    final width = MediaQuery.sizeOf(context).width;
+    final textScale = MediaQuery.textScalerOf(context).scale(12) / 12;
+    final columns = textScale > 1.35
+        ? (width < 600 ? 1 : 2)
+        : (width / 220).floor().clamp(2, 4);
+    final tileWidth = (width - 32 - (columns - 1) * 12) / columns;
     return RefreshIndicator(
-      color: const Color(0xFFFF3CAE),
-      backgroundColor: const Color(0xFF211520),
+      color: VideoFormStyle.accent,
+      backgroundColor: const Color(0xFF101525),
       onRefresh: _loadFirstPage,
       child: CustomScrollView(
         key: const PageStorageKey<String>('generationHistoryScroll'),
@@ -361,13 +351,18 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(10, 4, 10, 24),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                4,
+                16,
+                24 + MediaQuery.paddingOf(context).bottom,
+              ),
               sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 7,
-                  crossAxisSpacing: 7,
-                  childAspectRatio: 9 / 16,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: tileWidth * 1.15 + 88 * textScale,
                 ),
                 itemCount: _requests.length,
                 itemBuilder: (context, index) {
@@ -391,8 +386,8 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
                   child: SizedBox.square(
                     dimension: 24,
                     child: CircularProgressIndicator(
-                      color: Color(0xFFFF3CAE),
-                      strokeWidth: 2.2,
+                      color: VideoFormStyle.accent,
+                      strokeWidth: 2,
                     ),
                   ),
                 ),
@@ -411,21 +406,19 @@ class _HeaderAction extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
   });
-
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Center(
+    child: Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xCC160D17),
-        border: Border.all(color: const Color(0xFF6A2457)),
-        boxShadow: const [BoxShadow(color: Color(0x44FF2FA8), blurRadius: 12)],
+        color: const Color(0xFF0D1220),
+        border: Border.all(color: VideoFormStyle.border, width: .6),
       ),
       child: IconButton(
         tooltip: tooltip,
@@ -434,129 +427,55 @@ class _HeaderAction extends StatelessWidget {
         icon: Icon(
           icon,
           size: 21,
-          color: onTap == null ? const Color(0xFF6F6672) : Colors.white,
+          color: onTap == null ? VideoFormStyle.muted : VideoFormStyle.accent,
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _HistoryOverview extends StatelessWidget {
   const _HistoryOverview({required this.total, required this.creating});
-
   final int total;
   final int creating;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-        decoration: BoxDecoration(
-          color: const Color(0x99150C17),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF542047)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 18,
-              offset: Offset(0, 8),
-            ),
-          ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'LIORA / LIBRARY',
+          style: TextStyle(
+            color: VideoFormStyle.accent,
+            fontSize: 10,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        child: Row(
+        const SizedBox(height: 8),
+        Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(13),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF35AF), Color(0xFFFF7044)],
-                ),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x66FF2DA9), blurRadius: 14),
-                ],
-              ),
-              child: const Icon(
-                Icons.video_library_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
+            Expanded(child: Text('My videos', style: VideoFormStyle.serif(31))),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'My videos',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    'Tap a video to watch',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _CountBadge(label: '$total videos'),
-                if (creating > 0) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    '$creating creating',
-                    style: const TextStyle(
-                      color: Color(0xFFFFAB46),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            VideoLibraryTag('$total videos'),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFF53B6)),
-        color: const Color(0x331F0B1A),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFFFF85C9),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
+        const SizedBox(height: 8),
+        Text(
+          creating > 0
+              ? '$creating in progress in this view · tap to continue'
+              : 'Your ideas, brought to life.',
+          style: const TextStyle(
+            color: VideoFormStyle.secondary,
+            fontSize: 12,
+            height: 1.5,
+          ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _HistoryGridItem extends StatelessWidget {
@@ -567,7 +486,6 @@ class _HistoryGridItem extends StatelessWidget {
     required this.onDelete,
     required this.isDeleting,
   });
-
   final I2VRequestStatus request;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -581,130 +499,146 @@ class _HistoryGridItem extends StatelessWidget {
     final previewUrl = request.thumbnailUrl.isNotEmpty
         ? request.thumbnailUrl
         : request.imageUrl;
-
-    final title = request.prompt.isEmpty ? 'Untitled video' : request.prompt;
+    final title = request.prompt.trim().isEmpty
+        ? 'Untitled video'
+        : request.prompt;
     final statusLabel = _statusLabel(request.requestStatus);
-
     return Semantics(
-      button: canOpen,
-      enabled: canOpen,
       label: '$title, $statusLabel, ${_formatDate(request.createTime)}',
-      child: Material(
-        color: const Color(0xFF211620),
-        elevation: 4,
-        shadowColor: const Color(0x66FF2FA8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFF74305F)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: VideoFormStyle.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF303344), width: .6),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: Key('openHistoryRequest_${request.requestId}'),
-          onTap: canOpen && !isDeleting ? onTap : null,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _GridPreview(
-                requestId: request.requestId,
-                imageUrl: previewUrl,
-                videoUrl: request.isTextToVideo ? request.resultUrl : '',
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x33000000),
-                      Colors.transparent,
-                      Color(0xD9110613),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: Key('openHistoryRequest_${request.requestId}'),
+            onTap: canOpen && !isDeleting ? onTap : null,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _GridPreview(
+                        requestId: request.requestId,
+                        imageUrl: previewUrl,
+                        videoUrl: request.isTextToVideo
+                            ? request.resultUrl
+                            : '',
+                      ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x3302050C),
+                              Colors.transparent,
+                              Color(0x6602050C),
+                            ],
+                            stops: [0, .5, 1],
+                          ),
+                        ),
+                      ),
+                      if (request.isActive) const _QueuedOverlay(),
+                      if (request.isFailed || request.isCancelled)
+                        _TerminalOverlay(status: request.requestStatus),
+                      Positioned(
+                        top: 9,
+                        left: 9,
+                        right: 9,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: _GridStatusBadge(status: request.status),
+                            ),
+                            if (request.isHd) ...[
+                              const SizedBox(width: 6),
+                              const VideoLibraryTag(
+                                'HD',
+                                color: VideoFormStyle.accent,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        left: 10,
+                        right: 10,
+                        bottom: 10,
+                        child: Row(
+                          children: [
+                            if (request.isCompleted &&
+                                request.resultUrl.isNotEmpty)
+                              Container(
+                                width: 30,
+                                height: 30,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xCC0B101B),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            const Spacer(),
+                            if (request.duration > 0)
+                              VideoLibraryTag('${request.duration}s'),
+                          ],
+                        ),
+                      ),
                     ],
-                    stops: [0, 0.5, 1],
                   ),
                 ),
-              ),
-              if (request.isActive) const _QueuedOverlay(),
-              if (request.isFailed || request.isCancelled)
-                _TerminalOverlay(status: request.requestStatus),
-              Positioned(
-                top: 7,
-                left: 7,
-                child: _GridStatusBadge(status: request.status),
-              ),
-              if (request.isHd)
-                Positioned(
-                  top: 7,
-                  right: 7,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xCC09070B),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: const Text(
-                      'HD',
-                      style: TextStyle(
-                        color: Color(0xFFFFA15A),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              Positioned(
-                top: request.isHd ? 34 : 7,
-                right: 7,
-                child: _GridDeleteButton(
-                  requestId: request.requestId,
-                  isDeleting: isDeleting,
-                  onTap: onDelete,
-                ),
-              ),
-              Positioned(
-                left: 8,
-                right: 8,
-                bottom: 8,
-                child: Row(
-                  children: [
-                    if (request.isCompleted) ...[
-                      const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Color(0xFFFF72C4),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 2),
-                    ],
-                    Expanded(
-                      child: Text(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 11, 8, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                          fontSize: 12,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    if (request.duration > 0) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '${request.duration}s',
-                        style: const TextStyle(
-                          color: Color(0xFFE4DEE6),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _formatDate(request.createTime).split('  ').first,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: VideoFormStyle.muted,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                          _GridDeleteButton(
+                            requestId: request.requestId,
+                            isDeleting: isDeleting,
+                            onTap: onDelete,
+                          ),
+                        ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -718,188 +652,46 @@ class _GridDeleteButton extends StatelessWidget {
     required this.isDeleting,
     required this.onTap,
   });
-
   final String requestId;
   final bool isDeleting;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Delete video',
-      child: Material(
-        color: const Color(0xD9140911),
-        shape: CircleBorder(
-          side: BorderSide(
-            color: const Color(0xFFFF607B).withValues(alpha: 0.72),
-          ),
-        ),
-        elevation: 3,
-        shadowColor: const Color(0x99FF315E),
-        child: InkWell(
-          key: Key('deleteHistoryRequest_$requestId'),
-          onTap: isDeleting ? null : onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: 29,
-            child: Center(
-              child: isDeleting
-                  ? const SizedBox.square(
-                      dimension: 13,
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFFF7289),
-                        strokeWidth: 1.8,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Color(0xFFFF7289),
-                      size: 17,
-                    ),
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 36,
+    child: IconButton(
+      key: Key('deleteHistoryRequest_$requestId'),
+      tooltip: 'Delete video',
+      padding: EdgeInsets.zero,
+      onPressed: isDeleting ? null : onTap,
+      icon: isDeleting
+          ? const SizedBox.square(
+              dimension: 15,
+              child: CircularProgressIndicator(
+                color: VideoFormStyle.accent,
+                strokeWidth: 1.5,
+              ),
+            )
+          : const Icon(
+              Icons.delete_outline_rounded,
+              color: VideoFormStyle.muted,
+              size: 18,
             ),
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _DeleteHistoryDialog extends StatelessWidget {
   const _DeleteHistoryDialog({required this.request});
-
   final I2VRequestStatus request;
 
   @override
-  Widget build(BuildContext context) {
-    final prompt = request.prompt.trim();
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF25101F), Color(0xFF100B12)],
-          ),
-          border: Border.all(color: const Color(0xFF853052)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x55FF315F), blurRadius: 28),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFF5271).withValues(alpha: 0.12),
-                border: Border.all(color: const Color(0xFFFF617C)),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x55FF315F), blurRadius: 18),
-                ],
-              ),
-              child: const Icon(
-                Icons.delete_forever_outlined,
-                color: Color(0xFFFF7189),
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Delete video?',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This video will be permanently removed from your history.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-            if (prompt.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0x66100911),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF4E293F)),
-                ),
-                child: Text(
-                  prompt,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFD5CDD7),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    key: const Key('cancelDeleteHistoryRequest'),
-                    onPressed: () => Navigator.pop(context, false),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFF66415A)),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    key: const Key('confirmDeleteHistoryRequest'),
-                    onPressed: () => Navigator.pop(context, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF4E70),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      shadowColor: const Color(0xFFFF315F),
-                      elevation: 6,
-                    ),
-                    child: const Text(
-                      'Delete',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => VideoLibraryDeleteDialog(
+    key: const Key('deleteHistoryVideoDialog'),
+    prompt: request.prompt,
+    cancelKey: const Key('cancelDeleteHistoryRequest'),
+    confirmKey: const Key('confirmDeleteHistoryRequest'),
+  );
 }
 
 class _GridPreview extends StatelessWidget {
@@ -908,7 +700,6 @@ class _GridPreview extends StatelessWidget {
     required this.imageUrl,
     required this.videoUrl,
   });
-
   final String requestId;
   final String imageUrl;
   final String videoUrl;
@@ -922,90 +713,45 @@ class _GridPreview extends StatelessWidget {
       imageUrl: imageUrl,
       videoUrl: videoUrl,
       fit: BoxFit.cover,
-      placeholder: _previewPlaceholder(showProgress: needsGeneratedPreview),
-      errorWidget: _previewPlaceholder(showProgress: false),
+      placeholder: _previewPlaceholder,
+      errorWidget: _previewPlaceholder,
     );
   }
 
-  Widget _previewPlaceholder({required bool showProgress}) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF3A1A34), Color(0xFF160F17)],
-        ),
+  Widget get _previewPlaceholder => const DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF20203B), Color(0xFF0A1221)],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Icon(
-            Icons.movie_creation_outlined,
-            color: Color(0xFFB77AA7),
-            size: 32,
-          ),
-          if (showProgress)
-            const Positioned(
-              bottom: 22,
-              child: SizedBox.square(
-                dimension: 15,
-                child: CircularProgressIndicator(
-                  color: Color(0xFFFF53B6),
-                  strokeWidth: 1.8,
-                ),
-              ),
-            ),
-        ],
+    ),
+    child: Center(
+      child: Icon(
+        Icons.movie_creation_outlined,
+        color: Color(0xFF8C81B3),
+        size: 38,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _GridStatusBadge extends StatelessWidget {
   const _GridStatusBadge({required this.status});
-
   final String status;
 
   @override
   Widget build(BuildContext context) {
     final requestStatus = GenerationRequestStatus.fromValue(status);
-    final label = _statusLabel(requestStatus);
     final color = switch (requestStatus) {
-      GenerationRequestStatus.completed => const Color(0xFF63E981),
-      GenerationRequestStatus.inQueue => const Color(0xFFFFB046),
-      GenerationRequestStatus.pending => const Color(0xFF54C7FC),
+      GenerationRequestStatus.completed => const Color(0xFFA9D2C2),
       GenerationRequestStatus.failed ||
-      GenerationRequestStatus.error => const Color(0xFFFF6C78),
-      GenerationRequestStatus.cancelled => const Color(0xFFB5ADB8),
-      GenerationRequestStatus.deleted => const Color(0xFF777077),
-      _ => const Color(0xFFFF62BC),
+      GenerationRequestStatus.error => const Color(0xFFE49AAA),
+      GenerationRequestStatus.inQueue ||
+      GenerationRequestStatus.pending => VideoFormStyle.accent,
+      _ => VideoFormStyle.secondary,
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xD909070B),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
+    return VideoLibraryTag(_statusLabel(requestStatus), color: color);
   }
 }
 
@@ -1013,171 +759,126 @@ class _QueuedOverlay extends StatelessWidget {
   const _QueuedOverlay();
 
   @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0x55000000),
-      child: Center(
-        child: SizedBox.square(
-          dimension: 25,
-          child: CircularProgressIndicator(
-            color: Color(0xFFFF51B4),
-            strokeWidth: 2.2,
-          ),
+  Widget build(BuildContext context) => const ColoredBox(
+    color: Color(0x3302050C),
+    child: Center(
+      child: SizedBox.square(
+        dimension: 25,
+        child: CircularProgressIndicator(
+          color: VideoFormStyle.accent,
+          strokeWidth: 2,
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _TerminalOverlay extends StatelessWidget {
   const _TerminalOverlay({required this.status});
-
   final GenerationRequestStatus status;
 
   @override
-  Widget build(BuildContext context) {
-    final isCancelled = status == GenerationRequestStatus.cancelled;
-    return ColoredBox(
-      color: const Color(0x77000000),
-      child: Center(
-        child: Icon(
-          isCancelled ? Icons.cancel_outlined : Icons.error_outline_rounded,
-          color: isCancelled
-              ? const Color(0xFFB5ADB8)
-              : const Color(0xFFFF6877),
-          size: 30,
-        ),
+  Widget build(BuildContext context) => ColoredBox(
+    color: const Color(0x7702050C),
+    child: Center(
+      child: Icon(
+        status == GenerationRequestStatus.cancelled
+            ? Icons.cancel_outlined
+            : Icons.error_outline_rounded,
+        color: status == GenerationRequestStatus.cancelled
+            ? VideoFormStyle.secondary
+            : const Color(0xFFE49AAA),
+        size: 30,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
-          decoration: BoxDecoration(
-            color: const Color(0xB3140D17),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF542047)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF39AF), Color(0xFFFF7940)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(color: Color(0x77FF2DA8), blurRadius: 20),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.video_library_outlined,
-                  size: 34,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'No videos yet',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Your generated videos will appear here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-              ),
-            ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.asset(
+          'assets/images/profile/video_icon.png',
+          width: 112,
+          height: 112,
+          excludeFromSemantics: true,
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'No videos yet',
+          textAlign: TextAlign.center,
+          style: VideoFormStyle.serif(30),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Your generated videos will appear here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: VideoFormStyle.secondary,
+            fontSize: 14,
+            height: 1.5,
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-          decoration: BoxDecoration(
-            color: const Color(0xB3140D17),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF61223F)),
-          ),
+  Widget build(BuildContext context) => CustomScrollView(
+    slivers: [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.cloud_off_rounded,
-                size: 54,
-                color: Color(0xFFFF6687),
+                Icons.cloud_off_outlined,
+                color: VideoFormStyle.accent,
+                size: 48,
               ),
-              const SizedBox(height: 16),
-              const Text(
+              const SizedBox(height: 22),
+              Text(
                 'Could not load video history',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: VideoFormStyle.serif(27),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: VideoFormStyle.secondary,
                   fontSize: 13,
+                  height: 1.5,
                 ),
               ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: onRetry,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF3CAE),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Try again'),
+              const SizedBox(height: 24),
+              VideoLibraryAction(
+                label: 'Try again',
+                icon: Icons.refresh_rounded,
+                onTap: onRetry,
+                primary: true,
               ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ],
+  );
 }
 
 String _formatDate(DateTime? value) {

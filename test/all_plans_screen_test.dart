@@ -58,26 +58,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Nostalia '), findsOneWidget);
-    expect(find.text('Ready to go PRO?'), findsOneWidget);
+    expect(find.text('Liora '), findsOneWidget);
+    expect(find.byKey(const Key('allPlansHeadline')), findsOneWidget);
     expect(find.text('Yearly Pro'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
     await tester.pumpAndSettle();
     expect(find.text('Weekly Pro'), findsOneWidget);
-    expect(find.text('3 days free trailer'), findsOneWidget);
+    expect(find.text('3 days free trailer'), findsNothing);
     await tester.tap(find.text('Weekly Pro'));
     await tester.pumpAndSettle();
 
-    expect(find.text('3 days free trailer'), findsOneWidget);
+    expect(find.text('Weekly Pro'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   for (final width in [320.0, 393.0]) {
-    testWidgets('weekly trial text follows isVIP at width $width', (
-      tester,
-    ) async {
+    testWidgets('weekly plan follows isVIP at width $width', (tester) async {
       tester.view.physicalSize = Size(width, 852);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -99,7 +97,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('3 days free trailer'), findsOneWidget);
+      expect(find.text('Weekly Pro'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       container
@@ -208,6 +206,54 @@ void main() {
     expect(find.text('Your Balance'), findsOneWidget);
     expect(find.text('Give PRO, Get More'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('yearly active state stays readable on compact screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final container = _profileContainer(
+      isSubscribed: true,
+      startedAt: '2026-08-12T00:00:00Z',
+      endsAt: '2027-08-12T00:00:00Z',
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: const MaterialApp(home: AllPlans()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('YOUR LOLA PRO PLAN'), findsOneWidget);
+    expect(find.text('Active until 12/08/2027'), findsOneWidget);
+    expect(find.text('Explore PRO Tools'), findsOneWidget);
+    for (final flex in tester.allRenderObjects.whereType<RenderFlex>()) {
+      final children = <String>[];
+      var child = flex.firstChild;
+      while (child != null) {
+        final data = child.parentData as FlexParentData;
+        children.add('${child.runtimeType}:${child.size}:${data.offset}');
+        child = data.nextSibling;
+      }
+      // ignore: avoid_print
+      print('FLEX ${flex.size} ${flex.debugCreator} children=$children');
+    }
+    final layoutException = tester.takeException();
+    if (layoutException != null) {
+      // Keep the widget test diagnostic visible while tuning compact layouts.
+      // ignore: avoid_print
+      print(layoutException.toString());
+    }
+    expect(layoutException, isNull);
   });
 }
 

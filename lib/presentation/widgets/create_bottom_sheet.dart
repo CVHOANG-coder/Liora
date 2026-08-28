@@ -1,86 +1,113 @@
 import 'package:flutter/material.dart';
-
-import '../../core/constants/app_colors.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 enum CreateVideoMode { textToVideo, imageToVideo }
+
+const _sheetBackground = Color(0xFF02050C);
+const _sheetBorder = Color(0xFF343743);
+const _sheetSecondary = Color(0xFFB4B1BD);
+const _cardSurface = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF0B101D), Color(0xFF070C17)],
+);
 
 class CreateBottomSheet extends StatelessWidget {
   const CreateBottomSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        border: Border(top: BorderSide(color: Color(0xFF5B204D))),
-        boxShadow: [BoxShadow(color: Color(0x66FF2BA9), blurRadius: 28)],
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.88,
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+      child: Container(
+        key: const Key('createSheetSurface'),
+        decoration: const BoxDecoration(
+          color: _sheetBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.fromBorderSide(
+            BorderSide(color: _sheetBorder, width: 0.6),
+          ),
+          boxShadow: [BoxShadow(color: Color(0x40000000), blurRadius: 24)],
+        ),
+        clipBehavior: Clip.antiAlias,
         child: DecoratedBox(
           decoration: const BoxDecoration(
             gradient: RadialGradient(
               center: Alignment(-0.8, -1),
-              radius: 1.4,
-              colors: [Color(0x553E113A), AppColors.surface],
+              radius: 1.1,
+              colors: [Color(0xFF171226), _sheetBackground],
             ),
           ),
           child: SafeArea(
             top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF3BAE), Color(0xFFFF8840)],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  key: const Key('createSheetHandle'),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF535364),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 18, 12, 18),
+                  child: _SheetHeader(),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    key: const PageStorageKey('createSheetScroll'),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CreateOption(
+                          key: const Key('createTextToVideo'),
+                          asset: 'assets/images/home/text_to_video.png',
+                          title: 'Text to Video',
+                          subtitle:
+                              'Turn your description into a vivid AI video',
+                          badge: 'PROMPT',
+                          accent: const Color(0xFFEC5FB6),
+                          onTap: () => Navigator.pop(
+                            context,
+                            CreateVideoMode.textToVideo,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
+                        const SizedBox(height: 12),
+                        _CreateOption(
+                          key: const Key('createImageToVideo'),
+                          asset: 'assets/images/home/image_to_video.png',
+                          title: 'Image to Video',
+                          subtitle: 'Bring cinematic motion to your photos',
+                          badge: 'PHOTO',
+                          accent: const Color(0xFF9DADF0),
+                          onTap: () => Navigator.pop(
+                            context,
+                            CreateVideoMode.imageToVideo,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Choose how you want to start creating',
+                          key: Key('createSheetHint'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF858290),
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  const _SheetHeader(),
-                  const SizedBox(height: 22),
-                  _CreateOption(
-                    key: const Key('createTextToVideo'),
-                    icon: Icons.auto_awesome_rounded,
-                    title: 'Text to Video',
-                    subtitle: 'Turn your description into a vivid AI video',
-                    badge: 'PROMPT',
-                    colors: const [Color(0xFFFF31AC), Color(0xFF9F48F5)],
-                    glow: const Color(0xFFFF31AC),
-                    onTap: () =>
-                        Navigator.pop(context, CreateVideoMode.textToVideo),
-                  ),
-                  const SizedBox(height: 12),
-                  _CreateOption(
-                    key: const Key('createImageToVideo'),
-                    icon: Icons.add_photo_alternate_rounded,
-                    title: 'Image to Video',
-                    subtitle: 'Bring cinematic motion to your photos',
-                    badge: 'PHOTO',
-                    colors: const [Color(0xFFFF4F85), Color(0xFFFF9138)],
-                    glow: const Color(0xFFFF713D),
-                    onTap: () =>
-                        Navigator.pop(context, CreateVideoMode.imageToVideo),
-                  ),
-                  const SizedBox(height: 16),
-                  const Center(
-                    child: Text(
-                      'Choose how you want to start creating',
-                      style: TextStyle(color: Color(0xFF847D8A), fontSize: 11),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -94,29 +121,76 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SparkIcon(),
-        SizedBox(width: 13),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Create AI video',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
+              const FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Create AI video',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Color(0xFFF5F2F8),
+                    fontFamily: 'Times New Roman',
+                    fontFamilyFallback: ['Times', 'serif'],
+                    fontSize: 30,
+                    height: 1.1,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
-              SizedBox(height: 4),
-              Text(
+              const SizedBox(height: 9),
+              Container(
+                width: 28,
+                height: 2.5,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEC5FB6), Color(0xFF6657FF)],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
                 'Your idea, moving your way.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: _sheetSecondary,
+                  fontSize: 12.5,
+                  height: 1.35,
+                ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          key: const Key('createSheetCloseButton'),
+          width: 44,
+          height: 44,
+          child: IconButton(
+            tooltip: 'Close',
+            padding: EdgeInsets.zero,
+            onPressed: () => Navigator.pop(context),
+            icon: Container(
+              width: 32,
+              height: 32,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: _cardSurface,
+                border: Border.all(color: _sheetBorder, width: 0.6),
+              ),
+              child: SvgPicture.asset(
+                'assets/svgs/purchase_close.svg',
+                excludeFromSemantics: true,
+              ),
+            ),
           ),
         ),
       ],
@@ -124,134 +198,106 @@ class _SheetHeader extends StatelessWidget {
   }
 }
 
-class _SparkIcon extends StatelessWidget {
-  const _SparkIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF35B0), Color(0xFFFF7B42)],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x88FF2AA9), blurRadius: 18)],
-      ),
-      child: const Icon(Icons.movie_filter_rounded, color: Colors.white),
-    );
-  }
-}
-
 class _CreateOption extends StatelessWidget {
   const _CreateOption({
     super.key,
-    required this.icon,
+    required this.asset,
     required this.title,
     required this.subtitle,
     required this.badge,
-    required this.colors,
-    required this.glow,
+    required this.accent,
     required this.onTap,
   });
 
-  final IconData icon;
+  final String asset;
   final String title;
   final String subtitle;
   final String badge;
-  final List<Color> colors;
-  final Color glow;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xCC211825),
-      borderRadius: BorderRadius.circular(21),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 92),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(21),
-            border: Border.all(color: glow.withValues(alpha: 0.38)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: colors,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: glow.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                    ),
-                  ],
+    return Container(
+      key: ValueKey('createOptionSurface-$badge'),
+      constraints: const BoxConstraints(minHeight: 96),
+      decoration: BoxDecoration(
+        gradient: _cardSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _sheetBorder, width: 0.6),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Image.asset(
+                  asset,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true,
                 ),
-                child: Icon(icon, color: Colors.white, size: 27),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 5,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
                             title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
+                              color: Color(0xFFF5F2F8),
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 7),
-                        _OptionBadge(label: badge, color: glow),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        height: 1.3,
+                          _OptionBadge(label: badge, color: accent),
+                        ],
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: _sheetSecondary,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF211E36),
+                    border: Border.all(
+                      color: const Color(0xFF3A354D),
+                      width: 0.5,
                     ),
-                  ],
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 17,
+                    color: Color(0xFFEDEAF4),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: glow.withValues(alpha: 0.12),
-                  border: Border.all(color: glow.withValues(alpha: 0.45)),
-                ),
-                child: Icon(Icons.arrow_forward_rounded, size: 18, color: glow),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -270,17 +316,18 @@ class _OptionBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.22), width: 0.5),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: color,
           fontSize: 8,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
+          height: 1.1,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
         ),
       ),
     );

@@ -680,7 +680,7 @@ class _FailureIcon extends StatelessWidget {
         padding: EdgeInsets.all(visual == AppErrorVisual.credits ? 13 : 18),
         child: visual == AppErrorVisual.credits
             ? Image.asset(
-                'assets/images/in_app_purchase/coin3.png',
+                'assets/images/in_app_purchase/credit.png',
                 fit: BoxFit.contain,
               )
             : Icon(icon, color: const Color(0xFFFF58AD), size: 43),

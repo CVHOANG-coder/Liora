@@ -130,7 +130,9 @@ void main() {
     final secondTile = find.byKey(const ValueKey<String>('request-1'));
     final fourthTile = find.byKey(const ValueKey<String>('request-3'));
     final tileSize = tester.getSize(firstTile);
-    expect(tileSize.width / tileSize.height, closeTo(9 / 16, 0.01));
+    // Each card now includes a thumbnail plus a separate metadata footer.
+    expect(tileSize.width, closeTo((393 - 32 - 12) / 2, 0.01));
+    expect(tileSize.height, closeTo(tileSize.width * 1.15 + 88, 0.01));
     expect(tester.getTopLeft(secondTile).dy, tester.getTopLeft(firstTile).dy);
     expect(
       tester.getTopLeft(fourthTile).dy,

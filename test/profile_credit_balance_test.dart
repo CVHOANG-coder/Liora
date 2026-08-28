@@ -42,14 +42,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Credit Balance'), findsOneWidget);
+    expect(find.text('CREDIT BALANCE'), findsOneWidget);
+    expect(find.text('Buy More Credits'), findsOneWidget);
     expect(find.text('2,350'), findsOneWidget);
     expect(find.text('Ava Studio'), findsOneWidget);
     expect(find.text('ava@example.com'), findsOneWidget);
     expect(find.text('18'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Pro'), findsNWidgets(2));
-    expect(find.text('active'), findsOneWidget);
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('profileAccountStatus')))
+          .properties
+          .value,
+      'Account status: active',
+    );
     expect(find.byKey(const Key('buyMoreCreditsButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
 

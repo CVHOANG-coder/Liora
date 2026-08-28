@@ -105,7 +105,7 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
     ref.watch(purchaseControllerProvider);
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'Nostalia: AI Video Generator',
+      title: 'Liora',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       navigatorObservers: [?FirebaseService.analyticsObserver],

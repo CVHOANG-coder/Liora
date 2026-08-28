@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../providers/package_provider.dart';
@@ -12,6 +12,24 @@ import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
 import 'all_plans_screen.dart';
 import 'free_trial_screen.dart';
+
+const _creditBackground = Color(0xFF02050C);
+const _creditSurface = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF0D1020), Color(0xFF080C17)],
+);
+const _creditAccent = LinearGradient(
+  colors: [Color(0xFFEC5FB6), Color(0xFFA850CF), Color(0xFF4561DF)],
+);
+const _creditBorder = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF655683), Color(0xFF292C3C), Color(0xFF242838)],
+);
+
+double _creditScale(BuildContext context) =>
+    (MediaQuery.sizeOf(context).width / 393).clamp(0.8, 1.3);
 
 class BuyCredits extends ConsumerStatefulWidget {
   const BuyCredits({super.key, this.returnPurchaseResult = false});
@@ -79,70 +97,100 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
         )
         .toList(growable: false);
     final selectedIndex = _selectedIndex.clamp(0, packages.length - 1);
+    final scale = _creditScale(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF050307),
+      backgroundColor: _creditBackground,
       body: Stack(
         children: [
           const Positioned.fill(child: _ScreenGlow()),
           SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    16,
-                    20,
-                    18 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  sliver: SliverList.list(
-                    children: [
-                      _PurchaseHeader(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        18 * scale,
+                        4 * scale,
+                        18 * scale,
+                        14 * scale,
+                      ),
+                      child: _PurchaseHeader(
                         onClose: () => Navigator.maybePop(context),
                       ),
-                      const SizedBox(height: 22),
-                      for (var index = 0; index < packages.length; index++) ...[
-                        _CreditPackageTile(
-                          package: packages[index],
-                          selected: index == selectedIndex,
-                          onTap: () => setState(() => _selectedIndex = index),
-                        ),
-                        if (index != packages.length - 1)
-                          const SizedBox(height: 12),
-                      ],
-                      if (profile?.isSubscribed != true) ...[
-                        const SizedBox(height: 14),
-                        _SubscriptionBanner(
-                          onTap: () => _openSubscriptionPlans(
-                            isVIP: profile?.isVIP == true,
+                    ),
+                    Expanded(
+                      child: CustomScrollView(
+                        key: const PageStorageKey('buyCreditsScroll'),
+                        physics: const BouncingScrollPhysics(),
+                        slivers: [
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                              18 * scale,
+                              4 * scale,
+                              18 * scale,
+                              8 * scale,
+                            ),
+                            sliver: SliverList.list(
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < packages.length;
+                                  index++
+                                ) ...[
+                                  _CreditPackageTile(
+                                    package: packages[index],
+                                    selected: index == selectedIndex,
+                                    onTap: purchaseState.isBusy
+                                        ? null
+                                        : () => setState(
+                                            () => _selectedIndex = index,
+                                          ),
+                                  ),
+                                  if (index != packages.length - 1)
+                                    SizedBox(height: 10 * scale),
+                                ],
+                                if (profile?.isSubscribed != true) ...[
+                                  SizedBox(height: 10 * scale),
+                                  _SubscriptionBanner(
+                                    onTap: () => _openSubscriptionPlans(
+                                      isVIP: profile?.isVIP == true,
+                                    ),
+                                  ),
+                                ],
+                                SizedBox(height: 14 * scale),
+                                _BuyButton(
+                                  label: _buyButtonLabel(purchaseState),
+                                  busy: purchaseState.isBusy,
+                                  onTap: purchaseState.isBusy
+                                      ? null
+                                      : () => _buy(packages[selectedIndex]),
+                                ),
+                                SizedBox(height: 8 * scale),
+                                _PurchaseFooter(
+                                  restoring:
+                                      purchaseState.status ==
+                                      PurchaseFlowStatus.restoring,
+                                  onRestore: purchaseState.isBusy
+                                      ? null
+                                      : () => ref
+                                            .read(
+                                              purchaseControllerProvider
+                                                  .notifier,
+                                            )
+                                            .restore(),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      _BuyButton(
-                        label: _buyButtonLabel(purchaseState),
-                        busy: purchaseState.isBusy,
-                        onTap: purchaseState.isBusy
-                            ? null
-                            : () => _buy(packages[selectedIndex]),
+                        ],
                       ),
-                      const SizedBox(height: 13),
-                      _PurchaseFooter(
-                        restoring:
-                            purchaseState.status ==
-                            PurchaseFlowStatus.restoring,
-                        onRestore: purchaseState.isBusy
-                            ? null
-                            : () => ref
-                                  .read(purchaseControllerProvider.notifier)
-                                  .restore(),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -255,10 +303,10 @@ class _ScreenGlow extends StatelessWidget {
     return const DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(0.25, -0.66),
-          radius: 1.04,
-          colors: [Color(0x351D0921), Color(0xFF050307)],
-          stops: [0, 0.92],
+          center: Alignment(0.25, -0.7),
+          radius: 0.9,
+          colors: [Color(0xFF110B1F), _creditBackground],
+          stops: [0, 0.72],
         ),
       ),
     );
@@ -272,8 +320,10 @@ class _PurchaseHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = _creditScale(context);
     return SizedBox(
-      height: 49,
+      key: const Key('buyCreditsHeader'),
+      height: (44 * scale).clamp(44, 58),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -281,13 +331,21 @@ class _PurchaseHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: _CloseButton(onTap: onClose),
           ),
-          const Text(
-            'Buy Credit',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 48 * scale),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Buy Credit',
+                style: TextStyle(
+                  color: const Color(0xFFF4F0FB),
+                  fontFamily: 'Times New Roman',
+                  fontSize: 25 * scale,
+                  height: 1.15,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ),
           ),
         ],
@@ -303,27 +361,31 @@ class _CloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final scale = _creditScale(context);
+    return SizedBox(
       key: const Key('buyCreditsCloseButton'),
-      width: 39,
-      height: 39,
-      padding: const EdgeInsets.all(1.2),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF794E), Color(0xFFFF13A5)],
-        ),
-        boxShadow: [BoxShadow(color: Color(0x66FF169E), blurRadius: 12)],
-      ),
-      child: Material(
-        color: Color(0xFF0A0710),
-        shape: CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: const Icon(Icons.close_rounded, color: Colors.white, size: 27),
+      width: 44,
+      height: 44,
+      child: IconButton(
+        tooltip: 'Close',
+        onPressed: onTap,
+        padding: EdgeInsets.zero,
+        icon: Container(
+          width: 34 * scale,
+          height: 34 * scale,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: _creditSurface,
+            border: Border.all(color: const Color(0xFF343440), width: 0.6),
+          ),
+          child: Center(
+            child: SvgPicture.asset(
+              'assets/svgs/purchase_close.svg',
+              width: 23 * scale,
+              height: 23 * scale,
+              excludeFromSemantics: true,
+            ),
+          ),
         ),
       ),
     );
@@ -379,89 +441,129 @@ class _CreditPackageTile extends StatelessWidget {
 
   final _CreditPackage package;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          height: 70,
-          padding: EdgeInsets.all(selected ? 1.4 : 1),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: selected ? null : const Color(0xFF562046),
-            gradient: selected
-                ? const LinearGradient(
-                    colors: [Color(0xFFFF23B2), Color(0xFFFF9535)],
-                  )
-                : null,
-            boxShadow: selected
-                ? const [
-                    BoxShadow(color: Color(0x77FF219F), blurRadius: 14),
-                    BoxShadow(
-                      color: Color(0x55FF8A2E),
-                      blurRadius: 12,
-                      offset: Offset(3, 0),
+    final scale = _creditScale(context);
+    final largeText = MediaQuery.textScalerOf(context).scale(18) > 22;
+    final title = Text(
+      '${package.credits} Credits',
+      style: TextStyle(
+        color: const Color(0xFFF0EDF5),
+        fontFamily: 'Times New Roman',
+        fontSize: 18 * scale,
+        height: 1.15,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.25,
+      ),
+    );
+    final price = Text(
+      package.price,
+      style: TextStyle(
+        color: const Color(0xFFD3D0DC),
+        fontSize: 14.5 * scale,
+        height: 1.2,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+
+    return Semantics(
+      key: ValueKey('creditPackage-${package.productId ?? package.credits}'),
+      button: true,
+      selected: selected,
+      enabled: onTap != null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            key: ValueKey('creditPackageSurface-${package.credits}'),
+            duration: const Duration(milliseconds: 180),
+            constraints: BoxConstraints(minHeight: 64 * scale),
+            padding: EdgeInsets.all(selected ? 0.8 : 0.6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12 * scale),
+              gradient: selected ? _creditAccent : _creditBorder,
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(color: Color(0x20EC5FB6), blurRadius: 12),
+                      BoxShadow(
+                        color: Color(0x164561DF),
+                        blurRadius: 10,
+                        offset: Offset(3, 0),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12 * scale - 0.8),
+              clipBehavior: Clip.antiAlias,
+              child: Ink(
+                decoration: const BoxDecoration(gradient: _creditSurface),
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      15 * scale,
+                      (largeText ? (package.tag != null ? 26 : 16) : 10) *
+                          scale,
+                      15 * scale,
+                      (largeText ? 16 : 10) * scale,
                     ),
-                  ]
-                : null,
-          ),
-          child: Material(
-            color: const Color(0xE60D0810),
-            borderRadius: BorderRadius.circular(13),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'assets/images/in_app_purchase/coin3.png',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        '${package.credits} Credits',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.25,
+                    child: Row(
+                      children: [
+                        Image.asset(
+                          'assets/images/in_app_purchase/credit.png',
+                          width: 54 * scale,
+                          height: 42 * scale,
+                          fit: BoxFit.contain,
+                          excludeFromSemantics: true,
                         ),
-                      ),
+                        SizedBox(width: 13 * scale),
+                        if (largeText)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                title,
+                                SizedBox(height: 4 * scale),
+                                price,
+                              ],
+                            ),
+                          )
+                        else ...[
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: title,
+                            ),
+                          ),
+                          SizedBox(width: 8 * scale),
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: price,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      package.price,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.15,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        if (package.tag != null)
-          Positioned(
-            right: 11,
-            top: -7,
-            child: _PackageTagChip(tag: package.tag!),
-          ),
-      ],
+          if (package.tag != null)
+            Positioned(
+              right: 14 * scale,
+              top: -4 * scale,
+              child: _PackageTagChip(tag: package.tag!),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -474,34 +576,42 @@ class _PackageTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bestValue = tag == _PackageTag.bestValue;
+    final scale = _creditScale(context);
     return Container(
-      padding: const EdgeInsets.all(1.1),
+      padding: const EdgeInsets.all(0.6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12 * scale),
         gradient: LinearGradient(
           colors: bestValue
-              ? const [Color(0xFFFF2AAB), Color(0xFFFF9B31)]
-              : const [Color(0xFFFF1EC8), Color(0xFFFF6DD6)],
+              ? const [Color(0xFFE99CB4), Color(0xFF8570D6)]
+              : const [Color(0xFF9E7CD4), Color(0xFF7964AC)],
         ),
-        boxShadow: const [BoxShadow(color: Color(0xA5FF20BC), blurRadius: 10)],
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: EdgeInsets.symmetric(
+          horizontal: 10 * scale,
+          vertical: 4 * scale,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(11.4 * scale),
           gradient: LinearGradient(
             colors: bestValue
-                ? const [Color(0xFFDF2575), Color(0xFFCD5030)]
-                : const [Color(0xFF5A1549), Color(0xFF49143E)],
+                ? const [
+                    Color(0xFFAC586C),
+                    Color(0xFF653C88),
+                    Color(0xFF292969),
+                  ]
+                : const [Color(0xFF2E244F), Color(0xFF211C40)],
           ),
         ),
         child: Text(
           bestValue ? 'BEST VALUE' : 'POPULAR',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.25,
+          style: TextStyle(
+            color: const Color(0xFFF5F0FE),
+            fontSize: 8.5 * scale,
+            height: 1.2,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.85,
           ),
         ),
       ),
@@ -516,55 +626,72 @@ class _SubscriptionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = _creditScale(context);
     return Semantics(
       button: true,
       label: 'View subscription plans and save up to 50 percent',
       child: Container(
-        height: 126,
-        padding: const EdgeInsets.all(1),
+        height: 100 * scale,
+        padding: const EdgeInsets.all(0.6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(12 * scale),
           gradient: const LinearGradient(
-            colors: [Color(0xFFFF1CB3), Color(0xFFFF714C)],
+            colors: [Color(0xFF725389), Color(0xFF43376C)],
           ),
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12 * scale - 0.6),
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const Key('subscriptionBanner'),
-            onTap: onTap,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [Color(0xFF100817), Color(0xFF160812)],
-                ),
+          child: Ink(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF100D20), Color(0xFF070A19)],
               ),
-              child: const Stack(
-                children: [
-                  Positioned(
-                    right: -5,
-                    top: 9,
-                    bottom: 3,
-                    width: 142,
-                    child: Image(
-                      image: AssetImage(
-                        'assets/images/in_app_purchase/gift.png',
+            ),
+            child: InkWell(
+              key: const Key('subscriptionBanner'),
+              onTap: onTap,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Stack(
+                  children: [
+                    Positioned(
+                      right: 14 * scale,
+                      bottom: 2 * scale,
+                      width: constraints.maxWidth * 0.36,
+                      height: 20 * scale,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [Color(0x664C1F9C), Color(0x00150B31)],
+                          ),
+                        ),
                       ),
-                      fit: BoxFit.contain,
                     ),
-                  ),
-                  Positioned(
-                    left: 18,
-                    right: 132,
-                    top: 34,
-                    child: _SubscriptionCopy(),
-                  ),
-                ],
+                    Positioned(
+                      right: 19 * scale,
+                      top: 11 * scale,
+                      bottom: 6 * scale,
+                      width: constraints.maxWidth * 0.33,
+                      child: const Image(
+                        image: AssetImage(
+                          'assets/images/in_app_purchase/gift.png',
+                        ),
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                    Positioned(
+                      left: 24 * scale,
+                      right: constraints.maxWidth * 0.46,
+                      top: 22 * scale,
+                      bottom: 20 * scale,
+                      child: const _SubscriptionCopy(),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -579,39 +706,58 @@ class _SubscriptionCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = _creditScale(context);
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF20B1), Color(0xFFFF9732)],
-          ).createShader(bounds),
-          child: const FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Get Up to 50%',
-              maxLines: 1,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 27,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.6,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Get Up to ',
+                style: TextStyle(
+                  color: const Color(0xFFE9DFF5),
+                  fontFamily: 'Times New Roman',
+                  fontSize: 26 * scale,
+                  height: 1.1,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.6,
+                ),
               ),
-            ),
+              ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFEC5F9B), Color(0xFFB557C8)],
+                ).createShader(bounds),
+                child: Text(
+                  '50%',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Times New Roman',
+                    fontSize: 28 * scale,
+                    height: 1.1,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 7),
-        const FittedBox(
+        SizedBox(height: 5 * scale),
+        FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(
             'off with Subscription',
             maxLines: 1,
             style: TextStyle(
-              color: Color(0xFFC5BEC9),
-              fontSize: 16,
+              color: const Color(0xFFACA6BD),
+              fontSize: 13.5 * scale,
+              height: 1.3,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -634,18 +780,20 @@ class _BuyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = _creditScale(context);
     return Container(
-      height: 57,
+      key: const Key('buyCreditsButton'),
+      constraints: BoxConstraints(minHeight: 50 * scale),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13 * scale),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF17A7), Color(0xFFFF9737)],
+          colors: [Color(0xFFE85CAE), Color(0xFF9842B5), Color(0xFF415CD7)],
         ),
-        border: Border.all(color: const Color(0xFFFFB067), width: 1.1),
+        border: Border.all(color: const Color(0xFFA496DD), width: 0.6),
         boxShadow: const [
-          BoxShadow(color: Color(0x88FF1FA9), blurRadius: 16),
+          BoxShadow(color: Color(0x20B949BB), blurRadius: 16),
           BoxShadow(
-            color: Color(0x55FF8A2C),
+            color: Color(0x164561DF),
             blurRadius: 12,
             offset: Offset(4, 0),
           ),
@@ -653,13 +801,17 @@ class _BuyButton extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13 * scale),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 12 * scale,
+              vertical: 10 * scale,
+            ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (busy) ...[
                   const SizedBox(
@@ -675,12 +827,13 @@ class _BuyButton extends StatelessWidget {
                 Flexible(
                   child: Text(
                     label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                      fontFamily: busy ? null : 'Times New Roman',
+                      fontSize: (busy ? 15 : 22) * scale,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -701,9 +854,11 @@ class _PurchaseFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const linkStyle = TextStyle(
-      color: Color(0xFFE5E0E8),
-      fontSize: 12.5,
+    final scale = _creditScale(context);
+    final linkStyle = TextStyle(
+      color: const Color(0xFF9893A3),
+      fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+      fontSize: 10 * scale,
       fontWeight: FontWeight.w400,
     );
 
@@ -715,7 +870,7 @@ class _PurchaseFooter extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const _FooterWebLink(
+              _FooterWebLink(
                 label: 'Privacy',
                 page: AppWebPage.privacy,
                 style: linkStyle,
@@ -727,13 +882,13 @@ class _PurchaseFooter extends StatelessWidget {
                   foregroundColor: linkStyle.color,
                   textStyle: linkStyle,
                   padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
+                  minimumSize: const Size(0, 28),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(restoring ? 'Restoring...' : 'Restore Purchase'),
               ),
               const _FooterDivider(),
-              const _FooterWebLink(
+              _FooterWebLink(
                 label: 'Terms of Service',
                 page: AppWebPage.terms,
                 style: linkStyle,
@@ -741,14 +896,15 @@ class _PurchaseFooter extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 2 * scale),
         Text(
+          key: const Key('buyCreditsDisclaimer'),
           'Credits are used for generating AI content.\n'
           'Purchased credits do not expire.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: const Color(0xFF817986).withValues(alpha: 0.85),
-            fontSize: 11.5,
+            color: const Color(0xFF827E8E),
+            fontSize: 10 * scale,
             height: 1.45,
           ),
         ),
@@ -776,7 +932,7 @@ class _FooterWebLink extends StatelessWidget {
         foregroundColor: style.color,
         textStyle: style,
         padding: EdgeInsets.zero,
-        minimumSize: Size.zero,
+        minimumSize: const Size(0, 28),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Text(label),
@@ -790,10 +946,10 @@ class _FooterDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 1,
+      width: 0.6,
       height: 13,
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      color: const Color(0xFFFF28A6),
+      color: const Color(0xFF4A4557),
     );
   }
 }

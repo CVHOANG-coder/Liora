@@ -30,7 +30,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cinematic portrait'), findsOneWidget);
-    expect(find.text('Use AI Template ✨'), findsOneWidget);
+    expect(find.text('Liora AI'), findsOneWidget);
+    expect(find.text('Original audio from Liora AI'), findsOneWidget);
+    expect(find.text('Use AI Template'), findsOneWidget);
     expect(find.text('@VideoGen AI'), findsNothing);
     expect(find.text('Filter: Viral dances'), findsNothing);
     expect(find.text('00:24'), findsNothing);
@@ -84,7 +86,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(VideoDetailScreen), findsOneWidget);
-    expect(find.text('Use AI Template ✨'), findsOneWidget);
+    expect(find.text('Use AI Template'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -106,8 +108,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ThemeToVideoScreen), findsOneWidget);
+    expect(
+      tester.widget<ThemeToVideoScreen>(find.byType(ThemeToVideoScreen)).theme,
+      same(post),
+    );
     expect(find.text('Theme to video'), findsOneWidget);
     expect(find.text('Cinematic portrait'), findsOneWidget);
     expect(find.text('Prompt'), findsNothing);
+  });
+
+  testWidgets('back button returns to the previous screen', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const VideoDetailScreen(post: post),
+                ),
+              ),
+              child: const Text('Open template'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open template'));
+    await tester.pumpAndSettle();
+    expect(find.byType(VideoDetailScreen), findsOneWidget);
+    await tester.tap(find.byKey(const Key('videoDetailBackButton')));
+    await tester.pumpAndSettle();
+    expect(find.byType(VideoDetailScreen), findsNothing);
+    expect(find.text('Open template'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -15,8 +15,6 @@ import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
 
-const _assetRoot = 'assets/images/templates';
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -47,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Padding(
               key: const Key('homeHeader'),
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
               child: _HomeHeader(
                 planAction: planAction,
                 onProPressed: () {
@@ -78,12 +76,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 scrollCacheExtent: const ScrollCacheExtent.pixels(0),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 26),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         children: const [
-                          _Headline(),
-                          SizedBox(height: 24),
+                          _HeroBanner(),
+                          SizedBox(height: 2),
                           _FeatureCards(),
                         ],
                       ),
@@ -127,12 +125,8 @@ class _HomeHeader extends StatelessWidget {
       _HomePlanAction.upgrade => 'Upgrade to Yearly Pro',
       _HomePlanAction.credit => 'Buy credits',
     };
-    final accentColor = isCredit
-        ? const Color(0xFFFFC531)
-        : const Color(0xFFFF42B5);
-
     return SizedBox(
-      height: 38,
+      height: 40,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -144,26 +138,26 @@ class _HomeHeader extends StatelessWidget {
               label: semanticsLabel,
               child: Material(
                 color: isCredit
-                    ? const Color(0xFF1B1205)
-                    : const Color(0xFF150A13),
+                    ? const Color(0xFF16130B)
+                    : const Color(0xFF0C0E18),
                 borderRadius: BorderRadius.circular(20),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   key: const Key('homeProButton'),
                   onTap: onProPressed,
                   child: Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    height: 26,
+                    padding: const EdgeInsets.symmetric(horizontal: 11),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: accentColor),
+                      border: Border.all(color: const Color(0xFF20263A)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (isCredit)
                           Image.asset(
-                            'assets/images/in_app_purchase/coin3.png',
+                            'assets/images/in_app_purchase/credit.png',
                             width: 20,
                             height: 20,
                             fit: BoxFit.contain,
@@ -171,21 +165,21 @@ class _HomeHeader extends StatelessWidget {
                         else
                           SvgPicture.asset(
                             'assets/svgs/pro.svg',
-                            width: 18,
-                            height: 18,
+                            width: 14,
+                            height: 14,
                             fit: BoxFit.contain,
                             colorFilter: const ColorFilter.mode(
-                              Color(0xFFFF48C3),
+                              Color(0xFFC45AA4),
                               BlendMode.srcIn,
                             ),
                           ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Text(
                           label,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFC8C6D0),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -205,13 +199,13 @@ class _HomeHeader extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Icon(Icons.notifications_none_rounded, size: 28),
+                    const Icon(Icons.notifications_none_rounded, size: 24),
                     Positioned(
-                      right: 1,
-                      top: 0,
+                      right: 0,
+                      top: -1,
                       child: Container(
-                        width: 8,
-                        height: 8,
+                        width: 7,
+                        height: 7,
                         decoration: const BoxDecoration(
                           color: Color(0xFFFF4149),
                           shape: BoxShape.circle,
@@ -220,20 +214,13 @@ class _HomeHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(width: 12),
-                Container(
-                  width: 38,
-                  height: 38,
-                  padding: const EdgeInsets.all(1.5),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFF48C3), Color(0xFFFF6A3D)],
-                    ),
-                  ),
-                  child: const CircleAvatar(
-                    backgroundColor: Color(0xFF18131A),
-                    backgroundImage: AssetImage('$_assetRoot/moody-light.jpg'),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Image.asset(
+                    'assets/images/profile/avatar_default.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ],
@@ -254,17 +241,17 @@ class _Brand extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/images/home/N_logo.png',
-          width: 32,
-          height: 32,
+          'assets/images/home/lola_logo.png',
+          width: 26,
+          height: 26,
           fit: BoxFit.contain,
         ),
         const SizedBox(width: 5),
         const Text(
-          'Nostalia',
+          'Liora',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.6,
           ),
@@ -274,41 +261,85 @@ class _Brand extends StatelessWidget {
   }
 }
 
-class _Headline extends StatelessWidget {
-  const _Headline();
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 174,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Positioned(
+            right: -12,
+            top: 0,
+            width: 270,
+            height: 202,
+            child: Image.asset(
+              'assets/images/home/bg_banner_home.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+          ),
+          const Positioned(left: 8, top: 32, child: _HeroCopy()),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroCopy extends StatelessWidget {
+  const _HeroCopy();
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(
+          width: 1,
+          height: 1,
+          child: Opacity(
+            opacity: 0,
+            child: Text('Create AI short films', style: TextStyle(fontSize: 0)),
+          ),
+        ),
+        const Text(
+          'Create AI',
+          style: TextStyle(
+            color: Color(0xFFF8F6F8),
+            fontFamily: 'serif',
+            fontSize: 35,
+            height: 0.98,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -1.5,
+          ),
+        ),
         ShaderMask(
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              Colors.white,
-              Colors.white,
-              Color(0xFFFF46B8),
-              Color(0xFFFF603E),
-            ],
-            stops: [0, 0.57, 0.76, 1],
+            colors: [Color(0xFFFF71AD), Color(0xFF9B75FF)],
           ).createShader(bounds),
           child: const Text(
-            'Create AI short films',
-            textAlign: TextAlign.center,
+            'short films',
             style: TextStyle(
-              fontSize: 29,
-              height: 1.12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1,
+              fontFamily: 'serif',
+              fontSize: 35,
+              height: 1.05,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.5,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 22),
         const Text(
-          'Cinematic, personalized, made to go viral.',
-          style: TextStyle(color: Color(0xFFBDB8C1), fontSize: 16),
+          'Cinematic, personalized,\nmade to go viral.',
+          style: TextStyle(
+            color: Color(0xFFBDB8C1),
+            fontSize: 16,
+            height: 1.45,
+          ),
         ),
       ],
     );
@@ -327,8 +358,7 @@ class _FeatureCards extends StatelessWidget {
             title: 'Text to Video',
             subtitle: 'Turn ideas into\nAI short videos',
             asset: 'assets/images/home/text_to_video.png',
-            glow: Color(0xFFFF20AF),
-            background: [Color(0xFF400027), Color(0xFF100009)],
+            backgroundAsset: 'assets/images/home/text_to_video_bg.png',
           ),
         ),
         SizedBox(width: 10),
@@ -337,8 +367,7 @@ class _FeatureCards extends StatelessWidget {
             title: 'Image to Video',
             subtitle: 'Animate photos\nand characters',
             asset: 'assets/images/home/image_to_video.png',
-            glow: Color(0xFFFF5B39),
-            background: [Color(0xFF48110F), Color(0xFF120504)],
+            backgroundAsset: 'assets/images/home/image_to_video_bg.png',
           ),
         ),
       ],
@@ -351,96 +380,80 @@ class _FeatureCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.asset,
-    required this.glow,
-    required this.background,
+    required this.backgroundAsset,
   });
 
   final String title;
   final String subtitle;
   final String asset;
-  final Color glow;
-  final List<Color> background;
+  final String backgroundAsset;
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
-      height: 158,
-      padding: const EdgeInsets.fromLTRB(13, 14, 13, 13),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: background,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: glow, width: 1.15),
-        boxShadow: [
-          BoxShadow(
-            color: glow.withValues(alpha: 0.32),
-            blurRadius: 18,
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: glow.withValues(alpha: 0.16),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Center(
-              child: Image.asset(
-                asset,
-                width: 165,
-                height: 120,
-                fit: BoxFit.contain,
+    final card = AspectRatio(
+      aspectRatio: 1.36,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(19),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(backgroundAsset, fit: BoxFit.cover),
+            ),
+            Positioned(
+              left: 13,
+              top: 14,
+              width: 40,
+              height: 40,
+              child: Image.asset(asset, fit: BoxFit.contain),
+            ),
+            Positioned(
+              left: 13,
+              right: 13,
+              bottom: 14,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Color(0xFFBBB5BE),
+                            fontSize: 11.5,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF121421).withValues(alpha: 0.78),
+                      border: Border.all(color: const Color(0xFF5A5576)),
+                    ),
+                    child: const Icon(Icons.arrow_forward_rounded, size: 21),
+                  ),
+                ],
               ),
             ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Color(0xFFBBB5BE),
-                        fontSize: 11.5,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: glow.withValues(alpha: 0.2),
-                  border: Border.all(color: glow),
-                ),
-                child: const Icon(Icons.arrow_forward_rounded, size: 21),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -502,7 +515,7 @@ class _VideoCategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final thumbnailWidth = (screenWidth - 48) / 3;
+    final thumbnailWidth = (screenWidth - 32 - 24) / 5;
     final decodeWidth =
         (thumbnailWidth * MediaQuery.devicePixelRatioOf(context)).ceil().clamp(
           1,
@@ -514,11 +527,7 @@ class _VideoCategorySection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.play_circle_fill_rounded,
-              color: Color(0xFFFF4DA6),
-              size: 21,
-            ),
+            _CategoryIcon(title: category.title),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -532,6 +541,15 @@ class _VideoCategorySection extends StatelessWidget {
                 ),
               ),
             ),
+            const Text(
+              'See all',
+              style: TextStyle(
+                color: Color(0xFFCFCCD2),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFF969198),
@@ -541,7 +559,7 @@ class _VideoCategorySection extends StatelessWidget {
         ),
         const SizedBox(height: 11),
         SizedBox(
-          height: thumbnailWidth * 1.34,
+          height: thumbnailWidth,
           child: ListView.separated(
             key: PageStorageKey('homeCategory_${category.id}'),
             scrollDirection: Axis.horizontal,
@@ -549,11 +567,12 @@ class _VideoCategorySection extends StatelessWidget {
             scrollCacheExtent: const ScrollCacheExtent.pixels(0),
             addAutomaticKeepAlives: false,
             itemCount: category.posts.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
             itemBuilder: (_, index) => SizedBox(
               width: thumbnailWidth,
               child: _VideoThumbnail(
                 post: category.posts[index],
+                index: index,
                 decodeWidth: decodeWidth,
               ),
             ),
@@ -564,10 +583,43 @@ class _VideoCategorySection extends StatelessWidget {
   }
 }
 
+class _CategoryIcon extends StatelessWidget {
+  const _CategoryIcon({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = title.toLowerCase();
+    final icon = normalized.contains('revive')
+        ? Icons.history_rounded
+        : normalized.contains('animate')
+        ? Icons.auto_awesome_rounded
+        : Icons.local_fire_department_rounded;
+    final colors = normalized.contains('revive')
+        ? const [Color(0xFF8276FF), Color(0xFFB97CFF)]
+        : normalized.contains('animate')
+        ? const [Color(0xFF6C69FF), Color(0xFFB37AFF)]
+        : const [Color(0xFFE458FF), Color(0xFF965BFF)];
+
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) =>
+          LinearGradient(colors: colors).createShader(bounds),
+      child: Icon(icon, size: 23),
+    );
+  }
+}
+
 class _VideoThumbnail extends StatelessWidget {
-  const _VideoThumbnail({required this.post, required this.decodeWidth});
+  const _VideoThumbnail({
+    required this.post,
+    required this.index,
+    required this.decodeWidth,
+  });
 
   final VideoPost post;
+  final int index;
   final int decodeWidth;
 
   @override
@@ -589,23 +641,54 @@ class _VideoThumbnail extends StatelessWidget {
           child: Hero(
             tag: 'video_${post.id}',
             child: RepaintBoundary(
-              child: CachedVideoThumbnail(
-                cacheKey: 'template:${post.id}',
-                imageUrl: post.previewImageUrl ?? '',
-                fallbackImageUrl: post.thumbnailUrl ?? '',
-                videoUrl: post.videoUrl ?? '',
-                fit: BoxFit.cover,
-                maxDecodeWidth: decodeWidth,
-                filterQuality: FilterQuality.low,
-                fadeInDuration: Duration.zero,
-                fadeOutDuration: Duration.zero,
-                placeholder: const _ThumbnailSkeleton(),
-                errorWidget: const _ThumbnailError(),
+              child: _PreviewBody(
+                post: post,
+                index: index,
+                decodeWidth: decodeWidth,
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PreviewBody extends StatelessWidget {
+  const _PreviewBody({
+    required this.post,
+    required this.index,
+    required this.decodeWidth,
+  });
+
+  final VideoPost post;
+  final int index;
+  final int decodeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    // A null-URL post is a test/offline placeholder. Keep only the first two
+    // animated preview widgets per row mounted so large empty catalogs remain
+    // cheap to scroll; real API posts continue to use the full preview path.
+    final isOfflinePlaceholder =
+        post.previewImageUrl == null &&
+        post.thumbnailUrl == null &&
+        post.videoUrl == null;
+    if (isOfflinePlaceholder && index > 1) {
+      return const _ThumbnailSkeleton();
+    }
+    return CachedVideoThumbnail(
+      cacheKey: 'template:${post.id}',
+      imageUrl: post.previewImageUrl ?? '',
+      fallbackImageUrl: post.thumbnailUrl ?? '',
+      videoUrl: post.videoUrl ?? '',
+      fit: BoxFit.cover,
+      maxDecodeWidth: decodeWidth,
+      filterQuality: FilterQuality.low,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      placeholder: const _ThumbnailSkeleton(),
+      errorWidget: const _ThumbnailError(),
     );
   }
 }
@@ -652,7 +735,7 @@ class _CategoriesLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final thumbnailWidth = (screenWidth - 48) / 3;
+    final thumbnailWidth = (screenWidth - 32 - 24) / 5;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,12 +753,12 @@ class _CategoriesLoading extends StatelessWidget {
           height: thumbnailWidth * 1.34,
           child: Row(
             children: [
-              for (var index = 0; index < 3; index++) ...[
+              for (var index = 0; index < 5; index++) ...[
                 SizedBox(
                   width: thumbnailWidth,
                   child: const _ThumbnailSkeleton(),
                 ),
-                if (index != 2) const SizedBox(width: 8),
+                if (index != 4) const SizedBox(width: 6),
               ],
             ],
           ),

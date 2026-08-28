@@ -9,7 +9,11 @@ import '../../../data/video_categories.dart';
 import '../../widgets/cached_video_thumbnail.dart';
 import '../theme_to_video/theme_to_video_screen.dart';
 
-const _pink = Color(0xFFFF28A9);
+const _detailBackground = Color(0xFF030611);
+const _pink = Color(0xFFED58BD);
+const _outlineGradient = LinearGradient(
+  colors: [Color(0xFFEFA1CF), Color(0xFF9D60EB), Color(0xFF87A9FF)],
+);
 
 class VideoDetailScreen extends StatefulWidget {
   const VideoDetailScreen({super.key, required this.post});
@@ -37,53 +41,209 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.black,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: _detailBackground,
         systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            _VideoCover(post: widget.post, isMuted: _isMuted),
-            const _ScreenOverlay(),
-            SafeArea(
-              minimum: const EdgeInsets.fromLTRB(18, 10, 18, 12),
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _RoundButton(
-                          key: const Key('videoDetailBackButton'),
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          label: 'Back',
-                          onTap: () => Navigator.maybePop(context),
+        backgroundColor: _detailBackground,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = (constraints.maxWidth / 393).clamp(0.8, 1.3);
+            return DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.1),
+                  radius: 1.1,
+                  colors: [Color(0xFF0D0A24), _detailBackground],
+                ),
+              ),
+              child: SafeArea(
+                minimum: EdgeInsets.only(bottom: 30 * scale),
+                child: Padding(
+                  padding: EdgeInsets.only(top: 16 * scale),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 19 * scale),
+                        child: _DetailHeader(
+                          scale: scale,
+                          isMuted: _isMuted,
+                          onBack: () => Navigator.maybePop(context),
+                          onToggleMute: () =>
+                              setState(() => _isMuted = !_isMuted),
                         ),
-                        _RoundButton(
-                          key: const Key('videoMuteButton'),
-                          icon: _isMuted
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
-                          label: _isMuted ? 'Turn sound on' : 'Mute',
-                          onTap: () => setState(() => _isMuted = !_isMuted),
+                      ),
+                      SizedBox(height: 12 * scale),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                          child: _TemplatePreview(
+                            post: widget.post,
+                            isMuted: _isMuted,
+                            scale: scale,
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: 11 * scale),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                        child: _GradientButton(
+                          scale: scale,
+                          onPressed: _useTemplate,
+                        ),
+                      ),
+                    ],
                   ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _BottomDetails(
-                      post: widget.post,
-                      onUseTemplate: _useTemplate,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailHeader extends StatelessWidget {
+  const _DetailHeader({
+    required this.scale,
+    required this.isMuted,
+    required this.onBack,
+    required this.onToggleMute,
+  });
+
+  final double scale;
+  final bool isMuted;
+  final VoidCallback onBack;
+  final VoidCallback onToggleMute;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('videoDetailHeader'),
+      height: (44 * scale).clamp(44.0, double.infinity),
+      child: Row(
+        children: [
+          _RoundButton(
+            key: const Key('videoDetailBackButton'),
+            icon: Icons.arrow_back_ios_new_rounded,
+            label: 'Back',
+            scale: scale,
+            onTap: onBack,
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/images/home/lola_logo.png',
+                      width: 22 * scale,
+                      height: 23 * scale,
+                      fit: BoxFit.contain,
+                      excludeFromSemantics: true,
                     ),
-                  ),
-                ],
+                    SizedBox(width: 8 * scale),
+                    Text.rich(
+                      const TextSpan(
+                        text: 'Liora',
+                        children: [
+                          TextSpan(
+                            text: ' AI',
+                            style: TextStyle(color: _pink),
+                          ),
+                        ],
+                      ),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14 * scale,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2 * scale,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
+          _RoundButton(
+            key: const Key('videoMuteButton'),
+            icon: isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+            label: isMuted ? 'Turn sound on' : 'Mute',
+            scale: scale,
+            onTap: onToggleMute,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplatePreview extends StatelessWidget {
+  const _TemplatePreview({
+    required this.post,
+    required this.isMuted,
+    required this.scale,
+  });
+
+  final VideoPost post;
+  final bool isMuted;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = 22 * scale;
+    return Container(
+      key: const Key('videoDetailFrame'),
+      padding: const EdgeInsets.all(0.6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: _outlineGradient,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x29BA49BA),
+            blurRadius: 22 * scale,
+            offset: Offset(-4 * scale, 0),
+          ),
+          BoxShadow(
+            color: const Color(0x234541D1),
+            blurRadius: 22 * scale,
+            offset: Offset(4 * scale, 0),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: EdgeInsets.all(8 * scale - 0.6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius - 0.6),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF190C24), Color(0xFF080B21), Color(0xFF0B081E)],
+          ),
+        ),
+        child: ClipRRect(
+          key: const Key('videoDetailMedia'),
+          borderRadius: BorderRadius.circular(14 * scale),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _VideoCover(post: post, isMuted: isMuted),
+              const IgnorePointer(child: _ScreenOverlay()),
+              Positioned(
+                left: 11 * scale,
+                right: 31 * scale,
+                bottom: 10 * scale,
+                child: _BottomDetails(post: post, scale: scale),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -286,13 +446,13 @@ class _ScreenOverlay extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0x8F050006),
-            Color(0x08000000),
-            Color(0x14000000),
-            Color(0xEE09020C),
-            Colors.black,
+            Colors.transparent,
+            Colors.transparent,
+            Color(0x6B060515),
+            Color(0xF5060515),
+            Color(0xFF060515),
           ],
-          stops: [0, 0.18, 0.49, 0.82, 1],
+          stops: [0, 0.63, 0.75, 0.88, 1],
         ),
       ),
     );
@@ -304,11 +464,13 @@ class _RoundButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
+    required this.scale,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final double scale;
   final VoidCallback onTap;
 
   @override
@@ -316,24 +478,42 @@ class _RoundButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0x7A050208),
-          border: Border.all(color: const Color(0xFF817B83), width: 1.2),
-          boxShadow: const [
-            BoxShadow(color: Color(0x66000000), blurRadius: 12),
-          ],
-        ),
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: (44 * scale).clamp(44.0, double.infinity),
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
           child: InkWell(
+            customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox.square(
-              dimension: 48,
-              child: Icon(icon, size: 25, color: Colors.white),
+            child: Center(
+              child: Container(
+                width: 38 * scale,
+                height: 38 * scale,
+                padding: const EdgeInsets.all(0.6),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: _outlineGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0x535C3191),
+                      blurRadius: 12 * scale,
+                    ),
+                  ],
+                ),
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF25102D), Color(0xFF0A0C25)],
+                    ),
+                  ),
+                  child: Icon(icon, size: 19 * scale, color: Colors.white),
+                ),
+              ),
             ),
           ),
         ),
@@ -343,75 +523,99 @@ class _RoundButton extends StatelessWidget {
 }
 
 class _BottomDetails extends StatelessWidget {
-  const _BottomDetails({required this.post, required this.onUseTemplate});
+  const _BottomDetails({required this.post, required this.scale});
 
   final VideoPost post;
-  final VoidCallback onUseTemplate;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      key: const Key('videoDetailMetadata'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ThemeDescription(description: post.description),
-        const SizedBox(height: 10),
+        _ThemeDescription(description: post.description, scale: scale),
+        SizedBox(height: 8 * scale),
         _GlassPill(
+          key: const Key('videoDetailAudio'),
+          scale: scale,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.music_note_rounded, color: _pink, size: 18),
-              const SizedBox(width: 8),
-              const Flexible(
-                child: Text(
-                  'Original audio from Nostalia AI',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Color(0xFFF6EAF2), fontSize: 13),
+              Icon(
+                Icons.music_note_rounded,
+                color: const Color(0xFFD168EB),
+                size: 20 * scale,
+              ),
+              SizedBox(width: 9 * scale),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Original audio from Liora AI',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: const Color(0xFFF3EAF7),
+                      fontSize: 12 * scale,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0.2 * scale,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Container(width: 1, height: 17, color: const Color(0xFF8C567A)),
-              const SizedBox(width: 10),
-              const Icon(Icons.graphic_eq_rounded, color: _pink, size: 20),
+              SizedBox(width: 12 * scale),
+              Container(
+                width: 0.5,
+                height: 18 * scale,
+                color: const Color(0xFF81758E),
+              ),
+              SizedBox(width: 12 * scale),
+              Icon(
+                Icons.graphic_eq_rounded,
+                color: const Color(0xFFB04BF2),
+                size: 22 * scale,
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        _GradientButton(onPressed: onUseTemplate),
       ],
     );
   }
 }
 
 class _ThemeDescription extends StatelessWidget {
-  const _ThemeDescription({required this.description});
+  const _ThemeDescription({required this.description, required this.scale});
 
   final String description;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     final label = description.trim().isEmpty
         ? 'AI video template'
-        : description;
+        : description.trim();
 
     return _GlassPill(
+      key: const Key('videoDetailTemplateName'),
       compact: true,
+      scale: scale,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome_rounded, color: _pink, size: 18),
-          const SizedBox(width: 8),
+          Icon(Icons.auto_awesome_rounded, color: _pink, size: 18 * scale),
+          SizedBox(width: 8 * scale),
           Flexible(
             child: Text(
               label,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
+                fontSize: 13 * scale,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
             ),
           ),
@@ -422,30 +626,53 @@ class _ThemeDescription extends StatelessWidget {
 }
 
 class _GlassPill extends StatelessWidget {
-  const _GlassPill({required this.child, this.compact = false});
+  const _GlassPill({
+    super.key,
+    required this.child,
+    required this.scale,
+    this.compact = false,
+  });
 
   final Widget child;
+  final double scale;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(24 * scale);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: radius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
         child: Container(
-          padding: compact
-              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 7)
-              : const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.all(0.5),
           decoration: BoxDecoration(
-            color: const Color(0x942B0921),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0x99C02579), width: 0.8),
-            boxShadow: const [
-              BoxShadow(color: Color(0x55FF169D), blurRadius: 14),
-            ],
+            borderRadius: radius,
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFFF455A3),
+                const Color(0xFFB455DE),
+                compact ? const Color(0xFFC875E6) : const Color(0xFF7789F7),
+              ],
+            ),
           ),
-          child: child,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 12 * scale,
+              vertical: (compact ? 6.5 : 7.5) * scale,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF200D26),
+                  Color(0xFF140B23),
+                  Color(0xFF0A0D21),
+                ],
+              ),
+            ),
+            child: child,
+          ),
         ),
       ),
     );
@@ -453,53 +680,84 @@ class _GlassPill extends StatelessWidget {
 }
 
 class _GradientButton extends StatelessWidget {
-  const _GradientButton({required this.onPressed});
+  const _GradientButton({required this.onPressed, required this.scale});
 
   final VoidCallback onPressed;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final radius = 30 * scale;
     return Container(
+      key: const Key('videoDetailCta'),
       width: double.infinity,
-      height: 64,
-      padding: const EdgeInsets.all(1.4),
+      height: 56 * scale,
+      padding: const EdgeInsets.all(0.8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: BorderRadius.circular(radius),
         gradient: const LinearGradient(
-          colors: [Colors.white, _pink, Color(0xFFFFC15A)],
+          colors: [Color(0xFFFFDEEF), Color(0xFFF4B5F3), Color(0xFF99BDFF)],
         ),
-        boxShadow: const [
-          BoxShadow(color: Color(0xB8FF139B), blurRadius: 25, spreadRadius: 1),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x88FF813D),
-            blurRadius: 22,
-            offset: Offset(12, 4),
+            color: const Color(0x7AFB269E),
+            blurRadius: 22 * scale,
+            offset: Offset(-10 * scale, 0),
+          ),
+          BoxShadow(
+            color: const Color(0x735451F4),
+            blurRadius: 22 * scale,
+            offset: Offset(10 * scale, 0),
           ),
         ],
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(33),
+          borderRadius: BorderRadius.circular(radius - 0.8),
           gradient: const LinearGradient(
-            colors: [Color(0xFFFF00B8), Color(0xFFFF2F82), Color(0xFFFF8D2F)],
+            colors: [Color(0xFFFF349F), Color(0xFFA244C5), Color(0xFF285CF1)],
           ),
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(33),
+          borderRadius: BorderRadius.circular(radius - 0.8),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: const Key('useVideoTemplateButton'),
             onTap: onPressed,
-            child: const Center(
-              child: Text(
-                'Use AI Template ✨',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.35,
-                  shadows: [Shadow(color: Color(0x66000000), blurRadius: 5)],
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Use AI Template',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Times New Roman',
+                          fontFamilyFallback: const ['Times', 'serif'],
+                          fontSize: 21 * scale,
+                          height: 1.15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2 * scale,
+                          shadows: const [
+                            Shadow(color: Color(0x33000000), blurRadius: 3),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 6 * scale),
+                      ExcludeSemantics(
+                        child: Icon(
+                          Icons.auto_awesome_rounded,
+                          color: const Color(0xFFFFD54A),
+                          size: 22 * scale,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

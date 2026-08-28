@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/device/image_access_permission.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -15,7 +12,7 @@ import '../../../data/video_categories.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../../widgets/generation_form_exit_guard.dart';
-import '../../widgets/image_upload_progress_overlay.dart';
+import '../../widgets/video_form_widgets.dart';
 import '../image_to_video/creating_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/credit_purchase_navigation.dart';
@@ -85,7 +82,10 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       context: context,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _ImageSourceSheet(),
+      isScrollControlled: true,
+      barrierColor: const Color(0xB802050C),
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (_) => const VideoImageSourceSheet(isFrame: true),
     );
     if (!mounted || source == null) return;
 
@@ -152,7 +152,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     final shouldOpenSettings = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: VideoFormStyle.background,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         icon: Container(
@@ -161,7 +161,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [Color(0xFFFF3FAE), Color(0xFFFF783E)],
+              colors: [Color(0xFFEC5FB6), Color(0xFFA850CF)],
             ),
           ),
           child: Icon(
@@ -175,7 +175,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
               ? 'Enable Camera permission in Settings to take a photo for your video.'
               : 'Enable Photos permission in Settings to select an image for your video.',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textSecondary, height: 1.45),
+          style: const TextStyle(color: VideoFormStyle.secondary, height: 1.45),
         ),
         actions: [
           TextButton(
@@ -185,7 +185,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF409E),
+              backgroundColor: VideoFormStyle.accent,
               foregroundColor: Colors.white,
             ),
             child: const Text('Open Settings'),
@@ -205,35 +205,13 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
     required ValueChanged<String> onSelected,
   }) async {
     if (_isSubmitting) return;
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFF17101D),
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            ...options.map(
-              (option) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(option),
-                trailing: option == selected
-                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
-                    : null,
-                onTap: () => Navigator.pop(context, option),
-              ),
-            ),
-          ],
-        ),
-      ),
+    final choice = await showVideoFormOptions(
+      context,
+      title: title,
+      options: options,
+      selected: selected,
     );
-    if (choice != null) onSelected(choice);
+    if (mounted && choice != null) onSelected(choice);
   }
 
   Future<void> _generate([_ThemeToVideoRequest? pendingRequest]) async {
@@ -378,632 +356,118 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GenerationFormExitGuard(
-      key: _exitGuardKey,
-      isSubmitting: _isSubmitting,
-      onLeave: () => _hasLeftForm = true,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-                  sliver: SliverList.list(
-                    children: [
-                      _Header(onBack: () => Navigator.maybePop(context)),
-                      const SizedBox(height: 20),
-                      _ThemeBadge(theme: widget.theme),
-                      const SizedBox(height: 18),
-                      _FrameCard(
-                        key: const Key('firstFrameCard'),
-                        label: 'First frame',
-                        requirement: 'Required',
-                        imagePath: _firstImagePath,
-                        isLoading: _isPickingImage,
-                        isSubmitting: _isSubmitting,
-                        uploadSentBytes: _uploadSentBytes,
-                        uploadTotalBytes: _uploadTotalBytes,
-                        onTap: _selectFrame,
-                        onRemove: _firstImagePath == null || _isSubmitting
-                            ? null
-                            : () => setState(() => _firstImagePath = null),
-                      ),
-                      const SizedBox(height: 18),
-                      _SettingRow(
-                        asset: 'assets/images/gen_video/clock.png',
-                        title: 'Duration',
-                        value: _duration,
-                        onTap: () => _pickOption(
-                          title: 'Duration',
-                          options: const ['5s', '10s'],
-                          selected: _duration,
-                          onSelected: (value) =>
-                              setState(() => _duration = value),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      _SettingRow(
-                        asset: 'assets/images/gen_video/HD_icon.png',
-                        title: 'Quality',
-                        value: _quality,
-                        onTap: () => _pickOption(
-                          title: 'Quality',
-                          options: const ['Non-HD', 'HD'],
-                          selected: _quality,
-                          onSelected: (value) =>
-                              setState(() => _quality = value),
-                        ),
-                      ),
-                      const SizedBox(height: 27),
-                      _GenerateButton(
-                        onPressed: _generate,
-                        isLoading: _isSubmitting,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  Widget build(BuildContext context) => GenerationFormExitGuard(
+    key: _exitGuardKey,
+    isSubmitting: _isSubmitting,
+    onLeave: () => _hasLeftForm = true,
+    child: Scaffold(
+      backgroundColor: VideoFormStyle.background,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: VideoFormLayout(
+          title: 'Theme to video',
+          backKey: const Key('themeToVideoBackButton'),
+          children: [
+            _ThemeBadge(theme: widget.theme),
+            const SizedBox(height: 18),
+
+            VideoImageCard(
+              key: const Key('firstFrameCard'),
+              label: 'First frame',
+              requirement: 'Required',
+              imagePath: _firstImagePath,
+              onTap: _selectFrame,
+              onRemove: _isSubmitting
+                  ? null
+                  : () => setState(() => _firstImagePath = null),
+              isLoading: _isPickingImage,
+              isSubmitting: _isSubmitting,
+              uploadSentBytes: _uploadSentBytes,
+              uploadTotalBytes: _uploadTotalBytes,
             ),
+            const SizedBox(height: 16),
+
+            VideoFormSettingRow(
+              asset: 'assets/images/gen_video/clock.png',
+              title: 'Duration',
+              value: _duration,
+              onTap: _isSubmitting
+                  ? null
+                  : () => _pickOption(
+                      title: 'Duration',
+                      options: const ['5s', '10s'],
+                      selected: _duration,
+                      onSelected: (value) => setState(() => _duration = value),
+                    ),
+            ),
+            const SizedBox(height: 9),
+            VideoFormSettingRow(
+              asset: 'assets/images/gen_video/HD_icon.png',
+              title: 'Quality',
+              value: _quality,
+              onTap: _isSubmitting
+                  ? null
+                  : () => _pickOption(
+                      title: 'Quality',
+                      options: const ['Non-HD', 'HD'],
+                      selected: _quality,
+                      onSelected: (value) => setState(() => _quality = value),
+                    ),
+            ),
+          ],
+          action: VideoGenerateButton(
+            buttonKey: const Key('generateThemeVideo'),
+            onPressed: _generate,
+            isLoading: _isSubmitting,
           ),
         ),
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 28,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              key: const Key('themeToVideoBackButton'),
-              onPressed: onBack,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 28),
-              color: Colors.white,
-            ),
-          ),
-          const Text(
-            'Theme to video',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _ThemeBadge extends StatelessWidget {
   const _ThemeBadge({required this.theme});
-
   final VideoPost theme;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF10050F),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF4F1646)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF2EAA), Color(0xFFFF893A)],
-              ),
-            ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Selected theme',
-                  style: TextStyle(color: Color(0xFF9E96A2), fontSize: 11),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  theme.description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FrameCard extends StatelessWidget {
-  const _FrameCard({
-    super.key,
-    required this.label,
-    required this.requirement,
-    required this.imagePath,
-    required this.isLoading,
-    required this.isSubmitting,
-    required this.uploadSentBytes,
-    required this.uploadTotalBytes,
-    required this.onTap,
-    required this.onRemove,
-  });
-
-  final String label;
-  final String requirement;
-  final String? imagePath;
-  final bool isLoading;
-  final bool isSubmitting;
-  final int uploadSentBytes;
-  final int uploadTotalBytes;
-  final VoidCallback onTap;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      gradient: VideoFormStyle.surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: VideoFormStyle.border, width: 0.6),
+    ),
+    child: Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              requirement,
-              style: TextStyle(
-                color: requirement == 'Required'
-                    ? const Color(0xFFFF63B5)
-                    : const Color(0xFF8F8794),
-                fontSize: 10.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        AspectRatio(
-          aspectRatio: 1.55,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFF3BAD), Color(0xFFFF973A)],
-              ),
-            ),
-            padding: const EdgeInsets.all(1),
-            child: Material(
-              color: const Color(0xFF090009),
-              borderRadius: BorderRadius.circular(15),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: isSubmitting ? null : onTap,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (imagePath != null)
-                      Image.file(
-                        File(imagePath!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const _FramePlaceholder(),
-                      )
-                    else
-                      const _FramePlaceholder(),
-                    if (imagePath != null && !isSubmitting)
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xB8000000)],
-                            stops: [0.55, 1],
-                          ),
-                        ),
-                      ),
-                    if (imagePath != null && !isSubmitting)
-                      const Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle_rounded,
-                              color: Color(0xFFFF54B2),
-                              size: 18,
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              'Selected',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (onRemove != null)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: IconButton(
-                          onPressed: onRemove,
-                          style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xB816101A),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.square(32),
-                            padding: EdgeInsets.zero,
-                          ),
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                        ),
-                      ),
-                    if (isSubmitting)
-                      ImageUploadProgressOverlay(
-                        sentBytes: uploadSentBytes,
-                        totalBytes: uploadTotalBytes,
-                      ),
-                    if (isLoading)
-                      const ColoredBox(
-                        color: Color(0x99000000),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Color(0xFFFF50AE),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FramePlaceholder extends StatelessWidget {
-  const _FramePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0, -0.1),
-          radius: 0.85,
-          colors: [Color(0x663D002C), Color(0xFF090009)],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.add_photo_alternate_rounded,
-            color: Color(0xFFFF54B2),
-            size: 42,
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Add image',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Library or camera',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF8F8794), fontSize: 9.5),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ImageSourceSheet extends StatelessWidget {
-  const _ImageSourceSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: Color(0xFF3A2038))),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'Add frame image',
-            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Choose from your library or take a new photo.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _ImageSourceOption(
-                  key: const Key('galleryFrameSource'),
-                  icon: Icons.photo_library_rounded,
-                  title: 'Photo Library',
-                  colors: const [Color(0xFFFF3FAA), Color(0xFFE14FE9)],
-                  onTap: () => Navigator.pop(context, ImageSource.gallery),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ImageSourceOption(
-                  key: const Key('cameraFrameSource'),
-                  icon: Icons.photo_camera_rounded,
-                  title: 'Camera',
-                  colors: const [Color(0xFFFF6B52), Color(0xFFFFA22F)],
-                  onTap: () => Navigator.pop(context, ImageSource.camera),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ImageSourceOption extends StatelessWidget {
-  const _ImageSourceOption({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.colors,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final List<Color> colors;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF211825),
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 118,
-          padding: const EdgeInsets.all(14),
+        Container(
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF432840)),
+            color: const Color(0xFF211E36),
+            borderRadius: BorderRadius.circular(11),
           ),
+          child: const Icon(
+            Icons.auto_awesome_rounded,
+            color: VideoFormStyle.accent,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: colors),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: Colors.white, size: 24),
+              const Text(
+                'Selected theme',
+                style: TextStyle(color: VideoFormStyle.secondary, fontSize: 11),
               ),
-              const Spacer(),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              const SizedBox(height: 4),
+              Text(theme.description, style: VideoFormStyle.serif(18)),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SettingRow extends StatelessWidget {
-  const _SettingRow({
-    required this.asset,
-    required this.title,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String asset;
-  final String title;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF10050F),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 11),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF4F1646)),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: Image.asset(asset, fit: BoxFit.contain),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Color(0xFFFF5F9E),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 11),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF190C1A),
-                  border: Border.all(color: const Color(0xFF552149)),
-                ),
-                child: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GenerateButton extends StatelessWidget {
-  const _GenerateButton({required this.onPressed, required this.isLoading});
-
-  final VoidCallback? onPressed;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF1594), Color(0xFFFF4D55), Color(0xFFFFAE25)],
-        ),
-        boxShadow: const [
-          BoxShadow(color: Color(0xCCFF1594), blurRadius: 14, spreadRadius: 1),
-          BoxShadow(
-            color: Color(0x99FF8C25),
-            blurRadius: 18,
-            offset: Offset(4, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          key: const Key('generateThemeVideo'),
-          onTap: isLoading ? null : onPressed,
-          borderRadius: BorderRadius.circular(14),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Generate',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (isLoading)
-                  const SizedBox.square(
-                    key: Key('generateVideoLoading'),
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }

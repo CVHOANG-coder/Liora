@@ -14,6 +14,7 @@ import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../widgets/notification_permission_dialog.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/video_form_style.dart';
 import '../generation_history/generation_history_screen.dart';
 import 'generated_video_screen.dart';
 
@@ -354,7 +355,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
         if (!didPop) unawaited(_confirmLeaveForHistory());
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF030208),
+        backgroundColor: const Color(0xFF02050C),
         body: Stack(
           children: [
             const Positioned.fill(child: _LoadingGlow()),
@@ -386,7 +387,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
                                 sourceImagePath: widget.sourceImagePath,
                                 sourceImageUrl: widget.generation.imageUrl,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 20),
                               const _GeneratingTitle(),
                               const SizedBox(height: 8),
                               const Text(
@@ -394,7 +395,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
                                 'This may take a few moments.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Color(0xFFC5BFC9),
+                                  color: Color(0xFFB4B1BD),
                                   fontSize: 14,
                                   height: 1.45,
                                 ),
@@ -419,7 +420,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
                                 child: const Text(
                                   'Cancel',
                                   style: TextStyle(
-                                    color: Color(0xFFFF52B1),
+                                    color: Color(0xFFC68AED),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -431,7 +432,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: Color(0xFF655E69),
+                                  color: Color(0xFF85818F),
                                   fontSize: 10,
                                 ),
                               ),
@@ -496,113 +497,98 @@ class _LeaveCreatingVideoDialog extends StatelessWidget {
   const _LeaveCreatingVideoDialog();
 
   @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      key: const Key('leaveCreatingVideoDialog'),
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+  Widget build(BuildContext context) => Dialog(
+    key: const Key('leaveCreatingVideoDialog'),
+    backgroundColor: Colors.transparent,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         decoration: BoxDecoration(
+          gradient: VideoFormStyle.surface,
           borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF271020), Color(0xFF100A13)],
-          ),
-          border: Border.all(color: const Color(0xFF963466)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x66FF2CAC), blurRadius: 28),
-          ],
+          border: Border.all(color: VideoFormStyle.border, width: 0.6),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFF2EAC).withValues(alpha: 0.12),
-                border: Border.all(color: const Color(0xFFFF42B3)),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x66FF28AB), blurRadius: 18),
-                ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/gen_video/clock.png',
+                width: 58,
+                height: 58,
+                excludeFromSemantics: true,
               ),
-              child: const Icon(
-                Icons.hourglass_top_rounded,
-                color: Color(0xFFFF58B9),
-                size: 31,
+              const SizedBox(height: 16),
+              Text(
+                'Leave this screen?',
+                textAlign: TextAlign.center,
+                style: VideoFormStyle.serif(25),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Leave this screen?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
+              const SizedBox(height: 10),
+              const Text(
+                'Your video will keep generating in the background. You can check its progress in Generation History.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: VideoFormStyle.secondary,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your video will keep generating in the background. '
-              'You can check its progress in Generation History.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFFC6BEC9),
-                fontSize: 13,
-                height: 1.42,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+              const SizedBox(height: 22),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final stay = OutlinedButton(
                     key: const Key('keepWaitingForVideo'),
                     onPressed: () => Navigator.pop(context, false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFF6B3A5C)),
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                      foregroundColor: VideoFormStyle.secondary,
+                      side: const BorderSide(
+                        color: VideoFormStyle.border,
+                        width: 0.7,
                       ),
-                    ),
-                    child: const Text('Keep waiting'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    key: const Key('leaveForGenerationHistory'),
-                    onPressed: () => Navigator.pop(context, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF3D9D),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
+                      minimumSize: const Size.fromHeight(52),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      shadowColor: const Color(0xFFFF28A9),
-                      elevation: 6,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                     ),
                     child: const Text(
-                      'Go to History',
+                      'Keep waiting',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+                  );
+                  final leave = _CreatingActionButton(
+                    buttonKey: const Key('leaveForGenerationHistory'),
+                    label: 'Go to History',
+                    onTap: () => Navigator.pop(context, true),
+                  );
+                  if (constraints.maxWidth < 300 ||
+                      MediaQuery.textScalerOf(context).scale(14) > 17) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [stay, const SizedBox(height: 10), leave],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: stay),
+                      const SizedBox(width: 10),
+                      Expanded(child: leave),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _LoadingGlow extends StatelessWidget {
@@ -615,7 +601,7 @@ class _LoadingGlow extends StatelessWidget {
         gradient: RadialGradient(
           center: Alignment(0, -0.35),
           radius: 0.8,
-          colors: [Color(0x4215002B), Color(0xFF030208)],
+          colors: [Color(0x332A1749), Color(0xFF02050C)],
         ),
       ),
     );
@@ -624,45 +610,48 @@ class _LoadingGlow extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   const _Header({required this.onBack});
-
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              key: const Key('creatingVideoBack'),
-              onPressed: onBack,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 40, height: 38),
-              icon: const Icon(Icons.arrow_back_rounded, size: 30),
-              color: Colors.white,
-            ),
+  Widget build(BuildContext context) => SizedBox(
+    height: 44,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 48),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text('Creating Video', style: VideoFormStyle.serif(23)),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 48),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'Creating Video',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w600,
-                ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            key: const Key('creatingVideoBack'),
+            tooltip: 'Back',
+            onPressed: onBack,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: VideoFormStyle.surface,
+                border: Border.all(color: VideoFormStyle.border, width: 0.6),
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: VideoFormStyle.accent,
+                size: 23,
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _Artwork extends StatefulWidget {
@@ -694,30 +683,31 @@ class _ArtworkState extends State<_Artwork>
       child: AnimatedBuilder(
         animation: _effectController,
         builder: (context, _) {
-          final pulse = 0.28 + (_effectController.value * 0.32);
+          final pulse = 0.08 + (_effectController.value * 0.10);
           return Container(
-            width: 270,
-            height: 250,
+            key: const Key('creatingArtworkFrame'),
+            width: 250,
+            height: 224,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(20),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFFF1BB6), Color(0xFFFF9B2D)],
+                colors: [Color(0xFFEC5FB6), Color(0xFF5366DE)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF20B0).withValues(alpha: pulse),
+                  color: const Color(0xFFB76ADD).withValues(alpha: pulse),
                   blurRadius: 22 + (_effectController.value * 10),
-                  spreadRadius: 1 + (_effectController.value * 2),
+                  spreadRadius: 0,
                 ),
                 BoxShadow(
-                  color: const Color(0xFFFF8A27).withValues(alpha: pulse * 0.7),
+                  color: const Color(0xFF4664DF).withValues(alpha: pulse * 0.7),
                   blurRadius: 18 + (_effectController.value * 8),
                 ),
               ],
             ),
-            padding: const EdgeInsets.all(1.2),
+            padding: const EdgeInsets.all(0.8),
             child: _ProcessingArtwork(
               sourceImagePath: widget.sourceImagePath,
               sourceImageUrl: widget.sourceImageUrl,
@@ -744,9 +734,9 @@ class _ProcessingArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(29),
+      borderRadius: BorderRadius.circular(19),
       child: ColoredBox(
-        color: const Color(0xFF09030D),
+        color: const Color(0xFF0B101D),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -755,24 +745,30 @@ class _ProcessingArtwork extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   radius: 0.85,
-                  colors: [Color(0x11000000), Color(0x8A09030D)],
+                  colors: [Color(0x11000000), Color(0x8A02050C)],
                   stops: [0.42, 1],
                 ),
               ),
             ),
             Positioned.fill(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(29),
+                borderRadius: BorderRadius.circular(19),
                 child: RepaintBoundary(
-                  child: Lottie.asset(
-                    'assets/lotties/loadingImage.lottie',
-                    key: const Key('creatingImageLottie'),
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    repeat: true,
-                    frameRate: FrameRate.max,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      VideoFormStyle.accent,
+                      BlendMode.srcIn,
+                    ),
+                    child: Lottie.asset(
+                      'assets/lotties/loadingImage.lottie',
+                      key: const Key('creatingImageLottie'),
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      repeat: true,
+                      frameRate: FrameRate.max,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
@@ -787,13 +783,13 @@ class _ProcessingArtwork extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      Color(0xFFFF25B4),
-                      Color(0xFFFFA22C),
+                      Color(0xFFEC5FB6),
+                      Color(0xFF5366DE),
                       Colors.transparent,
                     ],
                   ),
                   boxShadow: [
-                    BoxShadow(color: Color(0xCCFF35B1), blurRadius: 12),
+                    BoxShadow(color: Color(0x66A850CF), blurRadius: 12),
                   ],
                 ),
               ),
@@ -827,7 +823,7 @@ class _ProcessingArtwork extends StatelessWidget {
         if (loadingProgress == null) return child;
         return const ColoredBox(
           key: Key('creatingNetworkImageLoading'),
-          color: Color(0xFF16091A),
+          color: Color(0xFF0B101D),
         );
       },
       errorBuilder: (_, _, _) => _defaultArtwork(),
@@ -844,11 +840,14 @@ class _ProcessingArtwork extends StatelessWidget {
         angle: 0.012 * sway,
         child: Transform.scale(
           scale: 1.04 + (0.025 * bounce),
-          child: Image.asset(
-            'assets/images/create_video.png',
-            key: const Key('creatingDefaultArtwork'),
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.high,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Image.asset(
+              'assets/images/create_video.png',
+              key: const Key('creatingDefaultArtwork'),
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
           ),
         ),
       ),
@@ -860,91 +859,72 @@ class _GeneratingTitle extends StatelessWidget {
   const _GeneratingTitle();
 
   @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: RichText(
-        text: const TextSpan(
-          style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-          children: [
-            TextSpan(
-              text: 'Generating ',
-              style: TextStyle(color: Colors.white),
-            ),
-            TextSpan(
-              text: 'your video...',
-              style: TextStyle(color: Color(0xFFFF5374)),
-            ),
-          ],
+  Widget build(BuildContext context) => Text.rich(
+    TextSpan(
+      style: VideoFormStyle.serif(27),
+      children: const [
+        TextSpan(text: 'Generating '),
+        TextSpan(
+          text: 'your video...',
+          style: TextStyle(color: VideoFormStyle.accent),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+    textAlign: TextAlign.center,
+  );
 }
 
 class _ProgressPercent extends StatelessWidget {
   const _ProgressPercent({required this.progress});
-
   final double progress;
 
   @override
-  Widget build(BuildContext context) {
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => const LinearGradient(
-        colors: [Color(0xFFFF24B5), Color(0xFFFF9B2D)],
-      ).createShader(bounds),
-      child: Text(
-        '${(progress * 100).round()}%',
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 34,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ShaderMask(
+    blendMode: BlendMode.srcIn,
+    shaderCallback: const LinearGradient(
+      colors: [VideoFormStyle.pink, VideoFormStyle.accent],
+    ).createShader,
+    child: Text(
+      '${(progress * 100).round()}%',
+      textAlign: TextAlign.center,
+      style: VideoFormStyle.serif(32),
+    ),
+  );
 }
 
 class _NeonProgressBar extends StatelessWidget {
   const _NeonProgressBar({required this.progress});
-
   final double progress;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 17,
-      padding: const EdgeInsets.all(1),
+  Widget build(BuildContext context) => Semantics(
+    label: 'Video generation progress',
+    value: '${(progress * 100).round()}%',
+    child: Container(
+      key: const Key('creatingProgressTrack'),
+      height: 8,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF8B175F)),
-        color: const Color(0xFF1A0718),
+        color: const Color(0xFF202235),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) => Align(
           alignment: Alignment.centerLeft,
           child: Container(
-            width: constraints.maxWidth * progress,
+            key: const Key('creatingProgressFill'),
+            width: constraints.maxWidth * progress.clamp(0.0, 1.0),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF18B1),
-                  Color(0xFFFF4D58),
-                  Color(0xFFFFA62B),
-                ],
-              ),
+              borderRadius: BorderRadius.circular(8),
+              gradient: VideoFormStyle.gradient,
               boxShadow: const [
-                BoxShadow(color: Color(0xAAFF2AAA), blurRadius: 9),
+                BoxShadow(color: Color(0x33935ACF), blurRadius: 8),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _GenerationSteps extends StatelessWidget {
@@ -1025,7 +1005,6 @@ class _StepTile extends StatelessWidget {
     required this.label,
     required this.state,
   });
-
   final int index;
   final int totalSteps;
   final String label;
@@ -1040,74 +1019,87 @@ class _StepTile extends StatelessWidget {
         : active
         ? 'In progress'
         : 'Pending';
+    final statusColor = completed || active
+        ? VideoFormStyle.accent
+        : VideoFormStyle.muted;
+    final statusText = Text(
+      status,
+      style: TextStyle(color: statusColor, fontSize: 11, height: 1.3),
+    );
+    final title = Text(
+      '${index + 1}/$totalSteps  $label',
+      style: TextStyle(
+        color: active || completed ? Colors.white : VideoFormStyle.secondary,
+        fontSize: 13,
+        height: 1.4,
+      ),
+    );
     return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 13),
+      key: ValueKey('creatingStep-$index'),
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xC0140817),
+        gradient: VideoFormStyle.surface,
         borderRadius: BorderRadius.circular(13),
         border: Border.all(
-          color: active ? const Color(0xFFFF3CAF) : const Color(0xFF6D184F),
-          width: active ? 1.4 : 1,
+          color: active ? const Color(0xFF8D68AE) : const Color(0xFF343743),
+          width: 0.6,
         ),
-        boxShadow: active
-            ? const [BoxShadow(color: Color(0x55FF21A9), blurRadius: 12)]
-            : null,
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: completed || active
-                    ? const Color(0xFFFF42B1)
-                    : const Color(0xFF794062),
-                width: 1.5,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stackStatus =
+              constraints.maxWidth < 290 ||
+              MediaQuery.textScalerOf(context).scale(13) > 17;
+          return Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: active || completed
+                      ? const Color(0xFF211E36)
+                      : const Color(0xFF121725),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: completed
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: VideoFormStyle.accent,
+                        size: 20,
+                      )
+                    : active
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: VideoFormStyle.accent,
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: VideoFormStyle.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
               ),
-            ),
-            child: completed
-                ? const Icon(
-                    Icons.check_rounded,
-                    color: Color(0xFFFF55B7),
-                    size: 22,
-                  )
-                : active
-                ? const Padding(
-                    padding: EdgeInsets.all(7),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Color(0xFFFF952E),
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '${index + 1}/$totalSteps  $label',
-              style: TextStyle(
-                color: state == _StepState.pending
-                    ? const Color(0xFFAAA2AE)
-                    : Colors.white,
-                fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    title,
+                    if (stackStatus) ...[const SizedBox(height: 3), statusText],
+                  ],
+                ),
               ),
-            ),
-          ),
-          Text(
-            status,
-            style: TextStyle(
-              color: completed
-                  ? const Color(0xFF48D85B)
-                  : active
-                  ? const Color(0xFFFFA328)
-                  : const Color(0xFF918A95),
-              fontSize: 12,
-            ),
-          ),
-        ],
+              if (!stackStatus) ...[const SizedBox(width: 10), statusText],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1117,99 +1109,118 @@ class _BackgroundTip extends StatelessWidget {
   const _BackgroundTip();
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xC0130716),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF8C1B64)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFFF51B5), size: 29),
-          SizedBox(width: 13),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                style: TextStyle(
-                  color: Color(0xFFC8C1CB),
-                  fontSize: 13,
-                  height: 1.45,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'Tip: ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  TextSpan(
-                    text:
-                        "You can continue in background\nand we’ll notify you when it’s ready.",
-                  ),
-                ],
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      gradient: VideoFormStyle.surface,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFF343743), width: 0.6),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.notifications_none_rounded,
+          color: VideoFormStyle.accent,
+          size: 24,
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: TextStyle(
+                color: VideoFormStyle.secondary,
+                fontSize: 12,
+                height: 1.5,
               ),
+              children: [
+                TextSpan(
+                  text: 'Keep creating while you wait\n',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                TextSpan(
+                  text:
+                      'You can continue in the background and check progress in Generation History.',
+                ),
+              ],
             ),
           ),
-          Icon(
-            Icons.notifications_active_outlined,
-            color: Color(0xFFFF8B36),
-            size: 35,
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _ContinueButton extends StatelessWidget {
   const _ContinueButton({required this.onTap});
-
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(29),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF15AC), Color(0xFFFF4F5C), Color(0xFFFFA62B)],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x77FF1BA8), blurRadius: 16)],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(29),
-          child: const Row(
+  Widget build(BuildContext context) => _CreatingActionButton(
+    buttonKey: const Key('continueCreatingInBackground'),
+    label: 'Continue in Background',
+    icon: Icons.arrow_forward_rounded,
+    onTap: onTap,
+  );
+}
+
+class _CreatingActionButton extends StatelessWidget {
+  const _CreatingActionButton({
+    required this.buttonKey,
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
+  final Key buttonKey;
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 52),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(14),
+      gradient: VideoFormStyle.gradient,
+      border: Border.all(color: const Color(0xFFAA91C5), width: 0.6),
+    ),
+    child: Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: buttonKey,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Continue in Background',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
                   ),
                 ),
               ),
-              SizedBox(width: 18),
-              Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 27),
+              if (icon != null) ...[
+                const SizedBox(width: 12),
+                Icon(icon, color: Colors.white, size: 22),
+              ],
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _GenerationFailureScreen extends StatelessWidget {
@@ -1221,7 +1232,6 @@ class _GenerationFailureScreen extends StatelessWidget {
     required this.creatorLabel,
     required this.onBackToCreate,
   });
-
   final String title;
   final String message;
   final String? guidance;
@@ -1230,157 +1240,125 @@ class _GenerationFailureScreen extends StatelessWidget {
   final VoidCallback onBackToCreate;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF030208),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _LoadingGlow()),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: onBackToCreate,
-                      icon: const Icon(Icons.arrow_back_rounded, size: 30),
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    width: 104,
-                    height: 104,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFFF20B4), Color(0xFFFF942F)],
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: VideoFormStyle.background,
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: CustomScrollView(
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: 'Back',
+                          onPressed: onBackToCreate,
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF0B101D),
+                            side: const BorderSide(
+                              color: VideoFormStyle.border,
+                              width: 0.6,
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: VideoFormStyle.accent,
+                            size: 24,
+                          ),
+                        ),
                       ),
-                      boxShadow: [
-                        BoxShadow(color: Color(0x77FF21AA), blurRadius: 26),
+                      const Spacer(),
+                      const SizedBox(height: 24),
+                      Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF211E36),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(
+                            color: const Color(0xFF67507E),
+                            width: 0.7,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.error_outline_rounded,
+                          color: VideoFormStyle.accent,
+                          size: 48,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: VideoFormStyle.serif(29),
+                      ),
+                      const SizedBox(height: 13),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: VideoFormStyle.secondary,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      if (creditsRefunded) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Your credits have been refunded.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF8CC9B2),
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
                       ],
-                    ),
-                    padding: const EdgeInsets.all(2),
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF150819),
+                      const SizedBox(height: 12),
+                      Text(
+                        guidance ??
+                            'Return to $creatorLabel and try again with another prompt.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: VideoFormStyle.muted,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.error_outline_rounded,
-                        color: Color(0xFFFF55B2),
-                        size: 58,
+                      const SizedBox(height: 32),
+                      const Spacer(),
+                      _FailureBackButton(
+                        creatorLabel: creatorLabel,
+                        onTap: onBackToCreate,
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 28),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 29,
-                      height: 1.12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.7,
-                    ),
-                  ),
-                  const SizedBox(height: 13),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFC2BBC6),
-                      fontSize: 15,
-                      height: 1.5,
-                    ),
-                  ),
-                  if (creditsRefunded) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Your credits have been refunded.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFF63E981),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    guidance ??
-                        'Return to $creatorLabel and try again with another prompt.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF8D8592),
-                      fontSize: 13,
-                      height: 1.45,
-                    ),
-                  ),
-                  const Spacer(),
-                  _FailureBackButton(
-                    creatorLabel: creatorLabel,
-                    onTap: onBackToCreate,
-                  ),
-                  const SizedBox(height: 28),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FailureBackButton extends StatelessWidget {
-  const _FailureBackButton({required this.creatorLabel, required this.onTap});
-
-  final String creatorLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(29),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF16A8), Color(0xFFFF4E5D), Color(0xFFFFA42B)],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x77FF1AA7), blurRadius: 16)],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29),
-        child: InkWell(
-          key: const Key('backToImageToVideo'),
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(29),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 25,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Back to $creatorLabel',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+class _FailureBackButton extends StatelessWidget {
+  const _FailureBackButton({required this.creatorLabel, required this.onTap});
+  final String creatorLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => _CreatingActionButton(
+    buttonKey: const Key('backToImageToVideo'),
+    label: 'Back to $creatorLabel',
+    icon: Icons.arrow_back_rounded,
+    onTap: onTap,
+  );
 }
