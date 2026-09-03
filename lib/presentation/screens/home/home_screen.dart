@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../data/video_categories.dart';
 import '../../providers/home_subscription_plan_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -26,9 +27,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
-    final planStatus =
-        ref.watch(homeSubscriptionPlanProvider).value ??
-        homeSubscriptionPlanFromProfile(profile);
+    final planStatus = AppFeatures.commerceEnabled
+        ? ref.watch(homeSubscriptionPlanProvider).value ??
+              homeSubscriptionPlanFromProfile(profile)
+        : HomeSubscriptionPlan.none;
     final planAction = switch (planStatus) {
       HomeSubscriptionPlan.weekly => _HomePlanAction.upgrade,
       HomeSubscriptionPlan.yearly => _HomePlanAction.credit,
@@ -47,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               key: const Key('homeHeader'),
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
               child: _HomeHeader(
+                showPlanAction: AppFeatures.commerceEnabled,
                 planAction: planAction,
                 onProPressed: () {
                   if (planStatus == HomeSubscriptionPlan.none &&
@@ -107,8 +110,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 enum _HomePlanAction { pro, upgrade, credit }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.planAction, required this.onProPressed});
+  const _HomeHeader({
+    required this.showPlanAction,
+    required this.planAction,
+    required this.onProPressed,
+  });
 
+  final bool showPlanAction;
   final _HomePlanAction planAction;
   final VoidCallback onProPressed;
 
@@ -130,65 +138,66 @@ class _HomeHeader extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Semantics(
-              button: true,
-              enabled: true,
-              label: semanticsLabel,
-              child: Material(
-                color: isCredit
-                    ? const Color(0xFF16130B)
-                    : const Color(0xFF0C0E18),
-                borderRadius: BorderRadius.circular(20),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  key: const Key('homeProButton'),
-                  onTap: onProPressed,
-                  child: Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 11),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF20263A)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isCredit)
-                          Image.asset(
-                            'assets/images/in_app_purchase/credit.png',
-                            width: 20,
-                            height: 20,
-                            fit: BoxFit.contain,
-                          )
-                        else
-                          SvgPicture.asset(
-                            'assets/svgs/pro.svg',
-                            width: 14,
-                            height: 14,
-                            fit: BoxFit.contain,
-                            colorFilter: const ColorFilter.mode(
-                              Color(0xFFC45AA4),
-                              BlendMode.srcIn,
+          if (showPlanAction)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Semantics(
+                button: true,
+                enabled: true,
+                label: semanticsLabel,
+                child: Material(
+                  color: isCredit
+                      ? const Color(0xFF16130B)
+                      : const Color(0xFF0C0E18),
+                  borderRadius: BorderRadius.circular(20),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    key: const Key('homeProButton'),
+                    onTap: onProPressed,
+                    child: Container(
+                      height: 26,
+                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF20263A)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isCredit)
+                            Image.asset(
+                              'assets/images/in_app_purchase/credit.png',
+                              width: 20,
+                              height: 20,
+                              fit: BoxFit.contain,
+                            )
+                          else
+                            SvgPicture.asset(
+                              'assets/svgs/pro.svg',
+                              width: 14,
+                              height: 14,
+                              fit: BoxFit.contain,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFFC45AA4),
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          const SizedBox(width: 5),
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              color: Color(0xFFC8C6D0),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        const SizedBox(width: 5),
-                        Text(
-                          label,
-                          style: const TextStyle(
-                            color: Color(0xFFC8C6D0),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
           const _Brand(),
           Align(
             alignment: Alignment.centerRight,
@@ -197,6 +206,7 @@ class _HomeHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Stack(
+                  key: const Key('homeNotificationIcon'),
                   clipBehavior: Clip.none,
                   children: [
                     const Icon(Icons.notifications_none_rounded, size: 24),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_features.dart';
 import 'app_web_view_screen.dart';
 
 class SupportContactScreen extends StatelessWidget {
@@ -64,12 +65,15 @@ class SupportContactScreen extends StatelessWidget {
                 const SizedBox(height: 18),
               ],
               const _SupportInfoCard(),
-              const SizedBox(height: 24),
-              _GradientButton(
-                label: 'Open Support Center',
-                icon: Icons.support_agent_rounded,
-                onTap: () => AppWebViewScreen.open(context, AppWebPage.support),
-              ),
+              if (AppFeatures.externalLinksEnabled) ...[
+                const SizedBox(height: 24),
+                _GradientButton(
+                  label: 'Open Support Center',
+                  icon: Icons.support_agent_rounded,
+                  onTap: () =>
+                      AppWebViewScreen.open(context, AppWebPage.support),
+                ),
+              ],
               if (hasErrorDetails) ...[
                 const SizedBox(height: 10),
                 OutlinedButton.icon(

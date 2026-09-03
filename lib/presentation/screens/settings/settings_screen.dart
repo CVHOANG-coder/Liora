@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../core/device/image_access_permission.dart';
 import '../../../core/media/video_cache_service.dart';
 import '../../../core/media/video_thumbnail_cache.dart';
@@ -239,29 +240,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle('LEGAL & ABOUT'),
+                  _SectionTitle(
+                    AppFeatures.externalLinksEnabled
+                        ? 'LEGAL & ABOUT'
+                        : 'ABOUT',
+                  ),
                   const SizedBox(height: 9),
                   _SettingsGroup(
                     key: const Key('legalSettingsGroup'),
                     children: [
-                      _ActionSettingsTile(
-                        key: const Key('privacySetting'),
-                        icon: Icons.shield_outlined,
-                        title: 'Privacy',
-                        subtitle: 'How the app protects your data',
-                        onTap: () =>
-                            AppWebViewScreen.open(context, AppWebPage.privacy),
-                      ),
-                      const _SettingsDivider(),
-                      _ActionSettingsTile(
-                        key: const Key('termsSetting'),
-                        icon: Icons.description_outlined,
-                        title: 'Terms of Service',
-                        subtitle: 'Liora terms of use',
-                        onTap: () =>
-                            AppWebViewScreen.open(context, AppWebPage.terms),
-                      ),
-                      const _SettingsDivider(),
+                      if (AppFeatures.externalLinksEnabled) ...[
+                        _ActionSettingsTile(
+                          key: const Key('privacySetting'),
+                          icon: Icons.shield_outlined,
+                          title: 'Privacy',
+                          subtitle: 'How the app protects your data',
+                          onTap: () => AppWebViewScreen.open(
+                            context,
+                            AppWebPage.privacy,
+                          ),
+                        ),
+                        const _SettingsDivider(),
+                        _ActionSettingsTile(
+                          key: const Key('termsSetting'),
+                          icon: Icons.description_outlined,
+                          title: 'Terms of Service',
+                          subtitle: 'Liora terms of use',
+                          onTap: () =>
+                              AppWebViewScreen.open(context, AppWebPage.terms),
+                        ),
+                        const _SettingsDivider(),
+                      ],
                       const _ValueSettingsTile(
                         icon: Icons.info_outline_rounded,
                         title: 'App version',

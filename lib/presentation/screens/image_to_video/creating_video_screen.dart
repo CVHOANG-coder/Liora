@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -1308,7 +1309,7 @@ class _GenerationFailureScreen extends StatelessWidget {
                           height: 1.5,
                         ),
                       ),
-                      if (creditsRefunded) ...[
+                      if (AppFeatures.commerceEnabled && creditsRefunded) ...[
                         const SizedBox(height: 12),
                         const Text(
                           'Your credits have been refunded.',

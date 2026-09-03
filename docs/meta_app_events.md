@@ -1,5 +1,9 @@
 # Meta App Events — Nostalia
 
+> **Tạm vô hiệu hóa:** Facebook App Events và Firebase hiện không được đóng
+> gói/khởi tạo trong app. Khôi phục các khối có đánh dấu `TEMP` sau khi đăng ký
+> package/bundle ID `com.lioraai.videogenerator` trên các dashboard tương ứng.
+
 Ứng dụng dùng [facebook_app_events](https://pub.dev/packages/facebook_app_events)
 `^0.30.5` (Flutter wrapper cho Meta SDK Android/iOS) để đo lường cài đặt và
 lượt mở app từ quảng cáo. Không thêm Facebook Login hoặc Audience Network.
@@ -9,9 +13,9 @@ lượt mở app từ quảng cáo. Không thêm Facebook Login hoặc Audience 
 | Mục | Giá trị |
 | --- | --- |
 | Facebook App ID | `2116175409267246` |
-| Android package | `com.nostalia.ai.videogenerator` |
-| Android activity | `com.nostalia.ai.videogenerator.MainActivity` |
-| iOS Bundle ID | `com.nostalia.ai.videogenerator` |
+| Android package | `com.lioraai.videogenerator` |
+| Android activity | `com.lioraai.videogenerator.MainActivity` |
+| iOS Bundle ID | `com.lioraai.videogenerator` |
 | iOS URL scheme | `fb2116175409267246` |
 
 App ID và Client Token nằm trong `android/app/src/main/res/values/facebook.xml`

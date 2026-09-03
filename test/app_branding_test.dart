@@ -19,13 +19,9 @@ void main() {
     expect(staleFiles, isEmpty);
   });
 
-  test('iOS and Android display Liora without changing app identifiers', () {
+  test('iOS and Android use the Liora branding and app identifiers', () {
     final plist = File('ios/Runner/Info.plist').readAsStringSync();
-    for (final key in [
-      'CFBundleDisplayName',
-      'CFBundleName',
-      'FacebookDisplayName',
-    ]) {
+    for (final key in ['CFBundleDisplayName', 'CFBundleName']) {
       expect(_plistValue(plist, key), 'Liora');
     }
     expect(
@@ -46,7 +42,7 @@ void main() {
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
     expect(
       RegExp(r'applicationId\s*=\s*"([^"]+)"').firstMatch(gradle)?.group(1),
-      'com.nostalia.ai.videogenerator',
+      'com.lioraai.videogenerator',
     );
   });
 

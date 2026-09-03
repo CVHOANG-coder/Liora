@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/device/image_access_permission.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
@@ -48,7 +49,11 @@ void main() {
 
           expect(find.byKey(const Key('generationExitDialog')), findsOneWidget);
           expect(
-            find.textContaining('may still be processed and use credits'),
+            find.textContaining(
+              AppFeatures.commerceEnabled
+                  ? 'may still be processed and use credits'
+                  : 'may still be processed',
+            ),
             findsOneWidget,
           );
           await tester.tap(find.byKey(const Key('stayOnGenerationForm')));
@@ -104,8 +109,20 @@ void main() {
 
           expect(find.byKey(const Key('generationExitDialog')), findsNothing);
           expect(
-            find.byType(succeeds ? CreatingVideoScreen : FreeTrialScreen),
-            findsOneWidget,
+            find.byType(CreatingVideoScreen),
+            succeeds ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byType(FreeTrialScreen),
+            !succeeds && AppFeatures.commerceEnabled
+                ? findsOneWidget
+                : findsNothing,
+          );
+          expect(
+            find.byType(GenerationFailureDialog),
+            !succeeds && !AppFeatures.commerceEnabled
+                ? findsOneWidget
+                : findsNothing,
           );
           expect(find.byKey(const Key('openForm')), findsNothing);
           expect(tester.takeException(), isNull);

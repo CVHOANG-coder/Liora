@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 
 void main() {
+  if (!AppFeatures.commerceEnabled) {
+    test('legacy credit card is preserved behind the flag', () {
+      expect(AppFeatures.commerceEnabled, isFalse);
+    });
+    return;
+  }
+
   testWidgets('shows the profile credit balance and opens BuyCredits', (
     tester,
   ) async {

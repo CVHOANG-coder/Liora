@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/device/image_access_permission.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
@@ -256,71 +257,74 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('opens FreeTrial when a non-VIP user has insufficient credit', (
-    tester,
-  ) async {
-    await _setPhoneSize(tester);
-    var submitCount = 0;
-    String? originalImagePath;
-    String? originalPrompt;
-    bool? originalIsHd;
-    bool? originalIsLongTime;
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          home: ImageToVideoScreen(
-            progressRepository: _MemoryProgressRepository(),
-            requestPermission: (_) async => ImageAccessPermissionResult.granted,
-            pickImageFromSource: (_) => _testImagePath(),
-            submit:
-                ({
-                  required imagePath,
-                  onUploadProgress,
-                  required prompt,
-                  required isHd,
-                  required isLongTime,
-                }) async {
-                  submitCount += 1;
-                  if (submitCount == 1) {
-                    originalImagePath = imagePath;
-                    originalPrompt = prompt;
-                    originalIsHd = isHd;
-                    originalIsLongTime = isLongTime;
-                    throw const ApiException(
-                      message: 'Insufficient credit balance',
-                      statusCode: 402,
-                    );
-                  }
-                  expect(imagePath, originalImagePath);
-                  expect(prompt, originalPrompt);
-                  expect(isHd, originalIsHd);
-                  expect(isLongTime, originalIsLongTime);
-                  return _generation();
-                },
+  testWidgets(
+    'opens FreeTrial when a non-VIP user has insufficient credit',
+    (tester) async {
+      await _setPhoneSize(tester);
+      var submitCount = 0;
+      String? originalImagePath;
+      String? originalPrompt;
+      bool? originalIsHd;
+      bool? originalIsLongTime;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: ImageToVideoScreen(
+              progressRepository: _MemoryProgressRepository(),
+              requestPermission: (_) async =>
+                  ImageAccessPermissionResult.granted,
+              pickImageFromSource: (_) => _testImagePath(),
+              submit:
+                  ({
+                    required imagePath,
+                    onUploadProgress,
+                    required prompt,
+                    required isHd,
+                    required isLongTime,
+                  }) async {
+                    submitCount += 1;
+                    if (submitCount == 1) {
+                      originalImagePath = imagePath;
+                      originalPrompt = prompt;
+                      originalIsHd = isHd;
+                      originalIsLongTime = isLongTime;
+                      throw const ApiException(
+                        message: 'Insufficient credit balance',
+                        statusCode: 402,
+                      );
+                    }
+                    expect(imagePath, originalImagePath);
+                    expect(prompt, originalPrompt);
+                    expect(isHd, originalIsHd);
+                    expect(isLongTime, originalIsLongTime);
+                    return _generation();
+                  },
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    await _prepareAndGenerate(tester);
+      await _prepareAndGenerate(tester);
 
-    expect(find.byType(GenerationFailureDialog), findsNothing);
-    expect(find.byType(FreeTrialScreen), findsOneWidget);
-    expect(find.byType(BuyCredits), findsNothing);
-    expect(
-      find.widgetWithText(SnackBar, 'Insufficient credit balance'),
-      findsOneWidget,
-    );
+      expect(find.byType(GenerationFailureDialog), findsNothing);
+      expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(find.byType(BuyCredits), findsNothing);
+      expect(
+        find.widgetWithText(SnackBar, 'Insufficient credit balance'),
+        findsOneWidget,
+      );
 
-    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+      Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
-    expect(submitCount, 2);
-    expect(find.byType(CreatingVideoScreen), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(submitCount, 2);
+      expect(find.byType(CreatingVideoScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    skip: !AppFeatures.commerceEnabled,
+  );
 
   testWidgets(
     'opens BuyCredits when a subscribed user has insufficient credit',
@@ -369,6 +373,7 @@ void main() {
       expect(find.byType(FreeTrialScreen), findsNothing);
       expect(tester.takeException(), isNull);
     },
+    skip: !AppFeatures.commerceEnabled,
   );
 
   testWidgets('requests camera permission before opening the camera', (

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../core/device/image_access_permission.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -332,7 +333,8 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
       if (!mounted || _hasLeftForm) return;
       _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
-      final action = isInsufficientCreditError(error)
+      final action =
+          AppFeatures.commerceEnabled && isInsufficientCreditError(error)
           ? GenerationFailureAction.buyCredits
           : await GenerationFailureDialog.showForError(
               context,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_features.dart';
 
 enum AppWebPage {
   privacy(
@@ -28,6 +29,7 @@ class AppWebViewScreen extends StatefulWidget {
   final AppWebPage page;
 
   static Future<void> open(BuildContext context, AppWebPage page) {
+    if (!AppFeatures.externalLinksEnabled) return Future<void>.value();
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => AppWebViewScreen(page: page)),
     );

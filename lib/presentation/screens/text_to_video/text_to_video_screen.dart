@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/generation_progress.dart';
@@ -159,7 +160,8 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
       if (!mounted || _hasLeftForm) return;
       _exitGuardKey.currentState?.dismissWarning();
       setState(() => _isSubmitting = false);
-      final action = isInsufficientCreditError(error)
+      final action =
+          AppFeatures.commerceEnabled && isInsufficientCreditError(error)
           ? GenerationFailureAction.buyCredits
           : await GenerationFailureDialog.showForError(
               context,

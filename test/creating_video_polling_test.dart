@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
 import 'package:video_gen/data/models/i2v_generation.dart';
@@ -547,7 +548,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Video Generation Cancelled'), findsOneWidget);
-    expect(find.textContaining('credits have been refunded'), findsOneWidget);
+    expect(
+      find.textContaining('credits have been refunded'),
+      AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
+    );
     expect(await progressRepository.load('request-001'), isNull);
     expect(tester.takeException(), isNull);
   });

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/constants/app_colors.dart';
 import 'package:video_gen/core/device/image_access_permission.dart';
 import 'package:video_gen/core/network/api_exception.dart';
@@ -22,6 +23,13 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 enum _GenerationForm { image, text, theme }
 
 void main() {
+  if (!AppFeatures.commerceEnabled) {
+    test('legacy credit navigation is preserved behind the flag', () {
+      expect(AppFeatures.commerceEnabled, isFalse);
+    });
+    return;
+  }
+
   const scenarios = [
     (isSubscribed: true, isVIP: true, destination: BuyCredits),
     (isSubscribed: true, isVIP: false, destination: BuyCredits),

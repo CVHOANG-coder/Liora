@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_gen/core/device/image_access_permission.dart';
 import 'package:video_gen/core/network/api_exception.dart';
@@ -238,6 +239,7 @@ void main() {
       expect(find.byType(CreatingVideoScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
+    skip: !AppFeatures.commerceEnabled,
   );
 }
 

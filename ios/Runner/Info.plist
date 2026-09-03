@@ -14,6 +14,8 @@
 	<string>Save your generated AI videos to the photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Allow camera access so you can take a photo to create your AI video.</string>
+	<!-- TEMP: Facebook App Events/ATT configuration is disabled until the new
+	     iOS app is registered. Restore this block when re-enabling the SDK.
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Allow Liora to use your advertising identifier to measure which ads lead to app installs and improve our advertising.</string>
 	<key>FacebookAppID</key>
@@ -35,6 +37,7 @@
 			</array>
 		</dict>
 	</array>
+	-->
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

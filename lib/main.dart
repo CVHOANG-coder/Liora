@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import 'core/analytics/meta_app_events_service.dart';
+import 'core/constants/app_features.dart';
 import 'core/firebase/firebase_service.dart';
 import 'shared/themes/app_theme.dart';
 import 'presentation/screens/splash/splash_screen.dart';
@@ -100,15 +101,18 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
 
   @override
   Widget build(BuildContext context) {
-    // Start listening before the purchase screens open so Google Play can
-    // redeliver pending purchases from a previous app session.
-    ref.watch(purchaseControllerProvider);
+    if (AppFeatures.commerceEnabled) {
+      // Start listening before the purchase screens open so Google Play can
+      // redeliver pending purchases from a previous app session.
+      ref.watch(purchaseControllerProvider);
+    }
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'Liora',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      navigatorObservers: [?FirebaseService.analyticsObserver],
+      // TEMP: FirebaseAnalyticsObserver is disabled with Firebase Analytics.
+      navigatorObservers: const <NavigatorObserver>[],
       home: widget.home ?? const SplashScreen(),
     );
   }

@@ -1,11 +1,7 @@
-import 'dart:async';
-
-import 'package:facebook_app_events/facebook_app_events.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:video_gen/core/analytics/meta_app_events_service.dart';
 
+/* TEMP: Meta SDK behavior tests are disabled with the integration.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel(channelName);
@@ -241,4 +237,14 @@ void main() {
       expect(promptCount, 0);
     },
   );
+}
+*/
+
+void main() {
+  test('Meta App Events facade is a no-op while the SDK is disabled', () async {
+    final service = MetaAppEventsService();
+    await service.initialize();
+    await service.requestTrackingAuthorization();
+    await service.refreshTrackingAuthorization();
+  });
 }

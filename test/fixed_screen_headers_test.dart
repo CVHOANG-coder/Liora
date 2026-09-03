@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
@@ -12,7 +13,6 @@ import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/generation_history/generation_history_screen.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
 void main() {
@@ -46,11 +46,12 @@ void main() {
         tester,
         headerKey: 'homeHeader',
         scrollKey: 'homeScroll',
-        actionKey: 'homeProButton',
+        actionKey: 'homeNotificationIcon',
       );
-      await tester.tap(find.byKey(const Key('homeProButton')));
-      await tester.pumpAndSettle();
-      expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(
+        find.byKey(const Key('homeProButton')),
+        AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

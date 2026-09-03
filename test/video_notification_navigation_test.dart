@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/presentation/screens/image_to_video/generated_video_screen.dart';
@@ -58,7 +59,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Video Generation Failed'), findsOneWidget);
-    expect(find.text('Your credits have been refunded.'), findsOneWidget);
+    expect(
+      find.text('Your credits have been refunded.'),
+      AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 }

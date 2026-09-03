@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/storage/yearly_sale_preferences.dart';
 import 'package:video_gen/data/models/package_catalog.dart';
 import 'package:video_gen/data/models/user_profile.dart';
@@ -19,6 +20,13 @@ import 'package:video_gen/presentation/screens/in_app_purchase/yearly_sale_scree
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 
 void main() {
+  if (!AppFeatures.commerceEnabled) {
+    test('legacy subscription navigation is preserved behind the flag', () {
+      expect(AppFeatures.commerceEnabled, isFalse);
+    });
+    return;
+  }
+
   testWidgets('non-VIP opens Free Trial from the Home Pro button', (
     tester,
   ) async {

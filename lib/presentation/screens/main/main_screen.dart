@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -49,7 +50,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _showInitialOfferIfNeeded() async {
-    if (!mounted || !widget.showTrialOffer || _isShowingInitialOffer) return;
+    if (!AppFeatures.commerceEnabled ||
+        !mounted ||
+        !widget.showTrialOffer ||
+        _isShowingInitialOffer) {
+      return;
+    }
     _isShowingInitialOffer = true;
     try {
       final profile = ref.read(profileProvider);

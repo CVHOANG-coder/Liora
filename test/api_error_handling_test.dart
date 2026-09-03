@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
@@ -129,9 +130,12 @@ void main() {
   group('API error presentation', () {
     test('maps every documented error code to the expected action', () {
       const expectedActions = <String, GenerationFailureAction>{
-        ApiErrorCode.insufficientCredit: GenerationFailureAction.buyCredits,
-        ApiErrorCode.subscriptionExpired:
-            GenerationFailureAction.renewSubscription,
+        ApiErrorCode.insufficientCredit: AppFeatures.commerceEnabled
+            ? GenerationFailureAction.buyCredits
+            : GenerationFailureAction.close,
+        ApiErrorCode.subscriptionExpired: AppFeatures.commerceEnabled
+            ? GenerationFailureAction.renewSubscription
+            : GenerationFailureAction.close,
         ApiErrorCode.accountBanned: GenerationFailureAction.contactSupport,
         ApiErrorCode.contentPolicy: GenerationFailureAction.editInput,
         ApiErrorCode.fileTooLarge: GenerationFailureAction.chooseImage,
@@ -193,7 +197,11 @@ void main() {
         fallbackMessage: 'Unable to generate.',
       );
 
-      expect(presentation.message, contains('automatically refunded'));
+      if (AppFeatures.commerceEnabled) {
+        expect(presentation.message, contains('automatically refunded'));
+      } else {
+        expect(presentation.message, isNot(contains('credit')));
+      }
       expect(presentation.primaryAction, GenerationFailureAction.retry);
     });
   });

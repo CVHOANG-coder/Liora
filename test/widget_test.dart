@@ -61,10 +61,6 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
-    await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
-    await tester.tap(find.byKey(const Key('trialLaterButton')));
-    await tester.pumpAndSettle();
-
     expect(find.text('Create AI short films'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
 
@@ -93,10 +89,6 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
-    await tester.ensureVisible(find.byKey(const Key('trialLaterButton')));
-    await tester.tap(find.byKey(const Key('trialLaterButton')));
-    await tester.pumpAndSettle();
-
     await tester.tap(find.byKey(const Key('createButton')));
     await tester.pumpAndSettle();
 

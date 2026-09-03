@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_features.dart';
 
 class GenerationFormExitGuard extends StatefulWidget {
   const GenerationFormExitGuard({
@@ -45,10 +46,13 @@ class GenerationFormExitGuardState extends State<GenerationFormExitGuard> {
           'Leave this screen?',
           style: TextStyle(color: AppColors.textPrimary),
         ),
-        content: const Text(
-          'Your request is still being sent. If you leave, it may still be '
-          'processed and use credits.',
-          style: TextStyle(color: AppColors.textSecondary),
+        content: Text(
+          AppFeatures.commerceEnabled
+              ? 'Your request is still being sent. If you leave, it may still '
+                    'be processed and use credits.'
+              : 'Your request is still being sent. If you leave, it may still '
+                    'be processed.',
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(

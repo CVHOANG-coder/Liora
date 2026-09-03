@@ -1,4 +1,4 @@
-package com.nostalia.ai.videogenerator
+package com.lioraai.videogenerator
 
 import android.os.Bundle
 import android.view.WindowManager

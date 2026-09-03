@@ -8,6 +8,8 @@
         android:label="Liora"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- TEMP: Facebook App Events and Firebase Messaging metadata are
+             disabled until both apps are registered with the new package ID.
         <meta-data
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/facebook_app_id" />
@@ -17,7 +19,6 @@
         <meta-data
             android:name="com.facebook.sdk.AutoInitEnabled"
             android:value="true" />
-        <!-- Dart configures event logging and advertising identifiers at startup. -->
         <meta-data
             android:name="com.facebook.sdk.AutoLogAppEventsEnabled"
             android:value="false" />
@@ -30,6 +31,7 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

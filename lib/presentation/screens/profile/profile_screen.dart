@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/constants/app_features.dart';
 import '../../../data/models/user_profile.dart';
 import '../../providers/profile_provider.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
@@ -21,7 +22,6 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final creditBalance = profile?.totalCredit ?? 0;
     final appVersion = ref.watch(appVersionProvider);
 
     return ColoredBox(
@@ -51,8 +51,13 @@ class ProfileScreen extends ConsumerWidget {
                         sliver: SliverList.list(
                           children: [
                             _AccountCard(profile: profile, scale: scale),
-                            SizedBox(height: 10 * scale),
-                            _UpgradeCard(balance: creditBalance, scale: scale),
+                            if (AppFeatures.commerceEnabled) ...[
+                              SizedBox(height: 10 * scale),
+                              _UpgradeCard(
+                                balance: profile?.totalCredit ?? 0,
+                                scale: scale,
+                              ),
+                            ],
                             SizedBox(height: 9 * scale),
                             _ProfileMenu(scale: scale),
                             const SizedBox(height: 24),
@@ -320,35 +325,37 @@ class _AccountDetails extends StatelessWidget {
             height: 1.2,
           ),
         ),
-        SizedBox(height: 11 * scale),
-        Container(
-          key: const Key('profilePlanBadge'),
-          padding: EdgeInsets.symmetric(
-            horizontal: 11 * scale,
-            vertical: 6 * scale,
-          ),
-          decoration: BoxDecoration(
-            gradient: _profileSurface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFF44414F), width: 0.6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ProIcon(size: 16 * scale),
-              SizedBox(width: 10 * scale),
-              Text(
-                isPro ? 'Pro' : 'Free',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13 * scale,
-                  height: 1.1,
-                  fontWeight: FontWeight.w400,
+        if (AppFeatures.commerceEnabled) ...[
+          SizedBox(height: 11 * scale),
+          Container(
+            key: const Key('profilePlanBadge'),
+            padding: EdgeInsets.symmetric(
+              horizontal: 11 * scale,
+              vertical: 6 * scale,
+            ),
+            decoration: BoxDecoration(
+              gradient: _profileSurface,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFF44414F), width: 0.6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ProIcon(size: 16 * scale),
+                SizedBox(width: 10 * scale),
+                Text(
+                  isPro ? 'Pro' : 'Free',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13 * scale,
+                    height: 1.1,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -396,20 +403,22 @@ class _StatsRow extends StatelessWidget {
               scale: scale,
             ),
           ),
-          _StatDivider(scale: scale),
-          Expanded(
-            child: Semantics(
-              key: const Key('profileAccountStatus'),
-              value: 'Account status: $accountStatus',
-              child: _StatCard(
-                asset: 'assets/svgs/profile_plan.svg',
-                value: isPro ? 'Pro' : 'Free',
-                label: 'Active Plan',
-                scale: scale,
-                isPlan: true,
+          if (AppFeatures.commerceEnabled) ...[
+            _StatDivider(scale: scale),
+            Expanded(
+              child: Semantics(
+                key: const Key('profileAccountStatus'),
+                value: 'Account status: $accountStatus',
+                child: _StatCard(
+                  asset: 'assets/svgs/profile_plan.svg',
+                  value: isPro ? 'Pro' : 'Free',
+                  label: 'Active Plan',
+                  scale: scale,
+                  isPlan: true,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -801,17 +810,19 @@ class _ProfileMenu extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(width: 7 * scale),
-        Expanded(
-          child: _FeatureTile(
-            key: const Key('helpCenterRow'),
-            asset: 'assets/images/profile/help_icon.png',
-            title: 'HELP CENTER',
-            subtitle: 'Get assistance\nand support',
-            scale: scale,
-            onTap: () => AppWebViewScreen.open(context, AppWebPage.support),
+        if (AppFeatures.externalLinksEnabled) ...[
+          SizedBox(width: 7 * scale),
+          Expanded(
+            child: _FeatureTile(
+              key: const Key('helpCenterRow'),
+              asset: 'assets/images/profile/help_icon.png',
+              title: 'HELP CENTER',
+              subtitle: 'Get assistance\nand support',
+              scale: scale,
+              onTap: () => AppWebViewScreen.open(context, AppWebPage.support),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

@@ -1,7 +1,10 @@
-import 'package:facebook_app_events/facebook_app_events.dart';
-import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
+// TEMP: Meta App Events imports are disabled until the new app identifiers
+// are registered in Meta for Developers.
+// import 'package:facebook_app_events/facebook_app_events.dart';
+// import 'package:flutter/foundation.dart';
+// import 'package:permission_handler/permission_handler.dart';
 
+/* TEMP: Original Meta App Events implementation disabled.
 /// Meta install/activation measurement. No profile data or custom user IDs are
 /// sent; the native SDK owns automatic lifecycle and purchase events.
 class MetaAppEventsService {
@@ -143,4 +146,18 @@ class MetaAppEventsService {
       debugPrint('Meta App Events: $operation failed (${error.runtimeType}).');
     }
   }
+}
+*/
+
+/// No-op facade used while the Facebook SDK integration is disabled.
+class MetaAppEventsService {
+  MetaAppEventsService();
+
+  static final instance = MetaAppEventsService();
+
+  Future<void> initialize() async {}
+
+  Future<void> requestTrackingAuthorization() async {}
+
+  Future<void> refreshTrackingAuthorization() async {}
 }

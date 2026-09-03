@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
@@ -95,17 +96,25 @@ void main() {
           closeTo(118 * scale, 0.01),
         );
         final stats = tester.getRect(find.byKey(const Key('profileStats')));
-        final credit = tester.getRect(
-          find.byKey(const Key('profileCreditCard')),
-        );
         final menu = tester.getRect(find.byKey(const Key('videoHistoryRow')));
         expect(stats.left, closeTo(14 * scale, 0.01));
         expect(stats.height, closeTo(89 * scale, 0.01));
-        expect(credit.top - stats.bottom, closeTo(10 * scale, 0.01));
-        expect(credit.height, closeTo(152 * scale, 0.01));
-        expect(menu.top - credit.bottom, closeTo(9 * scale, 0.01));
+        if (AppFeatures.commerceEnabled) {
+          final credit = tester.getRect(
+            find.byKey(const Key('profileCreditCard')),
+          );
+          expect(credit.top - stats.bottom, closeTo(10 * scale, 0.01));
+          expect(credit.height, closeTo(152 * scale, 0.01));
+          expect(menu.top - credit.bottom, closeTo(9 * scale, 0.01));
+        } else {
+          expect(find.byKey(const Key('profileCreditCard')), findsNothing);
+          expect(menu.top - stats.bottom, closeTo(9 * scale, 0.01));
+        }
         expect(menu.height, closeTo(134 * scale, 0.01));
-        expect(find.text('Buy More Credits'), findsOneWidget);
+        expect(
+          find.text('Buy More Credits'),
+          AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
+        );
         expect(
           find.byWidgetPredicate(
             (widget) =>
@@ -114,12 +123,16 @@ void main() {
                 (widget.image as AssetImage).assetName ==
                     'assets/images/profile/help_icon.png',
           ),
-          findsOneWidget,
+          AppFeatures.externalLinksEnabled ? findsOneWidget : findsNothing,
         );
-        final badge = tester.widget<Container>(
-          find.byKey(const Key('profilePlanBadge')),
-        );
-        expect((badge.decoration! as BoxDecoration).boxShadow, isNull);
+        if (AppFeatures.commerceEnabled) {
+          final badge = tester.widget<Container>(
+            find.byKey(const Key('profilePlanBadge')),
+          );
+          expect((badge.decoration! as BoxDecoration).boxShadow, isNull);
+        } else {
+          expect(find.byKey(const Key('profilePlanBadge')), findsNothing);
+        }
 
         if (previewPath.isNotEmpty && size == const Size(393, 698)) {
           await tester.runAsync(() async {

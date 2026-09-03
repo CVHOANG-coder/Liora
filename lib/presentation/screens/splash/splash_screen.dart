@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/analytics/meta_app_events_service.dart';
+import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -72,11 +73,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         final profile = await ApiClient.instance.bootstrapSession();
         ref.read(profileProvider.notifier).setProfile(profile);
         await FirebaseService.subscribeToUserTopic(profile.userCode);
-        try {
-          final catalog = await ApiClient.instance.fetchPackages();
-          ref.read(packageCatalogProvider.notifier).setCatalog(catalog);
-        } catch (_) {
-          // Package pricing has local fallbacks and must not block app startup.
+        if (AppFeatures.commerceEnabled) {
+          try {
+            final catalog = await ApiClient.instance.fetchPackages();
+            ref.read(packageCatalogProvider.notifier).setCatalog(catalog);
+          } catch (_) {
+            // Package pricing has local fallbacks and must not block startup.
+          }
         }
       }
 
@@ -96,6 +99,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       final openedNotification =
           FirebaseService.markNotificationNavigationReady();
       if (!openedNotification) {
+        if (!AppFeatures.onboardingEnabled) {
+          _openMain();
+          return;
+        }
         final onboardingCompleted = await _hasCompletedOnboarding();
         if (onboardingCompleted) {
           _openMain();
@@ -115,10 +122,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       } else {
         _repeatableSystemFailureCount = 0;
       }
+      final hidesSubscriptionError =
+          !AppFeatures.commerceEnabled &&
+          errorCode == ApiErrorCode.subscriptionExpired;
       setState(() {
         _isAuthenticating = false;
         _errorCode = errorCode;
-        _errorMessage = error is ApiException
+        _errorMessage = hidesSubscriptionError
+            ? 'This account is temporarily unavailable. Please contact support.'
+            : error is ApiException
             ? apiErrorDisplayMessage(
                 error,
                 fallbackMessage: 'Unable to sign in. Please try again.',
@@ -150,9 +162,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       case ApiErrorCode.accountBanned:
         _openSupport();
       case ApiErrorCode.subscriptionExpired:
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+        if (AppFeatures.commerceEnabled) {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const AllPlans()));
+        } else {
+          _openSupport();
+        }
       default:
         _authenticate();
     }
@@ -478,7 +494,10 @@ class _SplashContent extends StatelessWidget {
                     ),
                     child: Text(switch (errorCode) {
                       ApiErrorCode.accountBanned => 'Contact Support',
-                      ApiErrorCode.subscriptionExpired => 'Renew Plan',
+                      ApiErrorCode.subscriptionExpired =>
+                        AppFeatures.commerceEnabled
+                            ? 'Renew Plan'
+                            : 'Contact Support',
                       _ => 'Retry',
                     }),
                   ),

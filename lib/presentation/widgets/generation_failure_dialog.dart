@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_features.dart';
 import '../../core/network/api_exception.dart';
 
 enum GenerationFailureAction {
@@ -84,6 +85,24 @@ AppErrorPresentation resolveApiErrorPresentation(
     exception?.message,
     fallbackMessage: fallbackMessage,
   );
+
+  if (!AppFeatures.commerceEnabled &&
+      (code == ApiErrorCode.insufficientCredit ||
+          code == ApiErrorCode.subscriptionExpired ||
+          isInsufficientCreditError(error))) {
+    return const AppErrorPresentation(
+      title: 'Feature Temporarily Unavailable',
+      message:
+          'Video generation is not available for this account right now. '
+          'Please try again later.',
+      primaryLabel: 'Got It',
+      primaryAction: GenerationFailureAction.close,
+      primaryIcon: Icons.check_rounded,
+      visual: AppErrorVisual.system,
+      secondaryLabel: null,
+      secondaryAction: null,
+    );
+  }
 
   switch (code) {
     case ApiErrorCode.insufficientCredit:
@@ -282,7 +301,9 @@ AppErrorPresentation resolveApiErrorPresentation(
         title: code == ApiErrorCode.uploadFailed
             ? 'Upload Failed'
             : 'Could Not Start Generation',
-        message: '$message\nNo credits were deducted. It is safe to try again.',
+        message: AppFeatures.commerceEnabled
+            ? '$message\nNo credits were deducted. It is safe to try again.'
+            : message,
         primaryLabel: 'Try Again',
         primaryAction: GenerationFailureAction.retry,
         primaryIcon: Icons.refresh_rounded,
@@ -291,8 +312,9 @@ AppErrorPresentation resolveApiErrorPresentation(
     case ApiErrorCode.submitFailed:
       return AppErrorPresentation(
         title: 'Submission Failed',
-        message:
-            '$message\nYour credits were automatically refunded. It is safe to try again.',
+        message: AppFeatures.commerceEnabled
+            ? '$message\nYour credits were automatically refunded. It is safe to try again.'
+            : message,
         primaryLabel: 'Try Again',
         primaryAction: GenerationFailureAction.retry,
         primaryIcon: Icons.refresh_rounded,
@@ -504,7 +526,7 @@ class GenerationFailureDialog extends StatelessWidget {
     required String message,
     required bool outOfCredits,
   }) {
-    final presentation = outOfCredits
+    final presentation = outOfCredits && AppFeatures.commerceEnabled
         ? AppErrorPresentation(
             title: 'Not Enough Credits',
             message: message,
@@ -515,12 +537,25 @@ class GenerationFailureDialog extends StatelessWidget {
             secondaryLabel: 'Maybe Later',
           )
         : AppErrorPresentation(
-            title: 'Video Generation Failed',
-            message: message,
-            primaryLabel: 'Try Again',
-            primaryAction: GenerationFailureAction.retry,
-            primaryIcon: Icons.refresh_rounded,
+            title: outOfCredits
+                ? 'Feature Temporarily Unavailable'
+                : 'Video Generation Failed',
+            message: outOfCredits
+                ? 'Video generation is not available for this account right now. '
+                      'Please try again later.'
+                : message,
+            primaryLabel: outOfCredits ? 'Got It' : 'Try Again',
+            primaryAction: outOfCredits
+                ? GenerationFailureAction.close
+                : GenerationFailureAction.retry,
+            primaryIcon: outOfCredits
+                ? Icons.check_rounded
+                : Icons.refresh_rounded,
             visual: AppErrorVisual.system,
+            secondaryLabel: outOfCredits ? null : 'Close',
+            secondaryAction: outOfCredits
+                ? null
+                : GenerationFailureAction.close,
           );
     return showPresentation(context, presentation);
   }
