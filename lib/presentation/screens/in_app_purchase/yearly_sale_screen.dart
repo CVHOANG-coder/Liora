@@ -35,12 +35,11 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider);
     final purchaseState = ref.watch(purchaseControllerProvider);
     ref.listen<PurchaseState>(purchaseControllerProvider, _onPurchaseState);
     final packages = ref
         .watch(packageCatalogProvider)
-        ?.forPlatform(profile?.platform);
+        ?.forPlatform(ref.watch(iapCatalogPlatformProvider));
     final salePackage =
         _findYearlyPackage(packages?.sales) ?? packages?.yearlySubscription;
     final pricing = _SalePricing.fromPackages(

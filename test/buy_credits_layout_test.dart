@@ -11,7 +11,7 @@ import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
-const _productPrefix = 'com.nostalia.ai.videogenerator.';
+const _productPrefix = 'com.lioraai.videogenerator.';
 
 void main() {
   const previewPath = String.fromEnvironment('CREDITS_PREVIEW_PATH');

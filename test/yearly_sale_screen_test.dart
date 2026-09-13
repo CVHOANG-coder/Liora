@@ -62,7 +62,7 @@ void main() {
     final controller =
         container.read(purchaseControllerProvider.notifier)
             as _RecordingPurchaseController;
-    expect(controller.productId, 'nostalia.yearly.sale');
+    expect(controller.productId, 'com.lioraai.videogenerator.annuallysale');
     expect(controller.consumable, isFalse);
     expect(controller.replaceExistingSubscription, isTrue);
     expect(find.text('Processing...'), findsOneWidget);
@@ -94,11 +94,26 @@ ProviderContainer _container() {
         PackageCatalog.fromJson(<String, dynamic>{
           'ANDROID': <String, dynamic>{
             'SUBSCRIPTION': <Map<String, dynamic>>[
-              _package('nostalia.weekly', 'Weekly Pro', 7.99, 7),
-              _package('nostalia.yearly', 'Yearly Pro', 99.99, 365),
+              _package(
+                'com.lioraai.videogenerator.weekly',
+                'Weekly Pro',
+                7.99,
+                7,
+              ),
+              _package(
+                'com.lioraai.videogenerator.annually',
+                'Yearly Pro',
+                99.99,
+                365,
+              ),
             ],
             'SALE': <Map<String, dynamic>>[
-              _package('nostalia.yearly.sale', 'Yearly Sale Pro', 29.99, 365),
+              _package(
+                'com.lioraai.videogenerator.annuallysale',
+                'Yearly Sale Pro',
+                29.99,
+                365,
+              ),
             ],
           },
         }),

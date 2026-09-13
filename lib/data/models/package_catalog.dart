@@ -1,3 +1,5 @@
+import '../../core/constants/iap_product_ids.dart';
+
 class PackageCatalogResponse {
   const PackageCatalogResponse({
     required this.success,
@@ -106,7 +108,9 @@ class AppPackage {
   factory AppPackage.fromJson(Map<String, dynamic> json) {
     return AppPackage(
       id: _asInt(json['id']),
-      productId: json['product_id']?.toString() ?? '',
+      productId: IapProductIds.canonicalize(
+        json['product_id']?.toString() ?? '',
+      ),
       productType: json['product_type']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       price: _asDouble(json['price']),

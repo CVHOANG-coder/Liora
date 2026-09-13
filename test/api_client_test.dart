@@ -476,7 +476,7 @@ void main() {
             'CONSUMABLE_NEW': <Map<String, dynamic>>[
               <String, dynamic>{
                 'id': 4,
-                'product_id': 'com.nostalia.ai.videogenerator.70_credits',
+                'product_id': 'com.lioraai.videogenerator.70_credits',
                 'product_type': 'CONSUMABLE',
                 'name': '70 Credits',
                 'price': 5.19,
@@ -510,7 +510,7 @@ void main() {
       expect(options.headers['Authorization'], 'Bearer saved-token');
       expect(options.data, <String, dynamic>{
         'receipt': <String, dynamic>{
-          'productId': 'com.nostalia.ai.videogenerator.500_credits',
+          'productId': 'com.lioraai.videogenerator.500_credits',
           'purchaseToken': 'play-purchase-token',
           'orderId': 'GPA.0000-0000-0000-00000',
         },
@@ -529,7 +529,7 @@ void main() {
 
     final result = await client.verifyPurchase(
       const PurchaseReceipt(
-        productId: 'com.nostalia.ai.videogenerator.500_credits',
+        productId: 'com.lioraai.videogenerator.500_credits',
         purchaseToken: 'play-purchase-token',
         orderId: 'GPA.0000-0000-0000-00000',
       ),

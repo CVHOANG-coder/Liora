@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
+import '../../core/constants/iap_product_ids.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/storage/yearly_sale_preferences.dart';
@@ -82,10 +84,22 @@ class PurchaseState {
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient.instance);
 
 final purchaseGatewayProvider = Provider<PurchaseGateway>(
-  (ref) => GooglePlayPurchaseGateway(),
+  (ref) => StorePurchaseGateway(),
 );
 
 final googlePlayPlatformProvider = Provider<bool>((ref) => Platform.isAndroid);
+
+final iapPlatformSupportedProvider = Provider<bool>(
+  (ref) => ref.watch(googlePlayPlatformProvider) || Platform.isIOS,
+);
+
+final iapCatalogPlatformProvider = Provider<String?>((ref) {
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android => 'ANDROID',
+    TargetPlatform.iOS => 'IOS',
+    _ => null,
+  };
+});
 
 final yearlySalePreferencesProvider = Provider<YearlySalePreferences>(
   (ref) => SharedPreferencesYearlySalePreferences(),
@@ -123,8 +137,12 @@ class PurchaseController extends Notifier<PurchaseState> {
   late PurchaseGateway _gateway;
   late ApiClient _apiClient;
   late YearlySalePreferences _yearlySalePreferences;
-  final Set<String> _consumableProductIds = <String>{};
-  final Set<String> _subscriptionProductIds = <String>{};
+  final Set<String> _consumableProductIds = <String>{
+    ...IapProductIds.consumableProductIds,
+  };
+  final Set<String> _subscriptionProductIds = <String>{
+    ...IapProductIds.subscriptionProductIds,
+  };
   final Set<String> _weeklySubscriptionProductIds = <String>{};
   final Set<String> _processingPurchaseTokens = <String>{};
   bool _billingAvailable = false;
@@ -132,7 +150,7 @@ class PurchaseController extends Notifier<PurchaseState> {
 
   @override
   PurchaseState build() {
-    if (!ref.watch(googlePlayPlatformProvider)) {
+    if (!ref.watch(iapPlatformSupportedProvider)) {
       return const PurchaseState.unavailable();
     }
 
@@ -163,7 +181,7 @@ class PurchaseController extends Notifier<PurchaseState> {
         _billingAvailable = false;
         state = const PurchaseState(
           status: PurchaseFlowStatus.unavailable,
-          message: 'Google Play Billing is currently unavailable.',
+          message: 'In-app purchases are currently unavailable.',
         );
         return;
       }
@@ -181,11 +199,12 @@ class PurchaseController extends Notifier<PurchaseState> {
   }
 
   Future<void> _loadCatalogProducts(PackageCatalog catalog) async {
-    final packages = catalog.forPlatform('ANDROID');
+    final packages = catalog.forPlatform(ref.read(iapCatalogPlatformProvider));
     if (packages == null) return;
 
     _consumableProductIds
       ..clear()
+      ..addAll(IapProductIds.consumableProductIds)
       ..addAll(
         <AppPackage>[
           ...packages.consumableNew,
@@ -194,6 +213,7 @@ class PurchaseController extends Notifier<PurchaseState> {
       );
     _subscriptionProductIds
       ..clear()
+      ..addAll(IapProductIds.subscriptionProductIds)
       ..addAll(
         <AppPackage>[
           ...packages.subscriptions,
@@ -208,12 +228,15 @@ class PurchaseController extends Notifier<PurchaseState> {
             .map((package) => package.productId)
             .where((id) => id.isNotEmpty),
       );
-    final ids = <AppPackage>[
-      ...packages.subscriptions,
-      ...packages.sales,
-      ...packages.consumableNew,
-      ...packages.consumableVip,
-    ].map((package) => package.productId).where((id) => id.isNotEmpty).toSet();
+    final ids = <String>{
+      ...IapProductIds.allProductIds,
+      ...<AppPackage>[
+        ...packages.subscriptions,
+        ...packages.sales,
+        ...packages.consumableNew,
+        ...packages.consumableVip,
+      ].map((package) => package.productId).where((id) => id.isNotEmpty),
+    };
     if (ids.isEmpty) return;
 
     await _queryProducts(ids);
@@ -282,11 +305,29 @@ class PurchaseController extends Notifier<PurchaseState> {
       return;
     }
     if (!_billingAvailable) {
-      _setError('Google Play Billing is currently unavailable.');
+      _setError('In-app purchases are currently unavailable.');
       return;
     }
     if (state.isBusy) return;
-    if (consumable) _consumableProductIds.add(productId);
+
+    final knownConsumable = _consumableProductIds.contains(productId);
+    final knownSubscription = _subscriptionProductIds.contains(productId);
+    if (!knownConsumable && !knownSubscription) {
+      _setError(
+        'This purchase option is not present in the IAP catalog.',
+        productId: productId,
+        errorCode: ApiErrorCode.productNotFound,
+      );
+      return;
+    }
+    if (knownConsumable != consumable) {
+      _setError(
+        'This purchase option has an invalid product type.',
+        productId: productId,
+        errorCode: ApiErrorCode.productNotFound,
+      );
+      return;
+    }
 
     var product = state.products[productId];
     if (product == null) {
@@ -295,7 +336,7 @@ class PurchaseController extends Notifier<PurchaseState> {
     }
     if (product == null) {
       _setError(
-        'This purchase option was not found on Google Play.',
+        'This purchase option was not found in the app store.',
         productId: productId,
         errorCode: ApiErrorCode.productNotFound,
       );
@@ -370,7 +411,7 @@ class PurchaseController extends Notifier<PurchaseState> {
           state = state.copyWith(
             status: PurchaseFlowStatus.pending,
             productId: purchase.productID,
-            message: 'The purchase is waiting for Google Play to process it.',
+            message: 'The purchase is waiting for the app store to process it.',
           );
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
@@ -378,7 +419,7 @@ class PurchaseController extends Notifier<PurchaseState> {
         case PurchaseStatus.error:
           _setError(
             purchase.error?.message ??
-                'Google Play could not process the purchase.',
+                'The app store could not process the purchase.',
             productId: purchase.productID,
             errorCode: ApiErrorCode.purchaseFailed,
           );
@@ -393,6 +434,19 @@ class PurchaseController extends Notifier<PurchaseState> {
   }
 
   Future<void> _verifyAndFinish(PurchaseDetails purchase) async {
+    final knownConsumable = _consumableProductIds.contains(purchase.productID);
+    final knownSubscription = _subscriptionProductIds.contains(
+      purchase.productID,
+    );
+    if (!knownConsumable && !knownSubscription) {
+      _setError(
+        'This purchase is not present in the current IAP catalog.',
+        productId: purchase.productID,
+        errorCode: ApiErrorCode.productNotFound,
+      );
+      return;
+    }
+
     final token = purchase.verificationData.serverVerificationData;
     final key = token.isEmpty
         ? '${purchase.productID}:${purchase.purchaseID}'
@@ -407,7 +461,7 @@ class PurchaseController extends Notifier<PurchaseState> {
     try {
       if (token.isEmpty) {
         throw const ApiException(
-          message: 'Google Play did not return a purchase token.',
+          message: 'The app store did not return purchase verification data.',
           errorCode: ApiErrorCode.receiptInvalid,
         );
       }
@@ -419,14 +473,12 @@ class PurchaseController extends Notifier<PurchaseState> {
         ),
       );
 
-      final consumable = _consumableProductIds.contains(purchase.productID);
-      if (consumable) {
+      if (knownConsumable) {
         await _gateway.consume(purchase);
       } else {
-        // Android completePurchase is idempotent: it acknowledges an unfinished
-        // subscription and is a no-op when Google Play already acknowledged it.
-        // Do not rely solely on pendingCompletePurchase because a stale value
-        // would leave the subscription waiting for confirmation in Play Store.
+        // completePurchase acknowledges Google Play subscriptions and finishes
+        // StoreKit transactions after the backend has verified the purchase.
+        // A stale pending flag must not leave a verified transaction unfinished.
         await _gateway.complete(purchase);
       }
 

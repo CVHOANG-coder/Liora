@@ -25,7 +25,7 @@ final homeSubscriptionPlanProvider =
 
       final packages = ref
           .watch(packageCatalogProvider)
-          ?.forPlatform(profile?.platform);
+          ?.forPlatform(ref.watch(iapCatalogPlatformProvider));
       if (packages == null) return HomeSubscriptionPlan.weekly;
 
       try {

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/constants/iap_product_ids.dart';
 import 'package:video_gen/data/models/package_catalog.dart';
 
 void main() {
@@ -48,6 +49,34 @@ void main() {
     expect(ios!.subscriptions, isEmpty);
     expect(ios.consumableVip, isEmpty);
   });
+
+  test('defines all planned Liora store products once', () {
+    expect(IapProductIds.subscriptionProductIds, hasLength(3));
+    expect(IapProductIds.consumableNewProductIds, hasLength(5));
+    expect(IapProductIds.consumableVipProductIds, hasLength(5));
+    expect(IapProductIds.allProductIds, hasLength(13));
+    expect(
+      IapProductIds.allProductIds.every(
+        (id) => id.startsWith('com.lioraai.videogenerator.'),
+      ),
+      isTrue,
+    );
+  });
+
+  test('migrates the legacy yearly sale ID from the package API', () {
+    final sale = _package(name: 'Annually Sale', price: 29.99, days: 365);
+    sale['product_id'] = 'com.nostalia.videogenerator.annuallysale';
+    final catalog = PackageCatalog.fromJson(<String, dynamic>{
+      'ANDROID': <String, dynamic>{
+        'SALE': <Map<String, dynamic>>[sale],
+      },
+    });
+
+    expect(
+      catalog.forPlatform('ANDROID')?.yearlySaleSubscription?.productId,
+      IapProductIds.annuallySale,
+    );
+  });
 }
 
 Map<String, dynamic> _package({
@@ -58,7 +87,7 @@ Map<String, dynamic> _package({
 }) {
   return <String, dynamic>{
     'id': 1,
-    'product_id': 'com.nostalia.${name.toLowerCase().replaceAll(' ', '.')}',
+    'product_id': 'com.lioraai.${name.toLowerCase().replaceAll(' ', '.')}',
     'product_type': days == 0 ? 'CONSUMABLE' : 'SUBSCRIPTION',
     'name': name,
     'price': price,

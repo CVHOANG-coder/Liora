@@ -2,7 +2,7 @@ name: video_gen
 description: "A lightweight AI content creation app starter."
 publish_to: "none"
 
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
     sdk: ^3.12.2
@@ -64,5 +64,6 @@ flutter:
         - assets/images/templates/
         - assets/images/profile/
         - assets/images/on_boarding/
+        - assets/videos/
         - assets/lotties/
         - assets/svgs/

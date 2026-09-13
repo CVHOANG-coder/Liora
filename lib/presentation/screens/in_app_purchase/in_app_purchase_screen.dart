@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/constants/iap_product_ids.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../providers/package_provider.dart';
@@ -44,29 +45,59 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
   static const _fallbackPackages = [
     _CreditPackage(
       credits: 70,
-      price: 'VND 136,000',
-      productId: 'com.nostalia.ai.videogenerator.70_credits',
+      price: r'$5.19',
+      productId: IapProductIds.credits70,
     ),
     _CreditPackage(
       credits: 150,
-      price: 'VND 273,000',
-      productId: 'com.nostalia.ai.videogenerator.150_credits',
+      price: r'$10.39',
+      productId: IapProductIds.credits150,
     ),
     _CreditPackage(
       credits: 500,
-      price: 'VND 682,000',
-      productId: 'com.nostalia.ai.videogenerator.500_credits',
+      price: r'$25.99',
+      productId: IapProductIds.credits500,
     ),
     _CreditPackage(
       credits: 1000,
-      price: 'VND 1,350,000',
-      productId: 'com.nostalia.ai.videogenerator.1000_credits',
+      price: r'$51.99',
+      productId: IapProductIds.credits1000,
       tag: _PackageTag.popular,
     ),
     _CreditPackage(
       credits: 5000,
-      price: 'VND 5,250,000',
-      productId: 'com.nostalia.ai.videogenerator.5000_credits',
+      price: r'$199.99',
+      productId: IapProductIds.credits5000,
+      tag: _PackageTag.bestValue,
+    ),
+  ];
+
+  static const _subscribedFallbackPackages = [
+    _CreditPackage(
+      credits: 70,
+      price: r'$2.59',
+      productId: IapProductIds.credits70Vip,
+    ),
+    _CreditPackage(
+      credits: 150,
+      price: r'$5.19',
+      productId: IapProductIds.credits150Vip,
+    ),
+    _CreditPackage(
+      credits: 500,
+      price: r'$12.99',
+      productId: IapProductIds.credits500Vip,
+    ),
+    _CreditPackage(
+      credits: 1000,
+      price: r'$25.99',
+      productId: IapProductIds.credits1000Vip,
+      tag: _PackageTag.popular,
+    ),
+    _CreditPackage(
+      credits: 5000,
+      price: r'$99.99',
+      productId: IapProductIds.credits5000Vip,
       tag: _PackageTag.bestValue,
     ),
   ];
@@ -82,12 +113,14 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
     ref.listen<PurchaseState>(purchaseControllerProvider, _onPurchaseState);
     final platformPackages = ref
         .watch(packageCatalogProvider)
-        ?.forPlatform(profile?.platform);
+        ?.forPlatform(ref.watch(iapCatalogPlatformProvider));
     final apiPackages = platformPackages?.creditsFor(
       isSubscribed: profile?.isSubscribed == true,
     );
     final catalogPackages = apiPackages == null || apiPackages.isEmpty
-        ? _fallbackPackages
+        ? profile?.isSubscribed == true
+              ? _subscribedFallbackPackages
+              : _fallbackPackages
         : _creditPackagesFromApi(apiPackages);
     final packages = catalogPackages
         .map(

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -25,8 +27,8 @@ abstract interface class PurchaseGateway {
   Future<void> restorePurchases();
 }
 
-class GooglePlayPurchaseGateway implements PurchaseGateway {
-  GooglePlayPurchaseGateway({InAppPurchase? store})
+class StorePurchaseGateway implements PurchaseGateway {
+  StorePurchaseGateway({InAppPurchase? store})
     : _store = store ?? InAppPurchase.instance;
 
   final InAppPurchase _store;
@@ -75,6 +77,7 @@ class GooglePlayPurchaseGateway implements PurchaseGateway {
 
   @override
   Future<List<PurchaseDetails>> queryPastPurchases() async {
+    if (!Platform.isAndroid) return const <PurchaseDetails>[];
     final addition = _store
         .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
     final response = await addition.queryPastPurchases();
@@ -84,6 +87,10 @@ class GooglePlayPurchaseGateway implements PurchaseGateway {
 
   @override
   Future<void> consume(PurchaseDetails purchase) async {
+    if (!Platform.isAndroid) {
+      await _store.completePurchase(purchase);
+      return;
+    }
     final addition = _store
         .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
     final result = await addition.consumePurchase(purchase);
@@ -103,4 +110,8 @@ class GooglePlayPurchaseGateway implements PurchaseGateway {
 
   @override
   Future<void> restorePurchases() => _store.restorePurchases();
+}
+
+class GooglePlayPurchaseGateway extends StorePurchaseGateway {
+  GooglePlayPurchaseGateway({super.store});
 }

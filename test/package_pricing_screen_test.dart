@@ -56,10 +56,10 @@ void main() {
     final controller =
         container.read(purchaseControllerProvider.notifier)
             as _RecordingPurchaseController;
-    expect(controller.productId, 'com.nostalia.ai.videogenerator.annually');
+    expect(controller.productId, 'com.lioraai.videogenerator.annually');
     expect(
       controller.productId,
-      isNot('com.nostalia.videogenerator.annuallysale'),
+      isNot('com.lioraai.videogenerator.annuallysale'),
     );
     expect(controller.replaceExistingSubscription, isFalse);
   });
@@ -93,7 +93,7 @@ void main() {
     final controller =
         container.read(purchaseControllerProvider.notifier)
             as _RecordingPurchaseController;
-    expect(controller.productId, 'com.nostalia.ai.videogenerator.annually');
+    expect(controller.productId, 'com.lioraai.videogenerator.annually');
     expect(controller.replaceExistingSubscription, isTrue);
   });
 
@@ -142,7 +142,7 @@ void main() {
     controller.completeSuccessfully();
     await tester.pumpAndSettle();
 
-    expect(controller.productId, 'com.nostalia.ai.videogenerator.annually');
+    expect(controller.productId, 'com.lioraai.videogenerator.annually');
     expect(find.byType(AllPlans), findsNothing);
     expect(find.byKey(const Key('openAllPlans')), findsOneWidget);
   });
@@ -320,13 +320,13 @@ ProviderContainer _container({
           'ANDROID': <String, dynamic>{
             'SUBSCRIPTION': <Map<String, dynamic>>[
               _package(
-                productId: 'com.nostalia.ai.videogenerator.weekly',
+                productId: 'com.lioraai.videogenerator.weekly',
                 name: 'Weekly Pro',
                 price: 7.99,
                 days: 7,
               ),
               _package(
-                productId: 'com.nostalia.ai.videogenerator.annually',
+                productId: 'com.lioraai.videogenerator.annually',
                 name: 'Annually Pro',
                 price: 49.99,
                 days: 365,
@@ -334,7 +334,7 @@ ProviderContainer _container({
             ],
             'SALE': <Map<String, dynamic>>[
               _package(
-                productId: 'com.nostalia.videogenerator.annuallysale',
+                productId: 'com.lioraai.videogenerator.annuallysale',
                 name: 'Annually Sale',
                 price: 29.99,
                 days: 365,

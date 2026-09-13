@@ -102,8 +102,8 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
   @override
   Widget build(BuildContext context) {
     if (AppFeatures.commerceEnabled) {
-      // Start listening before the purchase screens open so Google Play can
-      // redeliver pending purchases from a previous app session.
+      // Start listening before purchase screens open so the active app store
+      // can redeliver pending transactions from a previous session.
       ref.watch(purchaseControllerProvider);
     }
     return MaterialApp(

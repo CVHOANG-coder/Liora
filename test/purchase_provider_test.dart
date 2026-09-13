@@ -87,7 +87,7 @@ void main() {
   });
 
   test('selects an eligible free-trial offer and passes its token', () async {
-    const productId = 'com.nostalia.ai.videogenerator.weekly';
+    const productId = 'com.lioraai.videogenerator.weekly';
     final googleProducts = GooglePlayProductDetails.fromProductDetails(
       const ProductDetailsWrapper(
         description: 'Weekly Pro subscription',
@@ -176,7 +176,7 @@ void main() {
   test(
     'recovers and acknowledges an unfinished subscription on startup',
     () async {
-      const productId = 'com.nostalia.ai.videogenerator.weekly';
+      const productId = 'com.lioraai.videogenerator.weekly';
       final unfinishedPurchase = PurchaseDetails(
         purchaseID: 'GPA.unfinished',
         productID: productId,
@@ -269,7 +269,7 @@ void main() {
       gateway.emit(
         PurchaseDetails(
           purchaseID: 'GPA.stale-flag',
-          productID: 'com.nostalia.ai.videogenerator.weekly',
+          productID: 'com.lioraai.videogenerator.weekly',
           verificationData: PurchaseVerificationData(
             localVerificationData: '',
             serverVerificationData: 'stale-flag-token',
@@ -284,6 +284,49 @@ void main() {
 
       expect(apiClient.verifyCalls, 1);
       expect(gateway.completedPurchases, 1);
+    },
+  );
+
+  test(
+    'consumes a configured credit purchase before API catalog loads',
+    () async {
+      final gateway = _FakePurchaseGateway();
+      final apiClient = _FakeApiClient();
+      addTearDown(gateway.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          googlePlayPlatformProvider.overrideWithValue(true),
+          purchaseGatewayProvider.overrideWithValue(gateway),
+          apiClientProvider.overrideWithValue(apiClient),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(purchaseControllerProvider);
+      await _waitFor(
+        () =>
+            container.read(purchaseControllerProvider).status ==
+            PurchaseFlowStatus.ready,
+      );
+      gateway.emit(
+        PurchaseDetails(
+          purchaseID: 'GPA.credit',
+          productID: 'com.lioraai.videogenerator.70_credits',
+          verificationData: PurchaseVerificationData(
+            localVerificationData: '',
+            serverVerificationData: 'credit-purchase-token',
+            source: 'google_play',
+          ),
+          transactionDate: '1787558400000',
+          status: PurchaseStatus.purchased,
+        )..pendingCompletePurchase = true,
+      );
+
+      await _waitFor(() => gateway.consumedPurchases == 1);
+
+      expect(apiClient.verifyCalls, 1);
+      expect(gateway.consumedPurchases, 1);
+      expect(gateway.completedPurchases, 0);
     },
   );
 }
@@ -383,6 +426,7 @@ class _FakePurchaseGateway implements PurchaseGateway {
   final List<ProductDetails> products;
   final List<PurchaseDetails> pastPurchases;
   int completedPurchases = 0;
+  int consumedPurchases = 0;
   PurchaseParam? lastSubscriptionParam;
 
   @override
@@ -421,7 +465,9 @@ class _FakePurchaseGateway implements PurchaseGateway {
   Future<List<PurchaseDetails>> queryPastPurchases() async => pastPurchases;
 
   @override
-  Future<void> consume(PurchaseDetails purchase) async {}
+  Future<void> consume(PurchaseDetails purchase) async {
+    consumedPurchases += 1;
+  }
 
   @override
   Future<void> complete(PurchaseDetails purchase) async {

@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../providers/package_provider.dart';
-import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../support/app_web_view_screen.dart';
@@ -53,12 +52,11 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider);
     final purchaseState = ref.watch(purchaseControllerProvider);
     ref.listen<PurchaseState>(purchaseControllerProvider, _onPurchaseState);
     final weeklyPackage = ref
         .watch(packageCatalogProvider)
-        ?.forPlatform(profile?.platform)
+        ?.forPlatform(ref.watch(iapCatalogPlatformProvider))
         ?.weeklySubscription;
     final storePrice = weeklyPackage == null
         ? null

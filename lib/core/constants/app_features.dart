@@ -1,24 +1,22 @@
 abstract final class AppFeatures {
-  // TODO(external-links): Re-enable Privacy, Terms, and Help links when their
-  // destinations are ready to be exposed in the app again.
+  // Legal and support links are shown by default, but can still be disabled
+  // for builds that must not expose external destinations.
   static const bool externalLinksEnabled = bool.fromEnvironment(
     'ENABLE_EXTERNAL_LINKS',
-    defaultValue: false,
+    defaultValue: true,
   );
 
-  // TODO(onboarding): Re-enable the onboarding flow when it is needed again.
-  // The current build goes directly from Splash to the main screen.
+  // Onboarding is shown to users who have not completed it yet. Builds can
+  // still opt out when they must enter the app directly from Splash.
   static const bool onboardingEnabled = bool.fromEnvironment(
     'ENABLE_ONBOARDING',
-    defaultValue: false,
+    defaultValue: true,
   );
 
-  // TODO(commerce): Re-enable purchases, credits, and subscriptions when the
-  // product is ready to expose them again. Keeping this behind a compile-time
-  // flag preserves the existing implementation without shipping its UI or
-  // starting the store connection in the current build.
+  // Purchases, credits, and subscriptions are available in the current app.
+  // Builds can opt out when store billing must remain unavailable.
   static const bool commerceEnabled = bool.fromEnvironment(
     'ENABLE_COMMERCE',
-    defaultValue: false,
+    defaultValue: true,
   );
 }

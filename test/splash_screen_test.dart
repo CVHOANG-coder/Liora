@@ -3,14 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/storage/onboarding_preferences.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/splash/splash_screen.dart';
 
 void main() {
-  testWidgets('shows splash branding and opens Home directly', (tester) async {
+  testWidgets('shows splash branding and opens onboarding for new users', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -22,6 +24,7 @@ void main() {
           home: SplashScreen(
             duration: Duration(milliseconds: 100),
             bootstrap: _successfulBootstrap,
+            onboardingPreferences: _ImmediateOnboardingPreferences(false),
           ),
         ),
       ),
@@ -33,8 +36,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Get Started'), findsNothing);
-    expect(find.text('Create AI short films'), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('Create AI short films'), findsNothing);
     expect(find.text('Liora'), findsOneWidget);
   });
 
@@ -54,6 +57,7 @@ void main() {
             bootstrap: () async {
               if (shouldFail) throw Exception('offline');
             },
+            onboardingPreferences: _ImmediateOnboardingPreferences(false),
           ),
         ),
       ),
@@ -67,13 +71,11 @@ void main() {
     await tester.tap(find.byKey(const Key('splashRetryButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Get Started'), findsNothing);
-    expect(find.text('Create AI short films'), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('Create AI short films'), findsNothing);
   });
 
-  testWidgets('disabled onboarding does not read onboarding preferences', (
-    tester,
-  ) async {
+  testWidgets('onboarding reads preferences before navigating', (tester) async {
     final preferences = _DeferredOnboardingPreferences();
     await tester.pumpWidget(
       ProviderScope(
@@ -94,37 +96,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Get Started'), findsNothing);
-    expect(find.text('Create AI short films'), findsOneWidget);
-    expect(preferences.readCount, 0);
+    expect(find.text('Create AI short films'), findsNothing);
+    expect(preferences.readCount, 1);
+
+    preferences.result.complete(false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Get Started'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'onboarding flow remains available behind the feature flag',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            themeCategoriesProvider.overrideWith(
-              (ref) async => const <VideoCategory>[],
-            ),
-          ],
-          child: MaterialApp(
-            home: SplashScreen(
-              duration: const Duration(milliseconds: 100),
-              bootstrap: _successfulBootstrap,
-              onboardingPreferences: _ImmediateOnboardingPreferences(false),
-            ),
+  testWidgets('completed onboarding opens Home directly', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          themeCategoriesProvider.overrideWith(
+            (ref) async => const <VideoCategory>[],
+          ),
+        ],
+        child: MaterialApp(
+          home: SplashScreen(
+            duration: const Duration(milliseconds: 100),
+            bootstrap: _successfulBootstrap,
+            onboardingPreferences: _ImmediateOnboardingPreferences(true),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('Get Started'), findsOneWidget);
-      expect(find.text('Create AI short films'), findsNothing);
-    },
-    skip: !AppFeatures.onboardingEnabled,
-  );
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Get Started'), findsNothing);
+    expect(find.text('Create AI short films'), findsOneWidget);
+  });
 }
 
 Future<void> _successfulBootstrap() async {}

@@ -14,24 +14,23 @@ import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_s
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 import 'package:video_gen/presentation/screens/settings/settings_screen.dart';
-import 'package:video_gen/presentation/screens/support/app_web_view_screen.dart';
 import 'package:video_gen/presentation/screens/support/support_contact_screen.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
 void main() {
-  test('commerce is disabled by default in the current build', () {
-    expect(AppFeatures.commerceEnabled, isFalse);
+  test('commerce is enabled by default in the current build', () {
+    expect(AppFeatures.commerceEnabled, isTrue);
   });
 
-  test('onboarding is disabled by default in the current build', () {
-    expect(AppFeatures.onboardingEnabled, isFalse);
+  test('onboarding is enabled by default in the current build', () {
+    expect(AppFeatures.onboardingEnabled, isTrue);
   });
 
-  test('Privacy, Terms, and Help links are disabled by default', () {
-    expect(AppFeatures.externalLinksEnabled, isFalse);
+  test('Privacy, Terms, and Help links are enabled by default', () {
+    expect(AppFeatures.externalLinksEnabled, isTrue);
   });
 
-  testWidgets('purchase, credit, and plan entry points are hidden', (
+  testWidgets('purchase, credit, and plan entry points are visible', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 852);
@@ -54,6 +53,7 @@ void main() {
         container: container,
         child: MaterialApp(
           home: MainScreen(
+            showTrialOffer: false,
             notificationPermissionRequester: () async =>
                 NotificationPermissionFlowResult.denied,
           ),
@@ -62,7 +62,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('homeProButton')), findsNothing);
+    expect(find.byKey(const Key('homeProButton')), findsOneWidget);
     expect(find.byType(FreeTrialScreen), findsNothing);
     expect(find.byType(AllPlans), findsNothing);
     expect(find.byType(BuyCredits), findsNothing);
@@ -70,66 +70,58 @@ void main() {
     await tester.tap(find.byKey(const Key('profileTab')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('profilePlanBadge')), findsNothing);
-    expect(find.byKey(const Key('profileCreditCard')), findsNothing);
-    expect(find.byKey(const Key('buyMoreCreditsButton')), findsNothing);
-    expect(find.text('Active Plan'), findsNothing);
-    expect(find.byKey(const Key('helpCenterRow')), findsNothing);
+    expect(find.byKey(const Key('profilePlanBadge')), findsOneWidget);
+    expect(find.byKey(const Key('profileCreditCard')), findsOneWidget);
+    expect(find.byKey(const Key('buyMoreCreditsButton')), findsOneWidget);
+    expect(find.text('Active Plan'), findsOneWidget);
+    expect(find.byKey(const Key('helpCenterRow')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('buyMoreCreditsButton')));
+    await tester.tap(find.byKey(const Key('buyMoreCreditsButton')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BuyCredits), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(BuyCredits))).pop();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('settingsRow')));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
-    expect(find.byKey(const Key('privacySetting')), findsNothing);
-    expect(find.byKey(const Key('termsSetting')), findsNothing);
-    expect(find.text('Privacy'), findsNothing);
-    expect(find.text('Terms of Service'), findsNothing);
-    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.byKey(const Key('privacySetting')), findsOneWidget);
+    expect(find.byKey(const Key('termsSetting')), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
+    expect(find.text('Terms of Service'), findsOneWidget);
+    expect(find.text('LEGAL & ABOUT'), findsOneWidget);
   });
 
-  testWidgets('support screen and web navigator expose no external links', (
-    tester,
-  ) async {
+  testWidgets('support screen exposes the Support Center link', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
-            body: Column(
-              children: [
-                ElevatedButton(
-                  key: const Key('openBlockedPrivacy'),
-                  onPressed: () =>
-                      AppWebViewScreen.open(context, AppWebPage.privacy),
-                  child: const Text('Attempt privacy'),
+            body: ElevatedButton(
+              key: const Key('openSupportScreen'),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SupportContactScreen(),
                 ),
-                ElevatedButton(
-                  key: const Key('openSupportScreen'),
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SupportContactScreen(),
-                    ),
-                  ),
-                  child: const Text('Open internal support'),
-                ),
-              ],
+              ),
+              child: const Text('Open internal support'),
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.byKey(const Key('openBlockedPrivacy')));
-    await tester.pumpAndSettle();
-    expect(find.byType(AppWebViewScreen), findsNothing);
-
     await tester.tap(find.byKey(const Key('openSupportScreen')));
     await tester.pumpAndSettle();
     expect(find.byType(SupportContactScreen), findsOneWidget);
-    expect(find.text('Open Support Center'), findsNothing);
+    expect(find.text('Open Support Center'), findsOneWidget);
   });
 
   testWidgets(
-    'Privacy, Terms, and Help UI remains available behind the feature flag',
+    'Privacy, Terms, and Help UI is visible when external links are enabled',
     (tester) async {
       tester.view.physicalSize = const Size(393, 852);
       tester.view.devicePixelRatio = 1;
@@ -154,15 +146,18 @@ void main() {
     skip: !AppFeatures.externalLinksEnabled,
   );
 
-  testWidgets('app does not initialize the purchase gateway', (tester) async {
+  testWidgets('non-Google Play builds do not initialize the purchase gateway', (
+    tester,
+  ) async {
     var gatewayCreated = false;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          googlePlayPlatformProvider.overrideWith((ref) => false),
           purchaseGatewayProvider.overrideWith((ref) {
             gatewayCreated = true;
-            throw StateError('Purchase gateway must stay disabled.');
+            throw StateError('Purchase gateway must not be created.');
           }),
         ],
         child: const VideoGenApp(home: SizedBox.shrink()),
@@ -174,23 +169,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('credit and subscription errors do not expose purchase actions', () {
-    for (final code in [
-      ApiErrorCode.insufficientCredit,
-      ApiErrorCode.subscriptionExpired,
-    ]) {
+  test('credit and subscription errors expose purchase actions', () {
+    const expectedActions = {
+      ApiErrorCode.insufficientCredit: GenerationFailureAction.buyCredits,
+      ApiErrorCode.subscriptionExpired:
+          GenerationFailureAction.renewSubscription,
+    };
+    for (final entry in expectedActions.entries) {
       final presentation = resolveApiErrorPresentation(
-        ApiException(message: 'Server commerce message', errorCode: code),
+        ApiException(message: 'Server commerce message', errorCode: entry.key),
         fallbackMessage: 'Unable to generate.',
       );
 
-      expect(presentation.primaryAction, GenerationFailureAction.close);
-      expect(presentation.title, 'Feature Temporarily Unavailable');
-      expect(presentation.message.toLowerCase(), isNot(contains('credit')));
-      expect(
-        presentation.message.toLowerCase(),
-        isNot(contains('subscription')),
-      );
+      expect(presentation.primaryAction, entry.value);
     }
   });
 }

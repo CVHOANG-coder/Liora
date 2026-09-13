@@ -1,6 +1,6 @@
 # Liora branding
 
-The display name is Liora on iOS, Android and in Flutter. User-facing copy, share titles, support details and newly exported video filenames use Liora. Existing package/bundle IDs, store product IDs, Firebase/Meta identifiers, API URLs and cache keys are intentionally unchanged for compatibility. App Store/Play Store listing metadata and remotely hosted legal/support pages are managed outside this repository.
+The display name is Liora on iOS, Android and in Flutter. User-facing copy, share titles, support details and newly exported video filenames use Liora. Package/bundle IDs and new store product IDs use the `com.lioraai.videogenerator` namespace. Firebase/Meta identifiers, API URLs and cache keys remain unchanged unless their owning service is migrated separately. App Store/Play Store listing metadata and remotely hosted legal/support pages are managed outside this repository.
 
 - In-app mark: `assets/images/home/lola_logo.png` (the existing L artwork).
 - Launcher master: `assets/branding/lola_app_icon.png`.

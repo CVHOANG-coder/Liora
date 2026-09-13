@@ -1,7 +1,19 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+import '../../../core/constants/app_colors.dart';
 import '../../../core/storage/onboarding_preferences.dart';
 import '../main/main_screen.dart';
+
+const _onboardingBackground = Color(0xFF02050C);
+const _onboardingSurface = Color(0xFF0B101D);
+const _onboardingAccentGradient = LinearGradient(
+  colors: [AppColors.primaryDark, AppColors.primary, AppColors.accent],
+  stops: [0, 0.54, 1],
+);
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, this.onboardingPreferences});
@@ -82,10 +94,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           physics: const BouncingScrollPhysics(),
           onPageChanged: (page) => setState(() => _currentPage = page),
           itemBuilder: (_, page) => switch (page) {
-            0 => _WelcomePage(onContinue: _continue),
-            1 => _CreativePage(onContinue: _continue),
-            2 => _ImageToVideoPage(onContinue: _continue),
-            _ => _FusionVideoPage(onContinue: _continue),
+            0 => _WelcomePage(
+              onContinue: _continue,
+              isActive: _currentPage == page,
+            ),
+            1 => _CreativePage(
+              onContinue: _continue,
+              isActive: _currentPage == page,
+            ),
+            2 => _ImageToVideoPage(
+              onContinue: _continue,
+              isActive: _currentPage == page,
+            ),
+            _ => _FusionVideoPage(
+              onContinue: _continue,
+              isActive: _currentPage == page,
+            ),
           },
         ),
         Positioned(
@@ -104,21 +128,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _WelcomePage extends StatelessWidget {
-  const _WelcomePage({required this.onContinue});
+  const _WelcomePage({required this.onContinue, required this.isActive});
 
   final VoidCallback onContinue;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: _onboardingBackground,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Image(
-            image: AssetImage('assets/images/on_boarding/bg1.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+          _OnboardingVideo(
+            assetPath: 'assets/videos/Welcome_ping_pong.mp4',
+            isActive: isActive,
+            key: const Key('onboardingWelcomeVideo'),
           ),
           const _ArtworkShade(),
           SafeArea(
@@ -148,6 +173,173 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
+class _OnboardingVideo extends StatefulWidget {
+  const _OnboardingVideo({
+    super.key,
+    required this.assetPath,
+    required this.isActive,
+  });
+
+  final String assetPath;
+  final bool isActive;
+
+  @override
+  State<_OnboardingVideo> createState() => _OnboardingVideoState();
+}
+
+class _OnboardingVideoState extends State<_OnboardingVideo>
+    with WidgetsBindingObserver {
+  late final VideoPlayerController _controller;
+  var _isInitialized = false;
+  var _isAppActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _isAppActive = _canPlayForLifecycle(WidgetsBinding.instance.lifecycleState);
+    _controller = VideoPlayerController.asset(widget.assetPath);
+    unawaited(_initialize());
+  }
+
+  @override
+  void didUpdateWidget(covariant _OnboardingVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) unawaited(_syncPlayback());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // iOS can remain inactive briefly after Splash or a system permission
+    // prompt; the video should keep playing while it is still visible.
+    _isAppActive = _canPlayForLifecycle(state);
+    unawaited(_syncPlayback());
+  }
+
+  static bool _canPlayForLifecycle(AppLifecycleState? state) => switch (state) {
+    AppLifecycleState.paused ||
+    AppLifecycleState.detached ||
+    AppLifecycleState.hidden => false,
+    _ => true,
+  };
+
+  Future<void> _initialize() async {
+    try {
+      await _controller.initialize();
+      await _controller.setLooping(true);
+      await _controller.setVolume(0);
+      if (!mounted) return;
+      setState(() => _isInitialized = true);
+      await _syncPlayback();
+    } catch (_) {
+      // Keep onboarding usable if a device cannot decode an intro video.
+    }
+  }
+
+  Future<void> _syncPlayback() async {
+    if (!_isInitialized) return;
+    try {
+      if (widget.isActive && _isAppActive) {
+        // Wait for the texture to attach before starting playback. This avoids
+        // a stalled first frame when onboarding replaces the Splash route.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || !widget.isActive || !_isAppActive) return;
+        await _controller.play();
+      } else {
+        await _controller.pause();
+      }
+    } catch (_) {
+      // A page can be disposed while a platform play/pause call is pending.
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) return const ColoredBox(color: Colors.black);
+    final size = _controller.value.size;
+    if (size.isEmpty) return const ColoredBox(color: Colors.black);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final videoHeight = constraints.maxWidth * size.height / size.width;
+        final transitionTop = (videoHeight - 140).clamp(
+          0.0,
+          constraints.maxHeight,
+        );
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: videoHeight,
+                child: VideoPlayer(_controller),
+              ),
+            ),
+            if (videoHeight < constraints.maxHeight)
+              Positioned(
+                top: transitionTop,
+                left: 0,
+                right: 0,
+                height: 240,
+                child: const _VideoBottomTransition(),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _VideoBottomTransition extends StatelessWidget {
+  const _VideoBottomTransition();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, Colors.black],
+              stops: [0.0, 0.62],
+            ).createShader(bounds),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: const ColoredBox(color: Color(0x2402050C)),
+              ),
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, _onboardingBackground],
+                stops: [0.18, 1.0],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ArtworkShade extends StatelessWidget {
   const _ArtworkShade();
 
@@ -162,8 +354,8 @@ class _ArtworkShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.05),
               Colors.transparent,
-              const Color(0xD9090810),
-              const Color(0xFF09080F),
+              const Color(0xD902050C),
+              _onboardingBackground,
             ],
             stops: const [0.0, 0.38, 0.70, 0.91],
           ),
@@ -200,13 +392,7 @@ class _WelcomeCopy extends StatelessWidget {
                     ),
                   ),
                   ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Color(0xFFFF149D),
-                        Color(0xFFFF3B6B),
-                        Color(0xFFFFA30F),
-                      ],
-                    ).createShader(bounds),
+                    shaderCallback: _onboardingAccentGradient.createShader,
                     child: const Text(
                       'Liora',
                       style: TextStyle(
@@ -227,7 +413,7 @@ class _WelcomeCopy extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               style: TextStyle(
-                color: Color(0xFFD0CDD5),
+                color: AppColors.textSecondary,
                 fontSize: 14,
                 height: 1.25,
                 fontWeight: FontWeight.w500,
@@ -258,7 +444,7 @@ class _Sparkles extends StatelessWidget {
             child: Text(
               '✦',
               style: TextStyle(
-                color: Color(0xFFFFA30F),
+                color: AppColors.primary,
                 fontSize: 32,
                 height: 1,
               ),
@@ -270,7 +456,7 @@ class _Sparkles extends StatelessWidget {
             child: Text(
               '✦',
               style: TextStyle(
-                color: Color(0xFFFF229C),
+                color: AppColors.accent,
                 fontSize: 22,
                 height: 1,
               ),
@@ -299,14 +485,11 @@ class _GradientActionButton extends StatelessWidget {
       height: 64,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(40),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF0B9F), Color(0xFFFF3D64), Color(0xFFFFA20E)],
-          stops: [0.0, 0.56, 1.0],
-        ),
+        gradient: _onboardingAccentGradient,
         boxShadow: const [
-          BoxShadow(color: Color(0x99FF0B9F), blurRadius: 24, spreadRadius: 2),
+          BoxShadow(color: Color(0x99B982FF), blurRadius: 24, spreadRadius: 2),
           BoxShadow(
-            color: Color(0x55FF7E19),
+            color: Color(0x55FF87C8),
             blurRadius: 28,
             offset: Offset(8, 5),
           ),
@@ -361,21 +544,22 @@ class _ActionLabel extends StatelessWidget {
 }
 
 class _CreativePage extends StatelessWidget {
-  const _CreativePage({required this.onContinue});
+  const _CreativePage({required this.onContinue, required this.isActive});
 
   final VoidCallback onContinue;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08070E),
+      backgroundColor: _onboardingBackground,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Image(
-            image: AssetImage('assets/images/on_boarding/bg2.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+          _OnboardingVideo(
+            assetPath: 'assets/videos/T2V_OB.mp4',
+            isActive: isActive,
+            key: const Key('onboardingTextToVideo'),
           ),
           const _CreativeShade(),
           SafeArea(
@@ -387,11 +571,11 @@ class _CreativePage extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 24),
                   child: _CreativeCopy(),
                 ),
-                const SizedBox(height: 22),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18),
-                  child: _FeatureGrid(),
-                ),
+                // const SizedBox(height: 150),
+                // const Padding(
+                //   padding: EdgeInsets.symmetric(horizontal: 18),
+                //   child: _FeatureGrid(),
+                // ),
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -412,21 +596,22 @@ class _CreativePage extends StatelessWidget {
 }
 
 class _ImageToVideoPage extends StatelessWidget {
-  const _ImageToVideoPage({required this.onContinue});
+  const _ImageToVideoPage({required this.onContinue, required this.isActive});
 
   final VoidCallback onContinue;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08070E),
+      backgroundColor: _onboardingBackground,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Image(
-            image: AssetImage('assets/images/on_boarding/bg3.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+          _OnboardingVideo(
+            assetPath: 'assets/videos/I2V_OB.mp4',
+            isActive: isActive,
+            key: const Key('onboardingImageToVideo'),
           ),
           const _ImageToVideoShade(),
           SafeArea(
@@ -434,11 +619,6 @@ class _ImageToVideoPage extends StatelessWidget {
             child: Column(
               children: [
                 const Spacer(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: _ImageToVideoArtwork(),
-                ),
-                const SizedBox(height: 25),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 22),
                   child: _ImageToVideoCopy(),
@@ -476,28 +656,14 @@ class _ImageToVideoShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.03),
               Colors.transparent,
-              const Color(0xB5080710),
-              const Color(0xF5080710),
-              const Color(0xFF08070E),
+              const Color(0xB302050C),
+              const Color(0xF2070C17),
+              _onboardingBackground,
             ],
             stops: const [0.0, 0.40, 0.64, 0.86, 1.0],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ImageToVideoArtwork extends StatelessWidget {
-  const _ImageToVideoArtwork();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/on_boarding/item_slide3.png',
-      width: double.infinity,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
     );
   }
 }
@@ -515,7 +681,7 @@ class _ImageToVideoCopy extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '2 Image ',
+                'Image ',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 38,
@@ -525,13 +691,7 @@ class _ImageToVideoCopy extends StatelessWidget {
                 ),
               ),
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [
-                    Color(0xFFFF119D),
-                    Color(0xFFFF5663),
-                    Color(0xFFFFA20D),
-                  ],
-                ).createShader(bounds),
+                shaderCallback: _onboardingAccentGradient.createShader,
                 child: const Text(
                   'To Video',
                   style: TextStyle(
@@ -548,10 +708,10 @@ class _ImageToVideoCopy extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const Text(
-          'Upload 2 images, write prompt',
+          'Upload images, write prompt',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFFD0CDD5),
+            color: AppColors.textSecondary,
             fontSize: 16,
             height: 1.25,
             fontWeight: FontWeight.w500,
@@ -563,21 +723,22 @@ class _ImageToVideoCopy extends StatelessWidget {
 }
 
 class _FusionVideoPage extends StatelessWidget {
-  const _FusionVideoPage({required this.onContinue});
+  const _FusionVideoPage({required this.onContinue, required this.isActive});
 
   final VoidCallback onContinue;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08070E),
+      backgroundColor: _onboardingBackground,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Image(
-            image: AssetImage('assets/images/on_boarding/bg5.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+          _OnboardingVideo(
+            assetPath: 'assets/videos/Themes2V_OB.mp4',
+            isActive: isActive,
+            key: const Key('onboardingThemesToVideo'),
           ),
           const _FusionVideoShade(),
           SafeArea(
@@ -585,11 +746,6 @@ class _FusionVideoPage extends StatelessWidget {
             child: Column(
               children: [
                 const Spacer(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: _FusionVideoArtwork(),
-                ),
-                const SizedBox(height: 24),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 22),
                   child: _FusionVideoCopy(),
@@ -627,28 +783,14 @@ class _FusionVideoShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.03),
               Colors.transparent,
-              const Color(0xB5080710),
-              const Color(0xF5080710),
-              const Color(0xFF08070E),
+              const Color(0xB302050C),
+              const Color(0xF2070C17),
+              _onboardingBackground,
             ],
             stops: const [0.0, 0.42, 0.65, 0.86, 1.0],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FusionVideoArtwork extends StatelessWidget {
-  const _FusionVideoArtwork();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/on_boarding/item_slide5.png',
-      width: double.infinity,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
     );
   }
 }
@@ -677,13 +819,7 @@ class _FusionVideoCopy extends StatelessWidget {
                 ),
               ),
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [
-                    Color(0xFFFF119D),
-                    Color(0xFFFF5663),
-                    Color(0xFFFFA20D),
-                  ],
-                ).createShader(bounds),
+                shaderCallback: _onboardingAccentGradient.createShader,
                 child: const Text(
                   'Video',
                   style: TextStyle(
@@ -703,7 +839,7 @@ class _FusionVideoCopy extends StatelessWidget {
           'Blend characters, styles, and creatures\ninto one cinematic video',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFFD0CDD5),
+            color: AppColors.textSecondary,
             fontSize: 16,
             height: 1.3,
             fontWeight: FontWeight.w500,
@@ -728,9 +864,9 @@ class _CreativeShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.02),
               Colors.transparent,
-              const Color(0xB7080710),
-              const Color(0xF4080710),
-              const Color(0xFF08070E),
+              const Color(0xB302050C),
+              const Color(0xF2070C17),
+              _onboardingBackground,
             ],
             stops: const [0.0, 0.34, 0.63, 0.86, 1.0],
           ),
@@ -746,38 +882,45 @@ class _CreativeCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
-          'Create AI',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 38,
-            height: 1.0,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.05,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Text ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 38,
+                  height: 1.0,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.1,
+                ),
+              ),
+              ShaderMask(
+                shaderCallback: _onboardingAccentGradient.createShader,
+                child: const Text(
+                  'To Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.1,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF119D), Color(0xFFFF5663), Color(0xFFFFA20D)],
-          ).createShader(bounds),
-          child: const Text(
-            'videos your way',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 38,
-              height: 1.0,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.05,
-            ),
-          ),
-        ),
+
         const SizedBox(height: 14),
         const Text(
-          'Text to video, image to video, trending styles,\nand fast creative tools.',
+          'Trending styles, and fast creative tools.',
           style: TextStyle(
-            color: Color(0xFFD0CDD5),
+            color: AppColors.textSecondary,
             fontSize: 16,
             height: 1.35,
             fontWeight: FontWeight.w500,
@@ -796,9 +939,9 @@ class _FeatureGrid extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0x661C1724),
+        color: const Color(0xCC0B101D),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0x663E3447)),
+        border: Border.all(color: const Color(0x664B5677)),
       ),
       child: Column(
         children: [
@@ -806,7 +949,6 @@ class _FeatureGrid extends StatelessWidget {
             children: [
               Expanded(
                 child: _FeatureCard(
-                  iconAsset: 'assets/images/on_boarding/text_to_image.png',
                   title: 'Text to Video',
                   description: 'Turn ideas into short\ncinematic clips',
                 ),
@@ -814,7 +956,6 @@ class _FeatureGrid extends StatelessWidget {
               SizedBox(width: 12),
               Expanded(
                 child: _FeatureCard(
-                  iconAsset: 'assets/images/on_boarding/image_to_video.png',
                   title: 'Image to Video',
                   description: 'Animate photos, art,\nand characters',
                 ),
@@ -826,7 +967,6 @@ class _FeatureGrid extends StatelessWidget {
             children: [
               Expanded(
                 child: _FeatureCard(
-                  iconAsset: 'assets/images/on_boarding/hot_style.png',
                   title: 'Hot Styles',
                   description: 'Explore viral looks\nand templates',
                 ),
@@ -834,7 +974,6 @@ class _FeatureGrid extends StatelessWidget {
               SizedBox(width: 12),
               Expanded(
                 child: _FeatureCard(
-                  iconAsset: 'assets/images/on_boarding/AI_tool.png',
                   title: 'AI Tools',
                   description: 'Prompt assist, subtitles,\nand quick editing',
                 ),
@@ -848,13 +987,8 @@ class _FeatureGrid extends StatelessWidget {
 }
 
 class _FeatureCard extends StatelessWidget {
-  const _FeatureCard({
-    required this.iconAsset,
-    required this.title,
-    required this.description,
-  });
+  const _FeatureCard({required this.title, required this.description});
 
-  final String iconAsset;
   final String title;
   final String description;
 
@@ -862,48 +996,42 @@ class _FeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0x54130F1B),
+        color: _onboardingSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x332C2435)),
+        border: Border.all(color: const Color(0x66394462)),
       ),
-      child: Row(
-        children: [
-          Image.asset(iconAsset, width: 60, height: 60),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.25,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFBDB8C4),
-                    fontSize: 11,
-                    height: 1.15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.25,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                height: 1.15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -960,10 +1088,10 @@ class _IndicatorDot extends StatelessWidget {
       width: 8,
       height: 8,
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFFF159D) : const Color(0xFF47464D),
+        color: active ? AppColors.primary : AppColors.divider,
         shape: BoxShape.circle,
         boxShadow: active
-            ? const [BoxShadow(color: Color(0xAAFF159D), blurRadius: 10)]
+            ? const [BoxShadow(color: Color(0xAAB982FF), blurRadius: 10)]
             : null,
       ),
     );

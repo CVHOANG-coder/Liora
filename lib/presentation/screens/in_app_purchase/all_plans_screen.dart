@@ -114,7 +114,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     final activeUntil = _formatSubscriptionEnd(profile?.subscriptionEndTime);
     final platformPackages = ref
         .watch(packageCatalogProvider)
-        ?.forPlatform(profile?.platform);
+        ?.forPlatform(ref.watch(iapCatalogPlatformProvider));
     final prices = _PlanPrices.fromPackages(
       platformPackages,
       purchaseState.products,
@@ -314,7 +314,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     final profile = ref.read(profileProvider);
     final packages = ref
         .read(packageCatalogProvider)
-        ?.forPlatform(profile?.platform);
+        ?.forPlatform(ref.read(iapCatalogPlatformProvider));
     final package = profile?.isVIP == true || _selectedPlan == 0
         ? packages?.regularYearlySubscription
         : packages?.weeklySubscription;
@@ -322,10 +322,9 @@ class _AllPlansState extends ConsumerState<AllPlans> {
   }
 
   void _upgradeToYearly() {
-    final profile = ref.read(profileProvider);
     final package = ref
         .read(packageCatalogProvider)
-        ?.forPlatform(profile?.platform)
+        ?.forPlatform(ref.read(iapCatalogPlatformProvider))
         ?.regularYearlySubscription;
     _buySubscription(package, replaceExisting: true);
   }
