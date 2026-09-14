@@ -7,14 +7,12 @@ import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/create_bottom_sheet.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/free_trial_screen.dart';
 import '../in_app_purchase/yearly_sale_screen.dart';
 import '../home/home_screen.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../profile/profile_screen.dart';
-import '../text_to_video/text_to_video_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({
@@ -34,13 +32,16 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   late int _selectedIndex;
+  late final List<Widget> _screens;
   bool _isShowingInitialOffer = false;
-
-  static const _screens = [HomeScreen(), ProfileScreen()];
 
   @override
   void initState() {
     super.initState();
+    _screens = [
+      HomeScreen(onProfilePressed: () => _selectTab(1)),
+      const ProfileScreen(),
+    ];
     _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _showInitialOfferIfNeeded();
@@ -90,32 +91,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
   }
 
-  Future<void> _openCreateSheet() async {
-    final result = await showModalBottomSheet<CreateVideoMode>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: false,
-      elevation: 0,
-      constraints: const BoxConstraints(maxWidth: 560),
-      backgroundColor: Colors.transparent,
-      barrierColor: const Color(0xB802050C),
-      builder: (_) => const CreateBottomSheet(),
-    );
-
-    if (!mounted || result == null) return;
-    switch (result) {
-      case CreateVideoMode.imageToVideo:
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const ImageToVideoScreen()),
-        );
-        return;
-      case CreateVideoMode.textToVideo:
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const TextToVideoScreen()),
-        );
-        return;
-    }
+  void _openImageToVideo() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ImageToVideoScreen()));
   }
 
   @override
@@ -135,7 +114,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       bottomNavigationBar: _BottomBar(
         currentIndex: _selectedIndex,
         onChanged: _selectTab,
-        onCreate: _openCreateSheet,
+        onCreate: _openImageToVideo,
       ),
     );
   }
@@ -157,52 +136,48 @@ class _BottomBar extends StatelessWidget {
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      child: Container(
-        height: 54,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xF5121727), Color(0xF50B1020)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFF2D3346)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 12,
-              offset: Offset(0, 5),
-            ),
-          ],
-        ),
+      child: SizedBox(
+        height: 76,
         child: Stack(
+          clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _NavItem(
-                    key: const Key('homeTab'),
-                    icon: Icons.home_rounded,
-                    label: 'Home',
-                    selected: currentIndex == 0,
-                    onTap: () => onChanged(0),
-                  ),
-                ),
-                const SizedBox(width: 110),
-                Expanded(
-                  child: _NavItem(
-                    key: const Key('profileTab'),
-                    icon: Icons.person_rounded,
-                    label: 'Me',
-                    selected: currentIndex == 1,
-                    showDot: currentIndex == 1,
-                    onTap: () => onChanged(1),
-                  ),
-                ),
-              ],
+            Positioned.fill(
+              child: CustomPaint(
+                key: const Key('curvedBottomBar'),
+                painter: const _CurvedBottomBarPainter(),
+              ),
             ),
-            Positioned(top: 4, child: _CreateButton(onPressed: onCreate)),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 58,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _NavItem(
+                      key: const Key('homeTab'),
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      selected: currentIndex == 0,
+                      onTap: () => onChanged(0),
+                    ),
+                  ),
+                  const SizedBox(width: 120),
+                  Expanded(
+                    child: _NavItem(
+                      key: const Key('profileTab'),
+                      icon: Icons.person_rounded,
+                      label: 'Me',
+                      selected: currentIndex == 1,
+                      onTap: () => onChanged(1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(top: 0, child: _CreateButton(onPressed: onCreate)),
           ],
         ),
       ),
@@ -210,11 +185,65 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
+class _CurvedBottomBarPainter extends CustomPainter {
+  const _CurvedBottomBarPainter();
+
+  Path _path(Size size) {
+    const top = 16.0;
+    const cornerRadius = 28.0;
+    final center = size.width / 2;
+    return Path()
+      ..moveTo(cornerRadius, top)
+      ..lineTo(center - 48, top)
+      ..cubicTo(center - 38, top, center - 39, 30, center - 27, 40)
+      ..cubicTo(center - 19, 47, center - 10, 49, center, 49)
+      ..cubicTo(center + 10, 49, center + 19, 47, center + 27, 40)
+      ..cubicTo(center + 39, 30, center + 38, top, center + 48, top)
+      ..lineTo(size.width - cornerRadius, top)
+      ..quadraticBezierTo(size.width, top, size.width, top + cornerRadius)
+      ..lineTo(size.width, size.height - cornerRadius)
+      ..quadraticBezierTo(
+        size.width,
+        size.height,
+        size.width - cornerRadius,
+        size.height,
+      )
+      ..lineTo(cornerRadius, size.height)
+      ..quadraticBezierTo(0, size.height, 0, size.height - cornerRadius)
+      ..lineTo(0, top + cornerRadius)
+      ..quadraticBezierTo(0, top, cornerRadius, top)
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _path(size);
+    canvas.drawShadow(path, const Color(0xB3000000), 14, false);
+
+    final fill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFA161B2C), Color(0xFA090E1D)],
+      ).createShader(Offset.zero & size);
+    canvas.drawPath(path, fill);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0xFF343B51),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CurvedBottomBarPainter oldDelegate) => false;
+}
+
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
-  final bool showDot;
   final VoidCallback onTap;
 
   const _NavItem({
@@ -222,7 +251,6 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.selected = false,
-    this.showDot = false,
     required this.onTap,
   });
 
@@ -270,19 +298,6 @@ class _NavItem extends StatelessWidget {
                 ),
               ),
             ),
-            if (showDot) ...[
-              const SizedBox(height: 2),
-              applyActiveGradient(
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: color ?? Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -301,26 +316,27 @@ class _CreateButton extends StatelessWidget {
       button: true,
       label: 'Create',
       child: Container(
-        width: 46,
-        height: 46,
+        key: const Key('createButton'),
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFD744C7), Color(0xFF754DEB), Color(0xFF3F86FF)],
+            colors: [Color(0xFFFF4FB8), Color(0xFFB249E8), Color(0xFF347DFF)],
           ),
-          border: Border.all(color: const Color(0xFFB96BFF), width: 0.8),
+          border: Border.all(color: const Color(0xFFF4C4FF), width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF30A8).withValues(alpha: 0.18),
-              blurRadius: 8,
-              spreadRadius: 0,
+              color: const Color(0xFFFF38B4).withValues(alpha: 0.48),
+              blurRadius: 20,
+              spreadRadius: 1,
             ),
             BoxShadow(
-              color: const Color(0xFF4F80FF).withValues(alpha: 0.16),
-              blurRadius: 8,
-              offset: const Offset(2, 2),
+              color: const Color(0xFF337BFF).withValues(alpha: 0.38),
+              blurRadius: 18,
+              offset: const Offset(3, 5),
             ),
           ],
         ),
@@ -329,9 +345,8 @@ class _CreateButton extends StatelessWidget {
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            key: const Key('createButton'),
             onTap: onPressed,
-            child: const Icon(Icons.add_rounded, size: 30, color: Colors.white),
+            child: const Icon(Icons.add_rounded, size: 38, color: Colors.white),
           ),
         ),
       ),

@@ -17,12 +17,7 @@ void main() {
     );
     await tester.pump();
 
-    final settingsRow = find.byKey(const Key('settingsRow'));
-    await tester.ensureVisible(settingsRow);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: settingsRow, matching: find.byType(InkWell)),
-    );
+    await tester.tap(find.byKey(const Key('profileSettingsButton')));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);

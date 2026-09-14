@@ -159,6 +159,14 @@ void main() {
             find.byKey(const Key('viewAllPlansButton')).hitTestable(),
             findsOneWidget,
           );
+          expect(
+            tester.getSize(find.byKey(const Key('trialClaimSurface'))).height,
+            greaterThanOrEqualTo(50),
+          );
+          expect(
+            tester.getSize(find.byKey(const Key('viewAllPlansButton'))).height,
+            greaterThanOrEqualTo(48),
+          );
           final primary =
               tester
                       .widget<Container>(
@@ -263,6 +271,8 @@ void main() {
     await _pumpScreen(tester, container);
     final restore = find.byKey(const Key('trialRestoreButton'));
     await tester.scrollUntilVisible(restore, 150, scrollable: _scrollable());
+    await tester.ensureVisible(restore);
+    await tester.pumpAndSettle();
     await tester.tap(restore);
     await tester.pump();
     final controller =

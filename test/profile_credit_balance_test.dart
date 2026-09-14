@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 
@@ -55,20 +56,11 @@ void main() {
     expect(find.text('2,350'), findsOneWidget);
     expect(find.text('Ava Studio'), findsOneWidget);
     expect(find.text('ava@example.com'), findsOneWidget);
-    expect(find.text('18'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
-    expect(find.text('Pro'), findsNWidgets(2));
-    expect(
-      tester
-          .widget<Semantics>(find.byKey(const Key('profileAccountStatus')))
-          .properties
-          .value,
-      'Account status: active',
-    );
-    expect(find.byKey(const Key('buyMoreCreditsButton')), findsOneWidget);
+    expect(find.byKey(const Key('profileStats')), findsNothing);
+    expect(find.byKey(const Key('profileCreditActionButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    final buyMore = find.byKey(const Key('buyMoreCreditsButton'));
+    final buyMore = find.byKey(const Key('profileCreditActionButton'));
     await tester.ensureVisible(buyMore);
     await tester.pumpAndSettle();
     await tester.tap(buyMore);
@@ -76,5 +68,36 @@ void main() {
 
     expect(find.byType(BuyCredits), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('new VIP user can upgrade to Pro from the credit card', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container
+        .read(profileProvider.notifier)
+        .setProfile(
+          UserProfile.fromJson(<String, dynamic>{
+            'id': 3,
+            'isVIP': true,
+            'isSubscribed': false,
+            'total_credit': 50,
+          }),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Upgrade to Pro'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profileCreditActionButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
   });
 }

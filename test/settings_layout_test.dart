@@ -156,9 +156,7 @@ void main() {
           );
           expect(tester.takeException(), isNull);
         }
-        await tester.ensureVisible(find.text('App version'));
-        await tester.pumpAndSettle();
-        expect(find.text('App version').hitTestable(), findsOneWidget);
+        expect(find.text('App version'), findsNothing);
         expect(tester.getRect(find.byKey(const Key('settingsHeader'))), header);
         expect(
           tester.getRect(find.byKey(const Key('settingsBackButton'))),

@@ -44,7 +44,16 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final viewPlans = find.byKey(const Key('viewAllPlansButton'));
-    await tester.ensureVisible(viewPlans);
+    await tester.scrollUntilVisible(
+      viewPlans,
+      150,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('freeTrialScroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(viewPlans);
     await tester.pumpAndSettle();

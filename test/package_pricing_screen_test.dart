@@ -23,7 +23,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(r'$49.99/year'), findsOneWidget);
+    expect(find.text(r'$0.96/week'), findsOneWidget);
     expect(find.text(r'$7.99/week'), findsOneWidget);
   });
 
@@ -42,15 +42,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final button = find.text('Start My Subscription');
+    final yearlyCard = find.byKey(const Key('allPlansYearlyCard'));
     await tester.scrollUntilVisible(
-      button,
+      yearlyCard,
       350,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(button.hitTestable(), findsOneWidget);
-    await tester.tap(button);
+    expect(yearlyCard.hitTestable(), findsOneWidget);
+    await tester.tap(yearlyCard);
     await tester.pump();
 
     final controller =
@@ -61,6 +61,38 @@ void main() {
       controller.productId,
       isNot('com.lioraai.videogenerator.annuallysale'),
     );
+    expect(controller.replaceExistingSubscription, isFalse);
+  });
+
+  testWidgets('purchases the weekly product when its plan card is selected', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    final container = _container(isSubscribed: false, recordPurchases: true);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: AllPlans()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final weeklyCard = find.byKey(const Key('allPlansWeeklyCard'));
+    await tester.scrollUntilVisible(
+      weeklyCard,
+      350,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(weeklyCard);
+    await tester.pump();
+
+    final controller =
+        container.read(purchaseControllerProvider.notifier)
+            as _RecordingPurchaseController;
+    expect(controller.productId, 'com.lioraai.videogenerator.weekly');
     expect(controller.replaceExistingSubscription, isFalse);
   });
 
@@ -84,9 +116,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final button = find.text('Upgrade to Yearly');
+    final button = find.text('Upgrade to Annually Pro');
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -650));
     await tester.pumpAndSettle();
+    expect(find.text('Keep Weekly Plan'), findsNothing);
+    expect(find.textContaining('Billed annually'), findsNothing);
+    expect(find.text(r'$0.96/week'), findsOneWidget);
     await tester.tap(button);
     await tester.pump();
 
@@ -125,15 +160,15 @@ void main() {
     await tester.tap(find.byKey(const Key('openAllPlans')));
     await tester.pumpAndSettle();
 
-    final subscribeButton = find.text('Start My Subscription');
+    final yearlyCard = find.byKey(const Key('allPlansYearlyCard'));
     await tester.scrollUntilVisible(
-      subscribeButton,
+      yearlyCard,
       350,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(subscribeButton.hitTestable(), findsOneWidget);
-    await tester.tap(subscribeButton);
+    expect(yearlyCard.hitTestable(), findsOneWidget);
+    await tester.tap(yearlyCard);
     await tester.pump();
 
     final controller =
@@ -280,7 +315,7 @@ void main() {
 
     expect(find.byType(AllPlans), findsOneWidget);
     expect(find.byType(FreeTrialScreen), findsNothing);
-    expect(find.text('Yearly Pro'), findsOneWidget);
+    expect(find.text('Annually Pro'), findsOneWidget);
     expect(find.text('Weekly Pro'), findsNothing);
   });
 }

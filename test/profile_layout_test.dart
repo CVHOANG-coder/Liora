@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
+import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
@@ -58,6 +59,17 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             appVersionProvider.overrideWith((ref) async => '1.0.0'),
+            profileVideoHistoryProvider.overrideWith(
+              (ref) async => const GenerationHistoryPage(
+                requests: [],
+                pagination: GenerationHistoryPagination(
+                  page: 1,
+                  limit: 6,
+                  total: 0,
+                  totalPages: 1,
+                ),
+              ),
+            ),
             themeCategoriesProvider.overrideWith(
               (ref) async => const <VideoCategory>[],
             ),
@@ -95,35 +107,25 @@ void main() {
           tester.getSize(find.byKey(const Key('profileAvatar'))).width,
           closeTo(118 * scale, 0.01),
         );
-        final stats = tester.getRect(find.byKey(const Key('profileStats')));
-        final menu = tester.getRect(find.byKey(const Key('videoHistoryRow')));
-        expect(stats.left, closeTo(14 * scale, 0.01));
-        expect(stats.height, closeTo(89 * scale, 0.01));
+        expect(find.byKey(const Key('profileStats')), findsNothing);
+        expect(find.byKey(const Key('videoHistoryRow')), findsNothing);
+        expect(find.byKey(const Key('settingsRow')), findsNothing);
+        expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
         if (AppFeatures.commerceEnabled) {
           final credit = tester.getRect(
             find.byKey(const Key('profileCreditCard')),
           );
-          expect(credit.top - stats.bottom, closeTo(10 * scale, 0.01));
           expect(credit.height, closeTo(152 * scale, 0.01));
-          expect(menu.top - credit.bottom, closeTo(9 * scale, 0.01));
+          final history = tester.getRect(
+            find.byKey(const Key('profileVideoHistory')),
+          );
+          expect(history.top - credit.bottom, closeTo(14 * scale, 0.01));
         } else {
           expect(find.byKey(const Key('profileCreditCard')), findsNothing);
-          expect(menu.top - stats.bottom, closeTo(9 * scale, 0.01));
         }
-        expect(menu.height, closeTo(134 * scale, 0.01));
         expect(
-          find.text('Buy More Credits'),
+          find.text('Upgrade to Pro'),
           AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
-        );
-        expect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is Image &&
-                widget.image is AssetImage &&
-                (widget.image as AssetImage).assetName ==
-                    'assets/images/profile/help_icon.png',
-          ),
-          AppFeatures.externalLinksEnabled ? findsOneWidget : findsNothing,
         );
         if (AppFeatures.commerceEnabled) {
           final badge = tester.widget<Container>(
@@ -165,7 +167,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.getRect(find.byKey(const Key('profileHeader'))), header);
-        expect(find.byKey(const Key('profileAppVersion')), findsOneWidget);
+        expect(find.byKey(const Key('profileAppVersion')), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

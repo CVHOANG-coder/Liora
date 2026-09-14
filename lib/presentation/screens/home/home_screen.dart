@@ -13,11 +13,16 @@ import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/free_trial_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
+import '../profile/profile_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
 
+const _themeCardAspectRatio = 9 / 16;
+
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onProfilePressed});
+
+  final VoidCallback? onProfilePressed;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -47,22 +52,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Padding(
               key: const Key('homeHeader'),
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: _HomeHeader(
                 showPlanAction: AppFeatures.commerceEnabled,
                 planAction: planAction,
+                creditBalance: profile?.totalCredit ?? 0,
+                onAvatarPressed:
+                    widget.onProfilePressed ??
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProfileScreen(),
+                      ),
+                    ),
+                onCreditPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const BuyCredits()),
+                ),
                 onProPressed: () {
                   if (planStatus == HomeSubscriptionPlan.none &&
                       profile?.isVIP != true) {
                     FreeTrialScreen.open(context);
-                    return;
-                  }
-                  if (planStatus == HomeSubscriptionPlan.yearly) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BuyCredits(),
-                      ),
-                    );
                     return;
                   }
                   Navigator.of(context).push(
@@ -113,82 +121,115 @@ class _HomeHeader extends StatelessWidget {
   const _HomeHeader({
     required this.showPlanAction,
     required this.planAction,
+    required this.creditBalance,
+    required this.onAvatarPressed,
+    required this.onCreditPressed,
     required this.onProPressed,
   });
 
   final bool showPlanAction;
   final _HomePlanAction planAction;
+  final int creditBalance;
+  final VoidCallback onAvatarPressed;
+  final VoidCallback onCreditPressed;
   final VoidCallback onProPressed;
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = planAction == _HomePlanAction.credit;
     final label = switch (planAction) {
       _HomePlanAction.pro => 'Pro',
       _HomePlanAction.upgrade => 'Upgrade',
-      _HomePlanAction.credit => 'Credit',
+      _HomePlanAction.credit => 'Pro',
     };
     final semanticsLabel = switch (planAction) {
       _HomePlanAction.pro => 'View Pro offer',
       _HomePlanAction.upgrade => 'Upgrade to Yearly Pro',
-      _HomePlanAction.credit => 'Buy credits',
+      _HomePlanAction.credit => 'View Pro plan',
     };
     return SizedBox(
-      height: 40,
-      child: Stack(
-        alignment: Alignment.center,
+      height: 48,
+      child: Row(
         children: [
-          if (showPlanAction)
-            Align(
+          Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const Key('homeAvatarButton'),
+              onTap: onAvatarPressed,
+              child: SizedBox(
+                key: const Key('homeAvatar'),
+                width: 40,
+                height: 40,
+                child: Image.asset(
+                  'assets/images/profile/avatar_default.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Semantics(
-                button: true,
-                enabled: true,
-                label: semanticsLabel,
+              child: Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: _Brand(),
+              ),
+            ),
+          ),
+          if (showPlanAction) ...[
+            _HomeCreditButton(balance: creditBalance, onTap: onCreditPressed),
+            const SizedBox(width: 8),
+            Semantics(
+              button: true,
+              enabled: true,
+              label: semanticsLabel,
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFDA4A9A),
+                      Color(0xFF7D45C5),
+                      Color(0xFF315BD9),
+                    ],
+                  ),
+                  border: Border.all(color: const Color(0xFFCF9BE7), width: .7),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x66B947B1), blurRadius: 14),
+                  ],
+                ),
                 child: Material(
-                  color: isCredit
-                      ? const Color(0xFF16130B)
-                      : const Color(0xFF0C0E18),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(22),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     key: const Key('homeProButton'),
                     onTap: onProPressed,
-                    child: Container(
-                      height: 26,
-                      padding: const EdgeInsets.symmetric(horizontal: 11),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF20263A)),
-                      ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isCredit)
-                            Image.asset(
-                              'assets/images/in_app_purchase/credit.png',
-                              width: 20,
-                              height: 20,
-                              fit: BoxFit.contain,
-                            )
-                          else
-                            SvgPicture.asset(
-                              'assets/svgs/pro.svg',
-                              width: 14,
-                              height: 14,
-                              fit: BoxFit.contain,
-                              colorFilter: const ColorFilter.mode(
-                                Color(0xFFC45AA4),
-                                BlendMode.srcIn,
-                              ),
+                          SvgPicture.asset(
+                            'assets/svgs/pro.svg',
+                            width: 19,
+                            height: 19,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
                             ),
-                          const SizedBox(width: 5),
+                          ),
+                          const SizedBox(width: 6),
                           Text(
                             label,
                             style: const TextStyle(
-                              color: Color(0xFFC8C6D0),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -198,48 +239,67 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ),
             ),
-          const _Brand(),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Stack(
-                  key: const Key('homeNotificationIcon'),
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.notifications_none_rounded, size: 24),
-                    Positioned(
-                      right: 0,
-                      top: -1,
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF4149),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: Image.asset(
-                    'assets/images/profile/avatar_default.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _HomeCreditButton extends StatelessWidget {
+  const _HomeCreditButton({required this.balance, required this.onTap});
+
+  final int balance;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF111521),
+    borderRadius: BorderRadius.circular(22),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: const Key('homeCreditButton'),
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFF423653), width: .7),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/in_app_purchase/credit.png',
+              width: 22,
+              height: 22,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _formatHomeCredits(balance),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _formatHomeCredits(int value) {
+  final digits = value.clamp(0, 999999999).toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
+  }
+  return buffer.toString();
 }
 
 class _Brand extends StatelessWidget {
@@ -248,20 +308,21 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      key: const Key('homeBrand'),
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
           'assets/images/home/lola_logo.png',
-          width: 26,
-          height: 26,
+          width: 28,
+          height: 28,
           fit: BoxFit.contain,
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
         const Text(
           'Liora',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: 17,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.6,
           ),
@@ -344,7 +405,7 @@ class _HeroCopy extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         const Text(
-          'Cinematic, personalized,\nmade to go viral.',
+          'Image to Video, \nmade to go viral.',
           style: TextStyle(
             color: Color(0xFFBDB8C1),
             fontSize: 16,
@@ -365,19 +426,19 @@ class _FeatureCards extends StatelessWidget {
       children: [
         Expanded(
           child: _FeatureCard(
-            title: 'Text to Video',
-            subtitle: 'Turn ideas into\nAI short videos',
-            asset: 'assets/images/home/text_to_video.png',
-            backgroundAsset: 'assets/images/home/text_to_video_bg.png',
+            title: 'Image to Video',
+            subtitle: 'Animate photos\nand characters',
+            asset: 'assets/images/home/image_to_video.png',
+            backgroundAsset: 'assets/images/home/image_to_video_bg.png',
           ),
         ),
         SizedBox(width: 10),
         Expanded(
           child: _FeatureCard(
-            title: 'Image to Video',
-            subtitle: 'Animate photos\nand characters',
-            asset: 'assets/images/home/image_to_video.png',
-            backgroundAsset: 'assets/images/home/image_to_video_bg.png',
+            title: 'Text to Video',
+            subtitle: 'Turn ideas into\nAI short videos',
+            asset: 'assets/images/home/text_to_video.png',
+            backgroundAsset: 'assets/images/home/text_to_video_bg.png',
           ),
         ),
       ],
@@ -525,7 +586,8 @@ class _VideoCategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final thumbnailWidth = (screenWidth - 32 - 24) / 5;
+    final thumbnailWidth = ((screenWidth - 44) / 2.25).clamp(126.0, 184.0);
+    final thumbnailHeight = thumbnailWidth / _themeCardAspectRatio;
     final decodeWidth =
         (thumbnailWidth * MediaQuery.devicePixelRatioOf(context)).ceil().clamp(
           1,
@@ -551,12 +613,22 @@ class _VideoCategorySection extends StatelessWidget {
                 ),
               ),
             ),
-            const Text(
-              'See all',
-              style: TextStyle(
-                color: Color(0xFFCFCCD2),
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
+            TextButton(
+              key: ValueKey('seeAllThemes_${category.id}'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => _CategoryThemesScreen(category: category),
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFCFCCD2),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'See all',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
               ),
             ),
             const SizedBox(width: 4),
@@ -569,7 +641,7 @@ class _VideoCategorySection extends StatelessWidget {
         ),
         const SizedBox(height: 11),
         SizedBox(
-          height: thumbnailWidth,
+          height: thumbnailHeight,
           child: ListView.separated(
             key: PageStorageKey('homeCategory_${category.id}'),
             scrollDirection: Axis.horizontal,
@@ -584,11 +656,58 @@ class _VideoCategorySection extends StatelessWidget {
                 post: category.posts[index],
                 index: index,
                 decodeWidth: decodeWidth,
+                fit: BoxFit.contain,
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CategoryThemesScreen extends StatelessWidget {
+  const _CategoryThemesScreen({required this.category});
+
+  final VideoCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final columns = screenWidth >= 700 ? 4 : 2;
+    final cardWidth = (screenWidth - 32 - (columns - 1) * 12) / columns;
+    final decodeWidth = (cardWidth * pixelRatio).ceil().clamp(1, 768);
+    return Scaffold(
+      key: const Key('categoryThemesScreen'),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        surfaceTintColor: Colors.transparent,
+        title: Text(category.title),
+      ),
+      body: GridView.builder(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 12,
+          childAspectRatio: _themeCardAspectRatio,
+        ),
+        itemCount: category.posts.length,
+        itemBuilder: (context, index) => _VideoThumbnail(
+          post: category.posts[index],
+          index: index,
+          decodeWidth: decodeWidth,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }
@@ -626,11 +745,13 @@ class _VideoThumbnail extends StatelessWidget {
     required this.post,
     required this.index,
     required this.decodeWidth,
+    this.fit = BoxFit.cover,
   });
 
   final VideoPost post;
   final int index;
   final int decodeWidth;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -639,10 +760,11 @@ class _VideoThumbnail extends StatelessWidget {
       label: 'Watch ${post.description}',
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           key: Key('videoThumbnail_${post.id}'),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => VideoDetailScreen(post: post),
@@ -650,11 +772,15 @@ class _VideoThumbnail extends StatelessWidget {
           ),
           child: Hero(
             tag: 'video_${post.id}',
-            child: RepaintBoundary(
-              child: _PreviewBody(
-                post: post,
-                index: index,
-                decodeWidth: decodeWidth,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: RepaintBoundary(
+                child: _PreviewBody(
+                  post: post,
+                  index: index,
+                  decodeWidth: decodeWidth,
+                  fit: fit,
+                ),
               ),
             ),
           ),
@@ -669,11 +795,13 @@ class _PreviewBody extends StatelessWidget {
     required this.post,
     required this.index,
     required this.decodeWidth,
+    required this.fit,
   });
 
   final VideoPost post;
   final int index;
   final int decodeWidth;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -692,7 +820,7 @@ class _PreviewBody extends StatelessWidget {
       imageUrl: post.previewImageUrl ?? '',
       fallbackImageUrl: post.thumbnailUrl ?? '',
       videoUrl: post.videoUrl ?? '',
-      fit: BoxFit.cover,
+      fit: fit,
       maxDecodeWidth: decodeWidth,
       filterQuality: FilterQuality.low,
       fadeInDuration: Duration.zero,
@@ -745,7 +873,7 @@ class _CategoriesLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final thumbnailWidth = (screenWidth - 32 - 24) / 5;
+    final thumbnailWidth = ((screenWidth - 44) / 2.25).clamp(126.0, 184.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,17 +888,19 @@ class _CategoriesLoading extends StatelessWidget {
         ),
         const SizedBox(height: 11),
         SizedBox(
-          height: thumbnailWidth * 1.34,
-          child: Row(
-            children: [
-              for (var index = 0; index < 5; index++) ...[
-                SizedBox(
-                  width: thumbnailWidth,
-                  child: const _ThumbnailSkeleton(),
-                ),
-                if (index != 4) const SizedBox(width: 6),
-              ],
-            ],
+          height: thumbnailWidth / _themeCardAspectRatio,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (_, _) => ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: thumbnailWidth,
+                child: const _ThumbnailSkeleton(),
+              ),
+            ),
           ),
         ),
       ],

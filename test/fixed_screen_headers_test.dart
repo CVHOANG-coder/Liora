@@ -46,12 +46,20 @@ void main() {
         tester,
         headerKey: 'homeHeader',
         scrollKey: 'homeScroll',
-        actionKey: 'homeNotificationIcon',
+        actionKey: 'homeCreditButton',
       );
       expect(
         find.byKey(const Key('homeProButton')),
         AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
       );
+      final avatar = tester.getRect(find.byKey(const Key('homeAvatar')));
+      final brand = tester.getRect(find.byKey(const Key('homeBrand')));
+      final credit = tester.getRect(find.byKey(const Key('homeCreditButton')));
+      final pro = tester.getRect(find.byKey(const Key('homeProButton')));
+      expect(avatar.right, lessThan(brand.left));
+      expect(brand.right, lessThan(credit.left));
+      expect(credit.right, lessThan(pro.left));
+      expect(pro.height, greaterThanOrEqualTo(38));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

@@ -72,6 +72,7 @@ void main() {
                 progressRepository: _MemoryProgressRepository(),
                 notificationPermissionRequester: () async =>
                     NotificationPermissionFlowResult.granted,
+                notificationPermissionChecker: () async => true,
                 historyDestinationBuilder: (_) =>
                     const Scaffold(body: Text('Video history destination')),
               ),
@@ -161,6 +162,7 @@ void main() {
             progressRepository: _MemoryProgressRepository(),
             notificationPermissionRequester: () async =>
                 NotificationPermissionFlowResult.granted,
+            notificationPermissionChecker: () async => true,
           ),
         ),
       );
@@ -177,7 +179,7 @@ void main() {
     },
   );
 
-  testWidgets('shows Settings fallback after the second permission attempt', (
+  testWidgets('opens Settings when the permission dialog cannot be shown', (
     tester,
   ) async {
     var permissionRequests = 0;
@@ -192,6 +194,7 @@ void main() {
             permissionRequests += 1;
             return NotificationPermissionFlowResult.settingsRequired;
           },
+          notificationPermissionChecker: () async => false,
           notificationSettingsOpener: () async {
             settingsOpens += 1;
             return true;
@@ -202,14 +205,74 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(permissionRequests, 1);
-    expect(find.text('Never miss your video'), findsOneWidget);
+    expect(permissionRequests, 0);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('notificationPermissionPrompt')),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('creatingVideoScroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.text(
+        'Enable notifications to get notified when your video is ready.',
+      ),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.byKey(const Key('notificationOpenSettingsButton')));
+    await tester.tap(find.byKey(const Key('notificationPermissionPrompt')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(settingsOpens, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('hides the notification reminder after permission is granted', (
+    tester,
+  ) async {
+    var permissionRequests = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CreatingVideoScreen(
+          generation: _generation(),
+          initialProgress: _progress(),
+          progressRepository: _MemoryProgressRepository(),
+          notificationPermissionChecker: () async => false,
+          notificationPermissionRequester: () async {
+            permissionRequests += 1;
+            return NotificationPermissionFlowResult.granted;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('notificationPermissionPrompt')),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('creatingVideoScroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    final prompt = find.byKey(const Key('notificationPermissionPrompt'));
+    expect(prompt, findsOneWidget);
+
+    await tester.tap(prompt);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(permissionRequests, 1);
+    expect(prompt, findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -296,6 +359,7 @@ void main() {
           progressRepository: _MemoryProgressRepository(),
           notificationPermissionRequester: () async =>
               NotificationPermissionFlowResult.granted,
+          notificationPermissionChecker: () async => true,
           historyDestinationBuilder: (_) => const Scaffold(
             key: Key('generationHistoryDestination'),
             body: Text('Generation History'),

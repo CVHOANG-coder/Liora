@@ -5,8 +5,7 @@ val releaseStoreFile = rootProject.file(providers.gradleProperty("storeFile").ge
 
 plugins {
     id("com.android.application")
-    // TEMP: Disabled with Firebase until the new Android app is registered.
-    // id("com.google.gms.google-services")
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }

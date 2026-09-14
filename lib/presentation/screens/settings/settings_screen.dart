@@ -251,6 +251,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       if (AppFeatures.externalLinksEnabled) ...[
                         _ActionSettingsTile(
+                          key: const Key('helpCenterSetting'),
+                          icon: Icons.help_outline_rounded,
+                          title: 'Help Center',
+                          subtitle: 'Get assistance and support',
+                          onTap: () => AppWebViewScreen.open(
+                            context,
+                            AppWebPage.support,
+                          ),
+                        ),
+                        const _SettingsDivider(),
+                        _ActionSettingsTile(
                           key: const Key('privacySetting'),
                           icon: Icons.shield_outlined,
                           title: 'Privacy',
@@ -269,13 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onTap: () =>
                               AppWebViewScreen.open(context, AppWebPage.terms),
                         ),
-                        const _SettingsDivider(),
                       ],
-                      const _ValueSettingsTile(
-                        icon: Icons.info_outline_rounded,
-                        title: 'App version',
-                        value: '1.0.0',
-                      ),
                     ],
                   ),
                   const SizedBox(height: 26),
@@ -520,34 +525,6 @@ class _ActionSettingsTile extends StatelessWidget {
                     size: 17,
                   ),
                 ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ValueSettingsTile extends StatelessWidget {
-  const _ValueSettingsTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SettingsTileLayout(
-      icon: icon,
-      title: title,
-      trailing: Text(
-        value,
-        style: const TextStyle(
-          color: _settingsSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
         ),
       ),
     );

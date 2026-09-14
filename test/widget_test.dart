@@ -11,8 +11,8 @@ import 'package:video_gen/presentation/screens/image_to_video/image_to_video_scr
 import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 import 'package:video_gen/presentation/screens/onboarding/onboarding_screen.dart';
+import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 import 'package:video_gen/presentation/screens/text_to_video/text_to_video_screen.dart';
-import 'package:video_gen/presentation/widgets/create_bottom_sheet.dart';
 
 void main() {
   testWidgets('requests notification permission when Home first opens', (
@@ -40,6 +40,75 @@ void main() {
     await tester.pump();
 
     expect(permissionRequests, 1);
+  });
+
+  testWidgets('requests notification permission after the trial is closed', (
+    tester,
+  ) async {
+    if (!AppFeatures.commerceEnabled) return;
+    var permissionRequests = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          themeCategoriesProvider.overrideWith(
+            (ref) async => const <VideoCategory>[],
+          ),
+        ],
+        child: MaterialApp(
+          home: MainScreen(
+            notificationPermissionRequester: () async {
+              permissionRequests += 1;
+              return NotificationPermissionFlowResult.denied;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(permissionRequests, 0);
+
+    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(permissionRequests, 1);
+  });
+
+  testWidgets('Home avatar selects the Profile tab', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          themeCategoriesProvider.overrideWith(
+            (ref) async => const <VideoCategory>[],
+          ),
+        ],
+        child: MaterialApp(
+          home: MainScreen(
+            showTrialOffer: false,
+            notificationPermissionRequester: () async =>
+                NotificationPermissionFlowResult.granted,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('homeAvatarButton')));
+    await tester.pumpAndSettle();
+
+    final profileTicker = tester.widget<TickerMode>(
+      find
+          .ancestor(
+            of: find.byType(ProfileScreen),
+            matching: find.byType(TickerMode),
+          )
+          .first,
+    );
+    expect(profileTicker.enabled, isTrue);
+    expect(find.byKey(const Key('profileTab')).hitTestable(), findsOneWidget);
+    expect(find.byKey(const Key('homeTab')).hitTestable(), findsOneWidget);
   });
 
   testWidgets('navigates between home and profile', (tester) async {
@@ -74,7 +143,9 @@ void main() {
     expect(find.text('Profile unavailable'), findsOneWidget);
   });
 
-  testWidgets('center add button opens create sheet', (tester) async {
+  testWidgets('center add button opens Image to Video directly', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -96,35 +167,12 @@ void main() {
     await tester.tap(find.byKey(const Key('createButton')));
     await tester.pumpAndSettle();
 
-    final sheet = find.byType(CreateBottomSheet);
-    expect(sheet, findsOneWidget);
-    expect(
-      find.descendant(of: sheet, matching: find.text('Create AI video')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: sheet, matching: find.text('Text to Video')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: sheet, matching: find.text('Image to Video')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: sheet, matching: find.text('Image')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: sheet, matching: find.text('Templates')),
-      findsNothing,
-    );
-
-    await tester.tap(find.byKey(const Key('createImageToVideo')));
-    await tester.pumpAndSettle();
     expect(find.byType(ImageToVideoScreen), findsOneWidget);
   });
 
-  testWidgets('Text to Video option opens the generation form', (tester) async {
+  testWidgets('center add button skips the creation mode sheet', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(home: MainScreen(showTrialOffer: false)),
@@ -133,13 +181,9 @@ void main() {
 
     await tester.tap(find.byKey(const Key('createButton')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('createTextToVideo')));
-    await tester.pumpAndSettle();
 
-    expect(find.byType(TextToVideoScreen), findsOneWidget);
-    expect(find.text('Text to video'), findsOneWidget);
-    expect(find.byKey(const Key('textToVideoPromptField')), findsOneWidget);
-    expect(find.text('Select image'), findsNothing);
+    expect(find.byType(ImageToVideoScreen), findsOneWidget);
+    expect(find.byKey(const Key('imageToVideoImageCard')), findsOneWidget);
   });
 
   testWidgets('Home Text to Video card opens the generation form', (

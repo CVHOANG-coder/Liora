@@ -115,7 +115,7 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
   void _startYearlySale(AppPackage? package) {
     if (package == null || package.productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The yearly sale is unavailable.')),
+        const SnackBar(content: Text('The annual sale is unavailable.')),
       );
       return;
     }
@@ -148,7 +148,7 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
     switch (next.status) {
       case PurchaseFlowStatus.success:
         _purchaseStarted = false;
-        final message = next.message ?? 'Your Yearly Pro plan is now active.';
+        final message = next.message ?? 'Your Annually Pro plan is now active.';
         final messenger = ScaffoldMessenger.of(context);
         Navigator.of(context).popUntil((route) => route.isFirst);
         messenger
@@ -178,11 +178,11 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
     final action = await GenerationFailureDialog.showForPurchaseError(
       context,
       error: ApiException(
-        message: state.message ?? 'Unable to purchase the yearly plan.',
+        message: state.message ?? 'Unable to purchase the annual plan.',
         errorCode: state.errorCode,
       ),
       fallbackMessage:
-          'We could not complete your Yearly Pro purchase. Please try again.',
+          'We could not complete your Annually Pro purchase. Please try again.',
     );
     if (!mounted) return;
     switch (action) {
@@ -368,8 +368,6 @@ class _TopActions extends StatelessWidget {
           icon: Icons.close_rounded,
           onTap: onClose,
         ),
-        const SizedBox(width: 13),
-        const _LolaPro(),
         const Spacer(),
         _RoundButton(
           label: muted ? 'Turn sound on' : 'Mute sound',
@@ -477,43 +475,6 @@ class _SaleHero extends StatelessWidget {
   }
 }
 
-class _LolaPro extends StatelessWidget {
-  const _LolaPro();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset(
-          'assets/images/home/lola_logo.png',
-          width: 39,
-          height: 39,
-          fit: BoxFit.contain,
-          excludeFromSemantics: true,
-        ),
-        const SizedBox(width: 3),
-        const Text(
-          'Lola ',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const Text(
-          'Pro',
-          style: TextStyle(
-            color: VideoFormStyle.accent,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _GradientTitle extends StatelessWidget {
   const _GradientTitle();
 
@@ -523,7 +484,7 @@ class _GradientTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Yearly',
+          'Annually',
           style: TextStyle(
             color: Colors.white,
             fontSize: 42,
@@ -723,7 +684,7 @@ class _PriceCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Yearly Sale Pro',
+                          'Annually Sale Pro',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -888,7 +849,7 @@ class _BillingNote extends StatelessWidget {
           border: Border.all(color: VideoFormStyle.border),
         ),
         child: const Text(
-          'ⓘ  Billed annually  •  Cancel anytime',
+          'Cancel anytime',
           style: TextStyle(color: Color(0xFFC5BEC8), fontSize: 12),
         ),
       ),

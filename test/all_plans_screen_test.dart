@@ -58,9 +58,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Liora '), findsOneWidget);
+    expect(find.text('Liora '), findsNothing);
     expect(find.byKey(const Key('allPlansHeadline')), findsOneWidget);
-    expect(find.text('Yearly Pro'), findsOneWidget);
+    expect(find.text('Annually Pro'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
@@ -172,7 +172,7 @@ void main() {
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Upgrade to Yearly'));
+    await tester.tap(find.text('Upgrade to Annually Pro'));
     await tester.pumpAndSettle();
 
     expect(find.text("You're on PRO"), findsOneWidget);
@@ -233,7 +233,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('YOUR LOLA PRO PLAN'), findsOneWidget);
+    expect(find.text('YOUR LIORA PRO PLAN'), findsNothing);
     expect(find.text('Active until 12/08/2027'), findsOneWidget);
     expect(find.text('Explore PRO Tools'), findsOneWidget);
     final layoutException = tester.takeException();

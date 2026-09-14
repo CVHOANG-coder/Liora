@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "99552512003",
-    "project_id": "nostalia---ai-video-generator",
-    "storage_bucket": "nostalia---ai-video-generator.firebasestorage.app"
+    "project_number": "243630232511",
+    "project_id": "liora---ai-video-generator",
+    "storage_bucket": "liora---ai-video-generator.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:99552512003:android:7fe6edf93e9e2105146636",
+        "mobilesdk_app_id": "1:243630232511:android:3aa6c27e548a953c3bc70a",
         "android_client_info": {
           "package_name": "com.lioraai.videogenerator"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCm2f1XfqpYxwCwgJM66nvLFVDpMcuKWYY"
+          "current_key": "AIzaSyBQoqkTCxNUcKZQcKH-shj43GQSiqcdmfk"
         }
       ],
       "services": {

@@ -85,13 +85,14 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
                   slivers: [
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
-                        30 * scale,
+                        12 * scale,
                         0,
-                        30 * scale,
+                        12 * scale,
                         4 * scale,
                       ),
                       sliver: SliverList.list(
                         children: [
+                          SizedBox(height: 24 * scale),
                           const _Hero(),
                           const _Title(),
                           SizedBox(height: 7 * scale),
@@ -101,7 +102,7 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: const Color(0xFFAAA6B6),
-                              fontSize: 12.5 * scale,
+                              fontSize: 14 * scale,
                               height: 1.35,
                               fontWeight: FontWeight.w400,
                             ),
@@ -583,7 +584,7 @@ class _TimelineStep extends StatelessWidget {
                             data.title,
                             style: TextStyle(
                               color: const Color(0xFFF3F1F9),
-                              fontSize: 15 * scale,
+                              fontSize: 16 * scale,
                               height: 1.15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -593,7 +594,7 @@ class _TimelineStep extends StatelessWidget {
                             data.description,
                             style: TextStyle(
                               color: const Color(0xFFAAA6B7),
-                              fontSize: 10.5 * scale,
+                              fontSize: 11.5 * scale,
                               height: 1.35,
                             ),
                           ),
@@ -692,10 +693,10 @@ class _PriceCopy extends StatelessWidget {
       children: [
         _GradientTint(
           child: Text(
-            'Free trial for 3 days',
+            'Free trial for 3 days then',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 11 * scale,
+              fontSize: 12 * scale,
               height: 1.25,
               fontWeight: FontWeight.w600,
             ),
@@ -713,7 +714,7 @@ class _PriceCopy extends StatelessWidget {
                 TextSpan(
                   text: ' /week',
                   style: TextStyle(
-                    fontSize: 9.5 * scale,
+                    fontSize: 12.5 * scale,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -758,11 +759,11 @@ class _PriceCopy extends StatelessWidget {
                     ),
                     SizedBox(width: 5 * scale),
                     Text(
-                      '50% OFF for a limited time',
+                      'Buy Credits',
                       maxLines: 1,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 9.5 * scale,
+                        fontSize: 12 * scale,
                         height: 1.2,
                         fontWeight: FontWeight.w500,
                       ),
@@ -802,7 +803,7 @@ class _PrimaryButton extends StatelessWidget {
     final scale = _trialScale(context);
     return Container(
       key: const Key('trialClaimSurface'),
-      constraints: BoxConstraints(minHeight: (38 * scale).clamp(44, 54)),
+      constraints: BoxConstraints(minHeight: (52 * scale).clamp(50, 64)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12 * scale),
         gradient: const LinearGradient(
@@ -818,8 +819,8 @@ class _PrimaryButton extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: 14 * scale,
-              vertical: 7 * scale,
+              horizontal: 16 * scale,
+              vertical: 10 * scale,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -836,8 +837,8 @@ class _PrimaryButton extends StatelessWidget {
                 else
                   Image.asset(
                     'assets/images/in_app_purchase/credit.png',
-                    width: 28 * scale,
-                    height: 24 * scale,
+                    width: 40 * scale,
+                    height: 35 * scale,
                     excludeFromSemantics: true,
                   ),
                 SizedBox(width: 12 * scale),
@@ -847,7 +848,7 @@ class _PrimaryButton extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12.5 * scale,
+                      fontSize: 16 * scale,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                     ),
@@ -872,7 +873,7 @@ class _ViewPlansButton extends StatelessWidget {
     final scale = _trialScale(context);
     return Container(
       key: const Key('viewAllPlansButton'),
-      constraints: BoxConstraints(minHeight: (35 * scale).clamp(44, 50)),
+      constraints: BoxConstraints(minHeight: (52 * scale).clamp(48, 58)),
       padding: const EdgeInsets.all(0.6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11 * scale),
@@ -886,8 +887,8 @@ class _ViewPlansButton extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: 12 * scale,
-              vertical: 9 * scale,
+              horizontal: 14 * scale,
+              vertical: 11 * scale,
             ),
             child: Center(
               child: _GradientTint(
@@ -896,7 +897,7 @@ class _ViewPlansButton extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 13 * scale,
+                    fontSize: 16 * scale,
                     height: 1.2,
                     fontWeight: FontWeight.w600,
                   ),
@@ -942,7 +943,10 @@ class _LegalFooter extends StatelessWidget {
             key: const Key('trialRestoreButton'),
             onPressed: onRestore,
             style: _legalButtonStyle(style),
-            child: Text(restoring ? 'Restoring...' : 'Restore Purchase'),
+            child: Text(
+              restoring ? 'Restoring...' : 'Restore Purchase',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
           const _FooterDivider(),
           _LegalWebLink(
@@ -979,7 +983,7 @@ class _LegalWebLink extends StatelessWidget {
   Widget build(BuildContext context) => TextButton(
     onPressed: () => AppWebViewScreen.open(context, page),
     style: _legalButtonStyle(style),
-    child: Text(label),
+    child: Text(label, style: TextStyle(fontSize: 12)),
   );
 }
 

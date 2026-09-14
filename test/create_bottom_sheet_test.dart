@@ -11,7 +11,6 @@ import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
-import 'package:video_gen/presentation/screens/text_to_video/text_to_video_screen.dart';
 import 'package:video_gen/presentation/widgets/create_bottom_sheet.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
@@ -187,44 +186,41 @@ void main() {
   }
 
   for (final tab in [0, 1]) {
-    for (final option in [
-      (key: 'createTextToVideo', screen: TextToVideoScreen),
-      (key: 'createImageToVideo', screen: ImageToVideoScreen),
-    ]) {
-      testWidgets('tab $tab opens ${option.key} through the shared sheet', (
-        tester,
-      ) async {
-        _configureView(tester, const Size(393, 852));
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              themeCategoriesProvider.overrideWith(
-                (_) async => const <VideoCategory>[],
-              ),
-            ],
-            child: MaterialApp(
-              theme: AppTheme.dark,
-              home: MainScreen(
-                initialIndex: tab,
-                showTrialOffer: false,
-                notificationPermissionRequester: () async =>
-                    NotificationPermissionFlowResult.granted,
-              ),
+    testWidgets('tab $tab opens Image to Video directly', (tester) async {
+      _configureView(tester, const Size(393, 852));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            themeCategoriesProvider.overrideWith(
+              (_) async => const <VideoCategory>[],
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: MainScreen(
+              initialIndex: tab,
+              showTrialOffer: false,
+              notificationPermissionRequester: () async =>
+                  NotificationPermissionFlowResult.granted,
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('createButton')));
-        await tester.pumpAndSettle();
-        expect(find.byType(CreateBottomSheet), findsOneWidget);
-        await tester.ensureVisible(find.byKey(Key(option.key)));
-        await tester.tap(find.byKey(Key(option.key)));
-        await tester.pumpAndSettle();
-        expect(find.byType(CreateBottomSheet), findsNothing);
-        expect(find.byType(option.screen), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
-    }
+        ),
+      );
+      await tester.pumpAndSettle();
+      final createButton = tester.getRect(
+        find.byKey(const Key('createButton')),
+      );
+      final curvedBar = tester.getRect(
+        find.byKey(const Key('curvedBottomBar')),
+      );
+      expect(createButton.size, const Size(60, 60));
+      expect(createButton.top, lessThan(curvedBar.top + 16));
+      await tester.tap(find.byKey(const Key('createButton')));
+      await tester.pumpAndSettle();
+      expect(find.byType(CreateBottomSheet), findsNothing);
+      expect(find.byType(ImageToVideoScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('barrier and swipe still dismiss without selecting a mode', (

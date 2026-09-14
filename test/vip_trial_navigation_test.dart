@@ -57,7 +57,7 @@ void main() {
     expect(find.byKey(const Key('trialClaimButton')), findsOneWidget);
   });
 
-  testWidgets('yearly subscriber sees Credit and opens Buy Credits', (
+  testWidgets('yearly subscriber sees credits and opens Buy Credits', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -79,19 +79,20 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('homeProButton')),
-        matching: find.text('Credit'),
+        matching: find.text('Pro'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: find.byKey(const Key('homeProButton')),
+        of: find.byKey(const Key('homeCreditButton')),
         matching: find.byType(Image),
       ),
       findsOneWidget,
     );
+    expect(find.text('100'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('homeProButton')));
+    await tester.tap(find.byKey(const Key('homeCreditButton')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('trialClaimButton')), findsNothing);
@@ -118,7 +119,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Credit'), findsOneWidget);
+    expect(find.text('Pro'), findsOneWidget);
     expect(find.text('Upgrade'), findsNothing);
   });
 
@@ -143,7 +144,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Upgrade'), findsOneWidget);
-    expect(find.text('Credit'), findsNothing);
+    expect(find.text('Pro'), findsNothing);
   });
 
   testWidgets('weekly subscriber sees Upgrade and opens All Plans', (
@@ -222,7 +223,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(YearlySaleScreen), findsOneWidget);
-    expect(find.text('Lola '), findsOneWidget);
+    expect(find.text('Lola '), findsNothing);
+    expect(find.text('Annually'), findsOneWidget);
     expect(find.text('Sale Pro'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));

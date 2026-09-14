@@ -72,19 +72,22 @@ void main() {
 
     expect(find.byKey(const Key('profilePlanBadge')), findsOneWidget);
     expect(find.byKey(const Key('profileCreditCard')), findsOneWidget);
-    expect(find.byKey(const Key('buyMoreCreditsButton')), findsOneWidget);
-    expect(find.text('Active Plan'), findsOneWidget);
-    expect(find.byKey(const Key('helpCenterRow')), findsOneWidget);
+    expect(find.byKey(const Key('profileCreditActionButton')), findsOneWidget);
+    expect(find.text('Upgrade to Pro'), findsOneWidget);
+    expect(find.text('Active Plan'), findsNothing);
+    expect(find.byKey(const Key('profileStats')), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const Key('buyMoreCreditsButton')));
-    await tester.tap(find.byKey(const Key('buyMoreCreditsButton')));
+    await tester.ensureVisible(
+      find.byKey(const Key('profileCreditActionButton')),
+    );
+    await tester.tap(find.byKey(const Key('profileCreditActionButton')));
     await tester.pumpAndSettle();
-    expect(find.byType(BuyCredits), findsOneWidget);
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
 
-    Navigator.of(tester.element(find.byType(BuyCredits))).pop();
+    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('settingsRow')));
+    await tester.tap(find.byKey(const Key('profileSettingsButton')));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
@@ -132,10 +135,11 @@ void main() {
         const ProviderScope(child: MaterialApp(home: ProfileScreen())),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('helpCenterRow')), findsOneWidget);
+      expect(find.byKey(const Key('helpCenterRow')), findsNothing);
 
-      await tester.tap(find.byKey(const Key('settingsRow')));
+      await tester.tap(find.byKey(const Key('profileSettingsButton')));
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('helpCenterSetting')), findsOneWidget);
       expect(find.byKey(const Key('privacySetting')), findsOneWidget);
       expect(find.byKey(const Key('termsSetting')), findsOneWidget);
 

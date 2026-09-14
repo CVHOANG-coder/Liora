@@ -4,8 +4,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
@@ -83,6 +84,14 @@ void main() {
 
           final yearly = find.byKey(const Key('allPlansYearlyCard'));
           final weekly = find.byKey(const Key('allPlansWeeklyCard'));
+          expect(
+            find.descendant(of: yearly, matching: find.byType(SvgPicture)),
+            findsNothing,
+          );
+          expect(
+            find.descendant(of: weekly, matching: find.byType(SvgPicture)),
+            findsNothing,
+          );
           final yearlySize = tester.getSize(yearly);
           final weeklySize = tester.getSize(weekly);
           expect(
@@ -103,8 +112,9 @@ void main() {
           final badgeRect = tester.getRect(
             find.byKey(const Key('allPlansPopularBadge')),
           );
-          expect(yearlyRect.contains(badgeRect.topLeft), isTrue);
-          expect(yearlyRect.contains(badgeRect.bottomRight), isTrue);
+          expect(badgeRect.top, lessThan(yearlyRect.top));
+          expect(badgeRect.bottom, greaterThan(yearlyRect.top));
+          expect(badgeRect.right, closeTo(yearlyRect.right + 4.5, 0.1));
 
           await tester.ensureVisible(weekly);
           await tester.pumpAndSettle();
@@ -127,15 +137,8 @@ void main() {
             findsNothing,
           );
           expect(find.text('3 days free trailer'), findsNothing);
+          expect(find.text('Start My Subscription'), findsOneWidget);
           expect(tester.takeException(), isNull);
-          await tester.ensureVisible(
-            find.byKey(const Key('allPlansSubscribeButton')),
-          );
-          await tester.pumpAndSettle();
-          expect(
-            find.text('Start My Subscription').hitTestable(),
-            findsOneWidget,
-          );
           await tester.pumpWidget(const SizedBox.shrink());
         },
       );

@@ -111,8 +111,9 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
       title: 'Liora',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      // TEMP: FirebaseAnalyticsObserver is disabled with Firebase Analytics.
-      navigatorObservers: const <NavigatorObserver>[],
+      navigatorObservers: <NavigatorObserver>[
+        ?FirebaseService.analyticsObserver,
+      ],
       home: widget.home ?? const SplashScreen(),
     );
   }

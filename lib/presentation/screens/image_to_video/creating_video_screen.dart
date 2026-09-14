@@ -13,7 +13,6 @@ import '../../../data/models/generation_progress.dart';
 import '../../../data/models/i2v_generation.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/generation_progress_repository.dart';
-import '../../widgets/notification_permission_dialog.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../../widgets/video_form_style.dart';
 import '../generation_history/generation_history_screen.dart';
@@ -38,6 +37,7 @@ class CreatingVideoScreen extends StatefulWidget {
     this.creatorLabel = 'Image to Video',
     this.sourceImagePath,
     this.notificationPermissionRequester,
+    this.notificationPermissionChecker,
     this.notificationSettingsOpener,
     this.initialRequestStatus,
     this.openedFromHistory = false,
@@ -57,6 +57,7 @@ class CreatingVideoScreen extends StatefulWidget {
   final String creatorLabel;
   final String? sourceImagePath;
   final NotificationPermissionRequester? notificationPermissionRequester;
+  final NotificationPermissionChecker? notificationPermissionChecker;
   final NotificationSettingsOpener? notificationSettingsOpener;
   final I2VRequestStatus? initialRequestStatus;
   final bool openedFromHistory;
@@ -66,7 +67,8 @@ class CreatingVideoScreen extends StatefulWidget {
   State<CreatingVideoScreen> createState() => _CreatingVideoScreenState();
 }
 
-class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
+class _CreatingVideoScreenState extends State<CreatingVideoScreen>
+    with WidgetsBindingObserver {
   Timer? _initialPollTimer;
   Timer? _pollTimer;
   Timer? _fakeProgressTimer;
@@ -83,6 +85,8 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
   bool _leaveDialogOpen = false;
   bool _allowPop = false;
   bool _leavingForHistory = false;
+  bool _notificationsEnabled = true;
+  bool _notificationActionInFlight = false;
 
   GenerationProgressRepository get _progressRepository =>
       widget.progressRepository ??
@@ -91,30 +95,55 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeProgress();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_requestNotificationPermissionIfNeeded());
+      unawaited(_refreshNotificationPermission());
       final initialStatus = widget.initialRequestStatus;
       if (initialStatus != null) unawaited(_handleStatus(initialStatus));
     });
   }
 
-  Future<void> _requestNotificationPermissionIfNeeded() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshNotificationPermission());
+    }
+  }
+
+  Future<void> _refreshNotificationPermission() async {
+    final checker =
+        widget.notificationPermissionChecker ??
+        FirebaseService.hasNotificationPermission;
+    final enabled = await checker();
+    if (mounted) setState(() => _notificationsEnabled = enabled);
+  }
+
+  Future<void> _handleNotificationPromptTap() async {
+    if (_notificationActionInFlight) return;
+    setState(() => _notificationActionInFlight = true);
     final requester =
         widget.notificationPermissionRequester ??
         FirebaseService.requestNotificationPermissionOnCreatingVideo;
     final result = await requester();
-    if (!mounted ||
-        result != NotificationPermissionFlowResult.settingsRequired) {
+    if (!mounted) return;
+
+    if (result == NotificationPermissionFlowResult.granted) {
+      setState(() {
+        _notificationsEnabled = true;
+        _notificationActionInFlight = false;
+      });
       return;
     }
-
-    final shouldOpenSettings = await NotificationPermissionDialog.show(context);
-    if (!shouldOpenSettings || !mounted) return;
-    final openSettings =
-        widget.notificationSettingsOpener ??
-        FirebaseService.openNotificationSettings;
-    await openSettings();
+    if (result == NotificationPermissionFlowResult.settingsRequired) {
+      final openSettings =
+          widget.notificationSettingsOpener ??
+          FirebaseService.openNotificationSettings;
+      await openSettings();
+    }
+    if (!mounted) return;
+    setState(() => _notificationActionInFlight = false);
+    await _refreshNotificationPermission();
   }
 
   Future<void> _initializeProgress() async {
@@ -331,6 +360,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopPolling();
     _fakeProgressTimer?.cancel();
     super.dispose();
@@ -413,6 +443,13 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen> {
                               ),
                               const SizedBox(height: 18),
                               const _BackgroundTip(),
+                              if (!_notificationsEnabled) ...[
+                                const SizedBox(height: 12),
+                                _NotificationPermissionPrompt(
+                                  busy: _notificationActionInFlight,
+                                  onTap: _handleNotificationPromptTap,
+                                ),
+                              ],
                               const SizedBox(height: 18),
                               _ContinueButton(onTap: _continueInBackground),
                               const SizedBox(height: 12),
@@ -1151,6 +1188,63 @@ class _BackgroundTip extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _NotificationPermissionPrompt extends StatelessWidget {
+  const _NotificationPermissionPrompt({
+    required this.busy,
+    required this.onTap,
+  });
+
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      key: const Key('notificationPermissionPrompt'),
+      onTap: busy ? null : onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (busy)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: VideoFormStyle.accent,
+                ),
+              )
+            else
+              const Icon(
+                Icons.notifications_active_outlined,
+                color: VideoFormStyle.accent,
+                size: 18,
+              ),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text(
+                'Enable notifications to get notified when your video is ready.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: VideoFormStyle.accent,
+                  fontSize: 12,
+                  height: 1.35,
+                  decoration: TextDecoration.underline,
+                  decorationColor: VideoFormStyle.accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }

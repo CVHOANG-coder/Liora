@@ -5,12 +5,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
+import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 import 'package:video_gen/presentation/widgets/cached_video_thumbnail.dart';
 
 const _preview = 'https://example.test/preview.webp';
 const _thumbnail = 'https://example.test/thumbnail.jpg';
 
 void main() {
+  testWidgets('Home avatar and See all open their destinations', (
+    tester,
+  ) async {
+    final post = VideoPost.fromJson({
+      'theme_key': 'theme-1',
+      'name': 'Theme one',
+      'thumbnail_url': _thumbnail,
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          themeCategoriesProvider.overrideWith(
+            (_) async => [
+              VideoCategory(id: 'featured', title: 'Featured', posts: [post]),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getCenter(find.byKey(const Key('homeImageToVideoCard'))).dx,
+      lessThan(
+        tester.getCenter(find.byKey(const Key('homeTextToVideoCard'))).dx,
+      ),
+    );
+
+    final thumbnail = find.byKey(const Key('videoThumbnail_theme-1'));
+    final thumbnailSize = tester.getSize(thumbnail);
+    expect(thumbnailSize.width, greaterThan(120));
+    expect(thumbnailSize.width / thumbnailSize.height, closeTo(9 / 16, 0.01));
+    expect(
+      find.descendant(
+        of: thumbnail,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ClipRRect &&
+              widget.borderRadius == BorderRadius.circular(20),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<CachedVideoThumbnail>(
+            find.descendant(
+              of: thumbnail,
+              matching: find.byType(CachedVideoThumbnail),
+            ),
+          )
+          .fit,
+      BoxFit.contain,
+    );
+
+    await tester.tap(find.byKey(const Key('homeAvatarButton')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(ProfileScreen), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(ProfileScreen))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('seeAllThemes_featured')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('categoryThemesScreen')), findsOneWidget);
+    expect(find.text('Featured'), findsOneWidget);
+  });
+
   for (final sample in [
     (_preview, _thumbnail, _preview),
     (null, _thumbnail, _thumbnail),

@@ -72,14 +72,11 @@ class _PlanPrices {
     final storeWeekly = recurringSubscriptionPrice(
       storeProducts[weeklyPackage.productId],
     );
-    final storeYearly = recurringSubscriptionPrice(
-      storeProducts[yearlyPackage.productId],
-    );
+    final yearlyProduct = storeProducts[yearlyPackage.productId];
     return _PlanPrices(
       weekly:
           '${storeWeekly ?? '\$${weeklyPackage.price.toStringAsFixed(2)}'}/week',
-      yearly:
-          '${storeYearly ?? '\$${yearlyPackage.price.toStringAsFixed(2)}'}/year',
+      yearly: _formatAnnualPricePerWeek(yearlyProduct, yearlyPackage.price),
       savingsPercent: savingsPercent,
       weeklySavings: '\$${savings.toStringAsFixed(2)}',
     );
@@ -89,6 +86,17 @@ class _PlanPrices {
   final String yearly;
   final int savingsPercent;
   final String weeklySavings;
+}
+
+String _formatAnnualPricePerWeek(ProductDetails? product, double annualAmount) {
+  final weeklyAmount =
+      (recurringSubscriptionRawPrice(product) ?? annualAmount) / 52;
+  final currencyCode = product?.currencyCode.toUpperCase();
+  if (currencyCode == 'VND') return '${weeklyAmount.round()} ₫/week';
+  if (currencyCode == null || currencyCode.isEmpty || currencyCode == 'USD') {
+    return '\$${weeklyAmount.toStringAsFixed(2)}/week';
+  }
+  return '$currencyCode ${weeklyAmount.toStringAsFixed(2)}/week';
 }
 
 class AllPlans extends ConsumerStatefulWidget {
@@ -138,9 +146,9 @@ class _AllPlansState extends ConsumerState<AllPlans> {
               slivers: [
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
-                    activePlan == ProPlanStatus.none ? 24 : 18,
+                    activePlan == ProPlanStatus.none ? 12 : 12,
                     2,
-                    activePlan == ProPlanStatus.none ? 24 : 18,
+                    activePlan == ProPlanStatus.none ? 12 : 12,
                     12 + MediaQuery.paddingOf(context).bottom,
                   ),
                   sliver: SliverToBoxAdapter(
@@ -179,10 +187,6 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         onClose: () => Navigator.maybePop(context),
       ),
       const SizedBox(height: 12),
-      const Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(padding: EdgeInsets.only(left: 2), child: _LioraLogo()),
-      ),
       const SizedBox(height: 8),
       if (activePlan == ProPlanStatus.none)
         ..._availablePlanContent(prices, purchaseState, isVIP: isVIP),
@@ -207,27 +211,26 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     return [
       const _ProHeadline(),
       SizedBox(height: 9 + extraSpace * .25),
-      const Text(
-        'Create unlimited AI videos.\nCancel anytime.',
-        style: TextStyle(
-          color: VideoFormStyle.secondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          height: 1.45,
-        ),
-      ),
-      SizedBox(height: 10 + extraSpace * .1),
+      // const Text(
+      //   'Create unlimited AI videos.\nCancel anytime.',
+      //   style: TextStyle(
+      //     color: VideoFormStyle.secondary,
+      //     fontSize: 12,
+      //     fontWeight: FontWeight.w400,
+      //     height: 1.45,
+      //   ),
+      // ),
+      // SizedBox(height: 10 + extraSpace * .1),
       _BenefitsWithBuyCredits(onBuyCredits: _openBuyCredits),
       SizedBox(height: 11 + extraSpace * .15),
       const _CreatorBanner(),
       SizedBox(height: 8 + extraSpace * .1),
       _PlanCard(
-        title: 'Yearly Pro',
+        title: 'Annually Pro',
         price: prices.yearly,
-        caption: 'Billed annually',
         selected: _selectedPlan == 0,
         popular: true,
-        onTap: () => setState(() => _selectedPlan = 0),
+        onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(0),
       ),
       if (!isVIP) ...[
         SizedBox(height: 8 + extraSpace * .1),
@@ -235,13 +238,15 @@ class _AllPlansState extends ConsumerState<AllPlans> {
           title: 'Weekly Pro',
           price: prices.weekly,
           selected: _selectedPlan == 1,
-          onTap: () => setState(() => _selectedPlan = 1),
+          onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(1),
         ),
       ],
       SizedBox(height: 15 + extraSpace * .15),
       _SubscribeButton(
         busy: purchaseState.isBusy,
-        onTap: purchaseState.isBusy ? null : _subscribe,
+        onTap: purchaseState.isBusy
+            ? null
+            : () => _selectAndSubscribe(_selectedPlan),
       ),
       SizedBox(height: 12 + extraSpace * .15),
       _LegalFooter(onRestore: purchaseState.isBusy ? null : _restore),
@@ -259,9 +264,8 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       const SizedBox(height: 14),
       _OwnedPlanCard(
         key: const Key('yearlyUpgradePlanCard'),
-        title: 'Yearly Pro',
+        title: 'Annually Pro',
         price: prices.yearly,
-        caption: 'Billed annually',
         label: 'SAVE MORE',
         selected: true,
         bestValue: true,
@@ -270,12 +274,12 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       _SavingsBanner(prices: prices),
       const SizedBox(height: 20),
       _WideGradientButton(
-        label: purchaseState.isBusy ? 'Processing...' : 'Upgrade to Yearly',
+        label: purchaseState.isBusy
+            ? 'Processing...'
+            : 'Upgrade to Annually Pro',
         busy: purchaseState.isBusy,
         onTap: purchaseState.isBusy ? null : _upgradeToYearly,
       ),
-      const SizedBox(height: 11),
-      _KeepPlanButton(onTap: () => Navigator.maybePop(context)),
       const SizedBox(height: 12),
       _LegalFooter(onRestore: purchaseState.isBusy ? null : _restore),
     ];
@@ -310,12 +314,16 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     }
   }
 
-  void _subscribe() {
+  void _selectAndSubscribe(int planIndex) {
+    if (ref.read(purchaseControllerProvider).isBusy) return;
+    if (_selectedPlan != planIndex) {
+      setState(() => _selectedPlan = planIndex);
+    }
     final profile = ref.read(profileProvider);
     final packages = ref
         .read(packageCatalogProvider)
         ?.forPlatform(ref.read(iapCatalogPlatformProvider));
-    final package = profile?.isVIP == true || _selectedPlan == 0
+    final package = profile?.isVIP == true || planIndex == 0
         ? packages?.regularYearlySubscription
         : packages?.weeklySubscription;
     _buySubscription(package);
@@ -541,37 +549,6 @@ class _RoundActionButton extends StatelessWidget {
   }
 }
 
-class _LioraLogo extends StatelessWidget {
-  const _LioraLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset('assets/images/home/lola_logo.png', width: 21, height: 21),
-        const SizedBox(width: 6),
-        const Text(
-          'Liora ',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const Text(
-          'Pro',
-          style: TextStyle(
-            color: VideoFormStyle.pink,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ProHeadline extends StatelessWidget {
   const _ProHeadline();
 
@@ -627,8 +604,8 @@ class _BenefitsList extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 22,
-                height: 22,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   gradient: VideoFormStyle.surface,
                   borderRadius: BorderRadius.circular(5),
@@ -642,7 +619,7 @@ class _BenefitsList extends StatelessWidget {
                     colors: [VideoFormStyle.pink, Color(0xFF9970D8)],
                   ).createShader(bounds),
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     child: SvgPicture.asset(
                       'assets/svgs/${_items[index].$1}.svg',
                     ),
@@ -655,7 +632,7 @@ class _BenefitsList extends StatelessWidget {
                   _items[index].$2,
                   style: const TextStyle(
                     color: Color(0xFFCECAD4),
-                    fontSize: 9.5,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w400,
                     height: 1.4,
                   ),
@@ -693,17 +670,19 @@ class _BenefitsWithBuyCredits extends StatelessWidget {
           ],
         );
       }
-      return Stack(
+      return Column(
+        crossAxisAlignment: .end,
         children: [
           const Padding(
-            padding: EdgeInsets.only(right: 133),
+            padding: EdgeInsets.only(right: 0),
             child: _BenefitsList(),
           ),
-          Positioned(
-            right: 0,
-            bottom: 5,
-            child: _BuyCreditsButton(onTap: onBuyCredits),
-          ),
+          _BuyCreditsButton(onTap: onBuyCredits),
+          // Positioned(
+          //   right: 0,
+          //   bottom: 5,
+          //   child:
+          // ),
         ],
       );
     },
@@ -718,7 +697,7 @@ class _BuyCreditsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('allPlansBuyCredits'),
-    width: 131,
+    width: 160,
     constraints: const BoxConstraints(minHeight: 40),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(12),
@@ -737,8 +716,8 @@ class _BuyCreditsButton extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/images/in_app_purchase/credit.png',
-                width: 29,
-                height: 25,
+                width: 40,
+                height: 34.5,
                 fit: BoxFit.contain,
               ),
               const SizedBox(width: 6),
@@ -751,7 +730,7 @@ class _BuyCreditsButton extends StatelessWidget {
                     maxLines: 1,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -795,32 +774,37 @@ class _CreatorBanner extends StatelessWidget {
           child: Text.rich(
             TextSpan(
               children: [
-                TextSpan(text: 'Over '),
+                TextSpan(text: 'Over ', style: TextStyle(fontSize: 12)),
                 TextSpan(
                   text: '12,541',
                   style: TextStyle(
                     color: VideoFormStyle.pink,
                     fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
-                TextSpan(text: ' creators joined the\n'),
                 TextSpan(
-                  text: 'Yearly Pro',
+                  text: ' creators joined the\n',
+                  style: TextStyle(fontSize: 12),
+                ),
+                TextSpan(
+                  text: 'Annually Pro',
                   style: TextStyle(
                     color: Color(0xFFAA69D5),
                     fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
                 TextSpan(
                   text: ' plan ',
-                  style: TextStyle(color: VideoFormStyle.pink),
+                  style: TextStyle(color: VideoFormStyle.pink, fontSize: 12),
                 ),
                 TextSpan(text: 'today!'),
               ],
             ),
             style: TextStyle(
               color: Color(0xFFCECAD4),
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w400,
               height: 1.45,
             ),
@@ -837,21 +821,20 @@ class _PlanCard extends StatelessWidget {
     required this.price,
     required this.selected,
     required this.onTap,
-    this.caption,
     this.popular = false,
   });
 
   final String title;
   final String price;
-  final String? caption;
   final bool selected;
   final bool popular;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
     selected: selected,
     button: true,
+    enabled: onTap != null,
     child: Container(
       key: Key(popular ? 'allPlansYearlyCard' : 'allPlansWeeklyCard'),
       padding: const EdgeInsets.all(.5),
@@ -864,130 +847,109 @@ class _PlanCard extends StatelessWidget {
               )
             : null,
       ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: VideoFormStyle.surface,
-          borderRadius: BorderRadius.circular(10.5),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(10.5),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final largeText =
-                    MediaQuery.textScalerOf(context).scale(14) > 18;
-                final priceLabel = Text(
-                  price,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                );
-                final pricing = Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (selected)
-                      ShaderMask(
-                        blendMode: BlendMode.srcIn,
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [VideoFormStyle.pink, Color(0xFF9B76DD)],
-                        ).createShader(bounds),
-                        child: priceLabel,
-                      )
-                    else
-                      priceLabel,
-                    if (caption != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        caption!,
-                        style: const TextStyle(
-                          color: VideoFormStyle.secondary,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w400,
-                          height: 1.3,
-                        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: VideoFormStyle.surface,
+              borderRadius: BorderRadius.circular(10.5),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(10.5),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final largeText =
+                        MediaQuery.textScalerOf(context).scale(14) > 18;
+                    final priceLabel = Text(
+                      price,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
                       ),
-                    ],
-                  ],
-                );
-                final identity = Row(
-                  children: [
-                    _PlanRadio(selected: selected),
-                    const SizedBox(width: 17),
-                    SvgPicture.asset(
-                      popular
-                          ? 'assets/svgs/plan_crown.svg'
-                          : 'assets/svgs/plan_calendar.svg',
-                      width: 24,
-                      height: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-                return ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: popular ? 91 : 54),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 13,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    );
+                    final pricing = selected
+                        ? ShaderMask(
+                            blendMode: BlendMode.srcIn,
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [VideoFormStyle.pink, Color(0xFF9B76DD)],
+                            ).createShader(bounds),
+                            child: priceLabel,
+                          )
+                        : priceLabel;
+                    final identity = Row(
                       children: [
-                        if (popular) ...[
-                          const Align(
-                            alignment: Alignment.centerRight,
-                            child: _PopularBadge(),
+                        _PlanRadio(selected: selected),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (largeText || constraints.maxWidth < 310) ...[
-                          identity,
-                          const SizedBox(height: 10),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: pricing,
-                          ),
-                        ] else
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 11, child: identity),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                flex: 10,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: pricing,
-                                ),
-                              ),
-                            ],
-                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                );
-              },
+                    );
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: popular ? 91 : 54),
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          popular ? 35 : 13,
+                          16,
+                          13,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (largeText || constraints.maxWidth < 310) ...[
+                              identity,
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: pricing,
+                              ),
+                            ] else
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 11, child: identity),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    flex: 10,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: pricing,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
-        ),
+          if (popular)
+            const Positioned(
+              top: -10,
+              right: -5,
+              child: IgnorePointer(child: _PopularBadge()),
+            ),
+        ],
       ),
     ),
   );
@@ -1044,7 +1006,7 @@ class _PopularBadge extends StatelessWidget {
       'MOST POPULAR',
       style: TextStyle(
         color: Colors.white,
-        fontSize: 7.5,
+        fontSize: 11,
         fontWeight: FontWeight.w500,
         letterSpacing: .9,
         height: 1.2,
@@ -1090,16 +1052,16 @@ class _SubscribeButton extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13.5,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Container(
-                  width: 32,
-                  height: 32,
-                  padding: const EdgeInsets.all(9),
+                  width: 40,
+                  height: 40,
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: const Color(0x3E9AAAF3),
                     shape: BoxShape.circle,
@@ -1113,7 +1075,11 @@ class _SubscribeButton extends StatelessWidget {
                           strokeWidth: 1.5,
                           color: Colors.white,
                         )
-                      : SvgPicture.asset('assets/svgs/plan_send.svg'),
+                      : SvgPicture.asset(
+                          'assets/svgs/plan_send.svg',
+                          width: 28,
+                          height: 28,
+                        ),
                 ),
               ],
             ),
@@ -1150,7 +1116,7 @@ class _WeeklyIntro extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'Upgrade to Yearly and save more on your subscription.',
+                'Upgrade to Annually Pro and save more on your subscription.',
                 style: TextStyle(
                   color: Color(0xFFC9C3CB),
                   fontSize: 14.5,
@@ -1238,7 +1204,6 @@ class _OwnedPlanCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.price,
-    required this.caption,
     required this.label,
     required this.selected,
     this.bestValue = false,
@@ -1246,7 +1211,6 @@ class _OwnedPlanCard extends StatelessWidget {
 
   final String title;
   final String price;
-  final String caption;
   final String label;
   final bool selected;
   final bool bestValue;
@@ -1340,14 +1304,6 @@ class _OwnedPlanCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 7),
-                      Text(
-                        caption,
-                        style: const TextStyle(
-                          color: Color(0xFFBFB8C2),
-                          fontSize: 12,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -1405,7 +1361,7 @@ class _SavingsBanner extends StatelessWidget {
                     height: 1.5,
                   ),
                   children: [
-                    const TextSpan(text: 'Switch to Yearly Pro and '),
+                    const TextSpan(text: 'Switch to Annually Pro and '),
                     TextSpan(
                       text: 'save ${prices.savingsPercent}%\n',
                       style: const TextStyle(
@@ -1446,16 +1402,6 @@ class _YearlyIntro extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'YOUR LOLA PRO PLAN',
-            style: TextStyle(
-              color: VideoFormStyle.accent,
-              fontSize: 10,
-              letterSpacing: 1.7,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 7),
           Text("You're PRO! 👑", style: VideoFormStyle.serif(35)),
           const SizedBox(height: 8),
           const Text(
@@ -1896,28 +1842,6 @@ class _WideGradientButton extends StatelessWidget {
   }
 }
 
-class _KeepPlanButton extends StatelessWidget {
-  const _KeepPlanButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: TextButton.icon(
-        onPressed: onTap,
-        iconAlignment: IconAlignment.end,
-        icon: const Icon(Icons.chevron_right_rounded, size: 20),
-        label: const Text('Keep Weekly Plan'),
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFC9C2CB),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-      ),
-    );
-  }
-}
-
 class _LegalFooter extends StatelessWidget {
   const _LegalFooter({required this.onRestore});
 
@@ -1952,7 +1876,10 @@ class _LegalFooter extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('Restore Purchase'),
+              child: const Text(
+                'Restore Purchase',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
             const _LegalDivider(),
             _LegalWebLink(
@@ -1989,7 +1916,7 @@ class _LegalWebLink extends StatelessWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(label),
+      child: Text(label, style: TextStyle(fontSize: 12)),
     );
   }
 }

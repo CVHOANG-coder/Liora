@@ -1,15 +1,14 @@
 import 'dart:async';
-// TEMP: Firebase imports are disabled until the new Firebase apps exist.
-// import 'dart:convert';
-// import 'package:firebase_analytics/firebase_analytics.dart';
-// import 'package:firebase_core/firebase_core.dart';
-// import 'package:firebase_messaging/firebase_messaging.dart';
-// import 'package:flutter/foundation.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-// import 'package:permission_handler/permission_handler.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-/* TEMP: Firebase Messaging and Analytics implementation disabled.
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 const _notificationChannel = AndroidNotificationChannel(
   'high_importance_channel',
   'Important notifications',
@@ -21,7 +20,6 @@ const _notificationChannel = AndroidNotificationChannel(
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
-*/
 
 enum NotificationPermissionFlowResult {
   granted,
@@ -33,6 +31,7 @@ enum NotificationPermissionFlowResult {
 typedef NotificationPermissionRequester =
     Future<NotificationPermissionFlowResult> Function();
 typedef NotificationSettingsOpener = Future<bool> Function();
+typedef NotificationPermissionChecker = Future<bool> Function();
 
 class VideoNotificationOpen {
   const VideoNotificationOpen({
@@ -95,7 +94,6 @@ String? firebaseUserTopicFor(String userCode) {
   return validTopic.hasMatch(topic) ? topic : null;
 }
 
-/* TEMP: Original Firebase service implementation disabled.
 class FirebaseService {
   FirebaseService._();
 
@@ -283,6 +281,19 @@ class FirebaseService {
   }
 
   static Future<bool> openNotificationSettings() => openAppSettings();
+
+  static Future<bool> hasNotificationPermission() async {
+    if (Firebase.apps.isEmpty) return false;
+    try {
+      final settings = await messaging.getNotificationSettings();
+      return _isNotificationAuthorized(settings.authorizationStatus);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Could not read notification permission: $error');
+      }
+      return false;
+    }
+  }
 
   static Future<NotificationPermissionFlowResult>
   _requestNotificationPermissionOnHome() async {
@@ -526,35 +537,4 @@ class FirebaseService {
       if (kDebugMode) debugPrint('Could not log notification open: $error');
     }
   }
-}
-*/
-
-/// No-op facade used while Firebase Analytics and Messaging are disabled.
-/// Keeping the public API lets the rest of the app run unchanged and makes
-/// re-enabling the original implementation a small, reversible change.
-class FirebaseService {
-  FirebaseService._();
-
-  static final StreamController<VideoNotificationOpen>
-  _notificationOpenController =
-      StreamController<VideoNotificationOpen>.broadcast(sync: true);
-
-  static Stream<VideoNotificationOpen> get notificationOpens =>
-      _notificationOpenController.stream;
-
-  static Future<void> initialize() async {}
-
-  static Future<bool> subscribeToUserTopic(String userCode) async => false;
-
-  static bool markNotificationNavigationReady() => false;
-
-  static Future<NotificationPermissionFlowResult>
-  requestNotificationPermissionOnHome() async =>
-      NotificationPermissionFlowResult.skipped;
-
-  static Future<NotificationPermissionFlowResult>
-  requestNotificationPermissionOnCreatingVideo() async =>
-      NotificationPermissionFlowResult.skipped;
-
-  static Future<bool> openNotificationSettings() async => false;
 }

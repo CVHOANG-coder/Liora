@@ -9,7 +9,7 @@ import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/yearly_sale_screen.dart';
 
 void main() {
-  testWidgets('renders the Lola yearly offer using sale package pricing', (
+  testWidgets('renders the annual offer using sale package pricing', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -24,12 +24,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Lola '), findsOneWidget);
+    expect(find.text('Lola '), findsNothing);
+    expect(find.text('Annually'), findsOneWidget);
     expect(find.text('Sale Pro'), findsOneWidget);
     expect(find.text(r'$29.99'), findsOneWidget);
     expect(find.text(r'$99.99/year'), findsOneWidget);
     expect(find.text('Save 70%'), findsOneWidget);
     expect(find.text('SAVE 70%'), findsOneWidget);
+    expect(find.text(r'Only $0.58/week'), findsOneWidget);
+    expect(find.textContaining('Billed annually'), findsNothing);
     expect(find.text('7-day free trial'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
