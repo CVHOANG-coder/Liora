@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TEMP: Facebook SDK credentials are disabled with Meta App Events.
-    <string name="facebook_app_id" translatable="false">2116175409267246</string>
-    <string name="facebook_client_token" translatable="false">9c366b6034e7de3352ff8b00728b07bc</string>
-    -->
+    <string name="facebook_app_id" translatable="false">1439644054709273</string>
+    <string name="facebook_client_token" translatable="false">9ab9a0e603a807bf133f5eaa7d69ab4e</string>
+    <string name="fb_login_protocol_scheme" translatable="false">fb1439644054709273</string>
 </resources>

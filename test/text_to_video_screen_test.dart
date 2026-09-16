@@ -32,6 +32,7 @@ void main() {
     String? submittedPrompt;
     bool? submittedHd;
     bool? submittedLong;
+    String? submittedAspectRatio;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -40,10 +41,16 @@ void main() {
           home: TextToVideoScreen(
             progressRepository: progressRepository,
             submit:
-                ({required prompt, required isHd, required isLongTime}) async {
+                ({
+                  required prompt,
+                  required isHd,
+                  required isLongTime,
+                  required aspectRatio,
+                }) async {
                   submittedPrompt = prompt;
                   submittedHd = isHd;
                   submittedLong = isLongTime;
+                  submittedAspectRatio = aspectRatio;
                   return _generation();
                 },
           ),
@@ -54,6 +61,15 @@ void main() {
     expect(find.text('Select image'), findsNothing);
     expect(find.text('10s'), findsOneWidget);
     expect(find.text('Non-HD'), findsOneWidget);
+    expect(find.text('9:16'), findsOneWidget);
+    await tester.tap(find.text('9:16'));
+    await tester.pumpAndSettle();
+    for (final ratio in ['16:9', '9:16', '1:1', '4:3', '3:4']) {
+      expect(find.widgetWithText(ListTile, ratio), findsOneWidget);
+    }
+    await tester.tap(find.widgetWithText(ListTile, '16:9'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('10s'));
     await tester.pumpAndSettle();
     expect(find.text('3s'), findsNothing);
@@ -101,6 +117,7 @@ void main() {
     expect(submittedPrompt, 'A calm seaside at golden hour');
     expect(submittedHd, isFalse);
     expect(submittedLong, isTrue);
+    expect(submittedAspectRatio, '16:9');
     expect(container.read(profileProvider)!.totalCredit, 65);
     final savedProgress = progressRepository.values['request-t2v-001'];
     expect(savedProgress?.videoDurationSeconds, 10);
@@ -115,7 +132,12 @@ void main() {
         child: MaterialApp(
           home: TextToVideoScreen(
             submit:
-                ({required prompt, required isHd, required isLongTime}) async {
+                ({
+                  required prompt,
+                  required isHd,
+                  required isLongTime,
+                  required aspectRatio,
+                }) async {
                   submitCalled = true;
                   return _generation();
                 },
@@ -148,6 +170,7 @@ void main() {
                     required prompt,
                     required isHd,
                     required isLongTime,
+                    required aspectRatio,
                   }) async {
                     submitCount += 1;
                     if (submitCount == 1) {
@@ -162,6 +185,7 @@ void main() {
                     expect(prompt, originalPrompt);
                     expect(isHd, originalIsHd);
                     expect(isLongTime, originalIsLongTime);
+                    expect(aspectRatio, '9:16');
                     return _generation();
                   },
             ),

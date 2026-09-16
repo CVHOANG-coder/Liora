@@ -13,6 +13,7 @@ class T2VGenerationService {
     required String prompt,
     required bool isHd,
     required bool isLongTime,
+    required String aspectRatio,
   }) async {
     try {
       final response = await _dio.post<dynamic>(
@@ -21,6 +22,7 @@ class T2VGenerationService {
           'prompt': prompt,
           'is_hd': isHd,
           'is_long_time': isLongTime,
+          'aspect_ratio': aspectRatio,
         },
       );
       final body = response.data;

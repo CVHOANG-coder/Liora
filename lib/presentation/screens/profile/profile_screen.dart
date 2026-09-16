@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/constants/app_features.dart';
+import '../../../core/events/video_generation_events.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/generation_history.dart';
 import '../../../data/models/i2v_request_status.dart';
@@ -26,11 +29,32 @@ final appVersionProvider = FutureProvider<String>((ref) async {
   return packageInfo.version.trim();
 });
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  StreamSubscription<String>? _generationSuccessSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _generationSuccessSubscription = VideoGenerationEvents.successes.listen(
+      (_) => ref.invalidate(profileVideoHistoryProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _generationSuccessSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final videoHistory = ref.watch(profileVideoHistoryProvider);
 

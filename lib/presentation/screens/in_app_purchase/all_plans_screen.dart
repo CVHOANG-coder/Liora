@@ -191,7 +191,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       if (activePlan == ProPlanStatus.none)
         ..._availablePlanContent(prices, purchaseState, isVIP: isVIP),
       if (activePlan == ProPlanStatus.weekly)
-        ..._weeklyPlanContent(prices, purchaseState),
+        ..._weeklyPlanContent(activeUntil, prices, purchaseState),
       if (activePlan == ProPlanStatus.yearly)
         ..._yearlyPlanContent(activeUntil, purchaseState),
     ];
@@ -254,12 +254,16 @@ class _AllPlansState extends ConsumerState<AllPlans> {
   }
 
   List<Widget> _weeklyPlanContent(
+    String activeUntil,
     _PlanPrices prices,
     PurchaseState purchaseState,
   ) {
     return [
-      _WeeklyIntro(onBuyCredits: _openBuyCredits),
-      const SizedBox(height: 15),
+      _WeeklyProSummary(
+        activeUntil: activeUntil,
+        onBuyCredits: _openBuyCredits,
+      ),
+      const SizedBox(height: 12),
       const _WeeklyMemberBanner(),
       const SizedBox(height: 14),
       _OwnedPlanCard(
@@ -1090,44 +1094,260 @@ class _SubscribeButton extends StatelessWidget {
   );
 }
 
-class _WeeklyIntro extends StatelessWidget {
-  const _WeeklyIntro({required this.onBuyCredits});
+class _WeeklyProSummary extends StatelessWidget {
+  const _WeeklyProSummary({
+    required this.activeUntil,
+    required this.onBuyCredits,
+  });
 
+  final String activeUntil;
   final VoidCallback onBuyCredits;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "You're on PRO",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 37,
-            height: 1,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.1,
-          ),
-        ),
-        const SizedBox(height: 11),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Expanded(
-              child: Text(
-                'Upgrade to Annually Pro and save more on your subscription.',
-                style: TextStyle(
-                  color: Color(0xFFC9C3CB),
-                  fontSize: 14.5,
-                  height: 1.45,
-                  fontWeight: FontWeight.w500,
-                ),
+    final maxHeight = MediaQuery.sizeOf(context).height * .5;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ConstrainedBox(
+          key: const Key('weeklyProSummary'),
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _WeeklyIntro(
+                    activeUntil: activeUntil,
+                    onBuyCredits: onBuyCredits,
+                  ),
+                  const SizedBox(height: 10),
+                  const _WeeklyBenefitsCard(),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            _BuyCreditsButton(onTap: onBuyCredits),
-          ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WeeklyIntro extends StatelessWidget {
+  const _WeeklyIntro({required this.activeUntil, required this.onBuyCredits});
+
+  final String activeUntil;
+  final VoidCallback onBuyCredits;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('weeklyProIntro'),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        Colors.white,
+                        Color(0xFFFF7DC9),
+                        VideoFormStyle.accent,
+                      ],
+                    ).createShader(bounds),
+                    child: Text(
+                      "You're on PRO",
+                      maxLines: 1,
+                      style: VideoFormStyle.serif(
+                        38,
+                      ).copyWith(height: 1, letterSpacing: -.7),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: VideoFormStyle.gradient,
+                  border: Border.all(color: const Color(0x99FFFFFF)),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x55EC5FB6), blurRadius: 12),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Colors.white,
+                  size: 23,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.calendar_month_rounded,
+                color: VideoFormStyle.pink,
+                size: 17,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Weekly plan active until $activeUntil',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFCAC3D0),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stackActions = constraints.maxWidth < 330;
+              const description = Text(
+                'Enjoy every PRO feature now, or switch to Annually Pro '
+                'to save more.',
+                style: TextStyle(
+                  color: Color(0xFFC9C3CB),
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+              if (stackActions) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    description,
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _BuyCreditsButton(onTap: onBuyCredits),
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Expanded(child: description),
+                  const SizedBox(width: 10),
+                  _BuyCreditsButton(onTap: onBuyCredits),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyBenefitsCard extends StatelessWidget {
+  const _WeeklyBenefitsCard();
+
+  static const _items = [
+    (Icons.all_inclusive_rounded, 'Unlimited AI videos'),
+    (Icons.bolt_rounded, 'Priority generation'),
+    (Icons.water_drop_outlined, 'No watermark'),
+    (Icons.workspace_premium_rounded, 'Monthly bonus coins'),
+    (Icons.auto_awesome_rounded, 'Premium styles'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('weeklyProBenefits'),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                color: VideoFormStyle.pink,
+                size: 19,
+              ),
+              SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Your PRO benefits',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final itemWidth = (constraints.maxWidth - spacing) / 2;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 7,
+                children: [
+                  for (final item in _items)
+                    SizedBox(
+                      width: itemWidth,
+                      child: _WeeklyBenefitItem(icon: item.$1, text: item.$2),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyBenefitItem extends StatelessWidget {
+  const _WeeklyBenefitItem({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: VideoFormStyle.pink, size: 18),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFCECAD4),
+              fontSize: 11,
+              height: 1.2,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
       ],
     );
@@ -1416,7 +1636,7 @@ class _YearlyIntro extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final largeText = MediaQuery.textScalerOf(context).scale(12) > 16;
-              const benefits = _YearlyBenefits();
+              const benefits = _ProBenefits();
               final artwork = _YearlyArtwork(activeUntil: activeUntil);
               if (constraints.maxWidth < 330 || largeText) {
                 return Column(
@@ -1445,8 +1665,8 @@ class _YearlyIntro extends StatelessWidget {
   }
 }
 
-class _YearlyBenefits extends StatelessWidget {
-  const _YearlyBenefits();
+class _ProBenefits extends StatelessWidget {
+  const _ProBenefits();
 
   @override
   Widget build(BuildContext context) => const Column(

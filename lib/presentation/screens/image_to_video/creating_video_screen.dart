@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../../core/constants/app_features.dart';
+import '../../../core/events/video_generation_events.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -267,6 +268,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
         _showFailureUi('The generated video URL is missing. Please try again.');
         return;
       }
+      VideoGenerationEvents.notifySuccess(status.requestId);
       unawaited(_refreshGenerationHistory());
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(

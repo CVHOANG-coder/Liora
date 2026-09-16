@@ -101,6 +101,7 @@ void main() {
             prompt: 'a calm seaside',
             isHd: false,
             isLongTime: false,
+            aspectRatio: '9:16',
           ),
           client.verifyPurchase(
             const PurchaseReceipt(
@@ -660,6 +661,7 @@ void main() {
         'prompt': 'a calm seaside',
         'is_hd': true,
         'is_long_time': true,
+        'aspect_ratio': '16:9',
       });
       return _jsonResponse(_i2vBody(), 200);
     });
@@ -674,6 +676,7 @@ void main() {
       prompt: 'a calm seaside',
       isHd: true,
       isLongTime: true,
+      aspectRatio: '16:9',
     );
 
     expect(generation.requestId, 'request-001');
@@ -704,6 +707,7 @@ void main() {
           prompt: 'a calm seaside',
           isHd: false,
           isLongTime: false,
+          aspectRatio: '9:16',
         ),
         throwsA(
           isA<ApiException>().having(

@@ -1,8 +1,4 @@
-# Meta App Events — Nostalia
-
-> **Tạm vô hiệu hóa:** Facebook App Events và Firebase hiện không được đóng
-> gói/khởi tạo trong app. Khôi phục các khối có đánh dấu `TEMP` sau khi đăng ký
-> package/bundle ID `com.lioraai.videogenerator` trên các dashboard tương ứng.
+# Meta App Events — Liora
 
 Ứng dụng dùng [facebook_app_events](https://pub.dev/packages/facebook_app_events)
 `^0.30.5` (Flutter wrapper cho Meta SDK Android/iOS) để đo lường cài đặt và
@@ -10,17 +6,19 @@ lượt mở app từ quảng cáo. Không thêm Facebook Login hoặc Audience 
 
 ## Cấu hình đã tích hợp
 
-| Mục | Giá trị |
-| --- | --- |
-| Facebook App ID | `2116175409267246` |
-| Android package | `com.lioraai.videogenerator` |
+| Mục              | Giá trị                                   |
+| ---------------- | ----------------------------------------- |
+| Facebook App ID  | `1439644054709273`                        |
+| Android package  | `com.lioraai.videogenerator`              |
 | Android activity | `com.lioraai.videogenerator.MainActivity` |
-| iOS Bundle ID | `com.lioraai.videogenerator` |
-| iOS URL scheme | `fb2116175409267246` |
+| iOS Bundle ID    | `com.lioraai.videogenerator`              |
+| iOS URL scheme   | `fb1439644054709273`                      |
 
 App ID và Client Token nằm trong `android/app/src/main/res/values/facebook.xml`
 và `ios/Runner/Info.plist`. Client Token là cấu hình mobile client, **không phải
 App Secret**. Không đưa Facebook App Secret/access token quản trị vào app.
+Info.plist cũng khai báo hai SKAdNetwork ID chính thức của Meta để hỗ trợ đo
+lường chiến dịch cài đặt iOS khi người dùng không cấp ATT.
 
 `MetaAppEventsService` khởi tạo trong `main()` và kích hoạt đo lường app events.
 SDK native quản lý lifecycle; không gửi thêm sự kiện activation trên mỗi lần
@@ -60,6 +58,8 @@ riêng, cần nối trạng thái consent vào bước này trước khi cho ph�
    Hoàn tất các yêu cầu trạng thái app/quyền truy cập mà dashboard hiển thị.
 3. Bật/kiểm tra app event logging trong cài đặt Meta; mở Events Manager và chọn
    data source của app để kiểm tra Test Events/Diagnostics.
+   Với chiến dịch SKAdNetwork, cấu hình event priority/conversion value trong
+   Events Manager; phần này không thể hoàn tất chỉ bằng cấu hình trong app.
 4. Cài **bản build mới** trên điện thoại thật, mở app và kiểm tra app activation
    (`fb_mobile_activate_app`) xuất hiện. Thử cài mới để kiểm tra install. Sự kiện
    có thể được gửi theo batch; không kết luận ngay chỉ từ log local.

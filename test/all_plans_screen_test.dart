@@ -158,6 +158,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("You're on PRO"), findsOneWidget);
+    expect(find.text('Weekly plan active until 08/08/2026'), findsOneWidget);
+    expect(find.byKey(const Key('weeklyProBenefits')), findsOneWidget);
+    expect(find.text('Your PRO benefits'), findsOneWidget);
+    expect(find.text('Unlimited AI videos'), findsOneWidget);
+    expect(find.text('Premium styles'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('weeklyProSummary'))).height,
+      lessThanOrEqualTo(tester.view.physicalSize.height * .5),
+    );
     expect(find.text('CURRENT PLAN'), findsNothing);
     expect(find.byKey(const Key('weeklyCurrentPlanCard')), findsNothing);
     expect(find.text('Weekly Pro'), findsNothing);
@@ -205,6 +214,41 @@ void main() {
     expect(find.text('Unlimited AI video generation'), findsOneWidget);
     expect(find.text('Your Balance'), findsOneWidget);
     expect(find.text('Give PRO, Get More'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('weekly PRO header stays readable on compact screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final container = _profileContainer(
+      isSubscribed: true,
+      startedAt: '2026-08-01T00:00:00Z',
+      endsAt: '2026-08-08T00:00:00Z',
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.4)),
+          child: const MaterialApp(home: AllPlans()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("You're on PRO"), findsOneWidget);
+    expect(find.text('Weekly plan active until 08/08/2026'), findsOneWidget);
+    expect(find.byKey(const Key('weeklyProBenefits')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('weeklyProSummary'))).height,
+      lessThanOrEqualTo(tester.view.physicalSize.height * .5),
+    );
     expect(tester.takeException(), isNull);
   });
 

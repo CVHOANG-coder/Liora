@@ -21,6 +21,7 @@ typedef TextToVideoSubmit =
       required String prompt,
       required bool isHd,
       required bool isLongTime,
+      required String aspectRatio,
     });
 
 class _TextToVideoRequest {
@@ -28,11 +29,13 @@ class _TextToVideoRequest {
     required this.prompt,
     required this.isHd,
     required this.isLongTime,
+    required this.aspectRatio,
   });
 
   final String prompt;
   final bool isHd;
   final bool isLongTime;
+  final String aspectRatio;
 }
 
 class TextToVideoScreen extends ConsumerStatefulWidget {
@@ -52,6 +55,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
   final _promptBoxKey = GlobalKey();
   String _duration = '10s';
   String _quality = 'Non-HD';
+  String _aspectRatio = '9:16';
   bool _isSubmitting = false;
   bool _hasLeftForm = false;
   final _exitGuardKey = GlobalKey<GenerationFormExitGuardState>();
@@ -111,6 +115,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
         prompt: prompt,
         isHd: _quality == 'HD',
         isLongTime: _duration == '10s',
+        aspectRatio: _aspectRatio,
       );
     }
 
@@ -122,6 +127,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
         prompt: request.prompt,
         isHd: request.isHd,
         isLongTime: request.isLongTime,
+        aspectRatio: request.aspectRatio,
       );
       if (!mounted || _hasLeftForm) return;
 
@@ -235,6 +241,21 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
             ),
             const SizedBox(height: 11),
 
+            VideoFormSettingRow(
+              icon: Icons.aspect_ratio_rounded,
+              title: 'Aspect ratio',
+              value: _aspectRatio,
+              onTap: _isSubmitting
+                  ? null
+                  : () => _pickOption(
+                      title: 'Aspect ratio',
+                      options: const ['16:9', '9:16', '1:1', '4:3', '3:4'],
+                      selected: _aspectRatio,
+                      onSelected: (value) =>
+                          setState(() => _aspectRatio = value),
+                    ),
+            ),
+            const SizedBox(height: 9),
             VideoFormSettingRow(
               asset: 'assets/images/gen_video/clock.png',
               title: 'Duration',

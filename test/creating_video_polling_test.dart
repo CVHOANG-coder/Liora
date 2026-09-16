@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
+import 'package:video_gen/core/events/video_generation_events.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
 import 'package:video_gen/data/models/i2v_generation.dart';
@@ -401,6 +402,11 @@ void main() {
     tester,
   ) async {
     var historyRefreshCalls = 0;
+    final successRequestIds = <String>[];
+    final successSubscription = VideoGenerationEvents.successes.listen(
+      successRequestIds.add,
+    );
+    addTearDown(successSubscription.cancel);
     final progressRepository = _MemoryProgressRepository();
     await progressRepository.save(_progress());
     await tester.pumpWidget(
@@ -428,6 +434,7 @@ void main() {
     expect(find.byType(GeneratedVideoScreen), findsOneWidget);
     expect(find.text('Your Video'), findsOneWidget);
     expect(historyRefreshCalls, 1);
+    expect(successRequestIds, ['request-001']);
     expect(await progressRepository.load('request-001'), isNull);
     expect(tester.takeException(), isNull);
   });

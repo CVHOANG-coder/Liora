@@ -75,6 +75,20 @@ void main() {
             await _capture(tester, form);
           }
 
+          if (form == 'text') {
+            await _scrollTo(
+              tester,
+              find.byKey(const Key('videoSetting-Aspect ratio')),
+            );
+            await tester.tap(find.text('9:16'));
+            await tester.pumpAndSettle();
+            expect(find.byKey(const Key('videoFormSheet')), findsOneWidget);
+            await _scrollTo(tester, find.text('1:1'), sheet: true);
+            await tester.tap(find.text('1:1'));
+            await tester.pumpAndSettle();
+            expect(find.text('1:1'), findsOneWidget);
+          }
+
           await _scrollTo(
             tester,
             find.byKey(const Key('videoSetting-Duration')),

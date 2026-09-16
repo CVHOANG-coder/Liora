@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/events/video_generation_events.dart';
 import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/i2v_generation.dart';
@@ -51,6 +52,7 @@ class _VideoNotificationRequestScreenState
 
     final Widget destination;
     if (status.isCompleted && status.resultUrl.isNotEmpty) {
+      VideoGenerationEvents.notifySuccess(status.requestId);
       destination = GeneratedVideoScreen(
         result: status,
         returnToPreviousOnBack: true,

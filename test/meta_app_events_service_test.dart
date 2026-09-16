@@ -1,9 +1,46 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:facebook_app_events/facebook_app_events.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_gen/core/analytics/meta_app_events_service.dart';
 
-/* TEMP: Meta SDK behavior tests are disabled with the integration.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('native Meta credentials and attribution config stay aligned', () {
+    final androidValues = File(
+      'android/app/src/main/res/values/facebook.xml',
+    ).readAsStringSync();
+    final androidManifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    final iosPlist = File('ios/Runner/Info.plist').readAsStringSync();
+
+    final androidAppId = _xmlString(androidValues, 'facebook_app_id');
+    final androidClientToken = _xmlString(
+      androidValues,
+      'facebook_client_token',
+    );
+    expect(androidAppId, '1439644054709273');
+    expect(androidClientToken, isNotEmpty);
+    expect(_plistString(iosPlist, 'FacebookAppID'), androidAppId);
+    expect(_plistString(iosPlist, 'FacebookClientToken'), androidClientToken);
+    expect(iosPlist, contains('<string>fb$androidAppId</string>'));
+    expect(iosPlist, contains('v9wttpbfk9.skadnetwork'));
+    expect(iosPlist, contains('n38lu8286q.skadnetwork'));
+    expect(
+      androidManifest,
+      contains('android:name="com.facebook.sdk.ApplicationId"'),
+    );
+    expect(
+      androidManifest,
+      contains('android:name="com.facebook.sdk.ClientToken"'),
+    );
+  });
+
   const channel = MethodChannel(channelName);
   final calls = <MethodCall>[];
   late PermissionStatus status;
@@ -238,13 +275,11 @@ void main() {
     },
   );
 }
-*/
 
-void main() {
-  test('Meta App Events facade is a no-op while the SDK is disabled', () async {
-    final service = MetaAppEventsService();
-    await service.initialize();
-    await service.requestTrackingAuthorization();
-    await service.refreshTrackingAuthorization();
-  });
-}
+String _xmlString(String xml, String name) => RegExp(
+  '<string name="$name"[^>]*>([^<]+)</string>',
+).firstMatch(xml)!.group(1)!;
+
+String _plistString(String plist, String key) => RegExp(
+  '<key>$key</key>\\s*<string>([^<]+)</string>',
+).firstMatch(plist)!.group(1)!;

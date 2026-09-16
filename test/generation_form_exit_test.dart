@@ -212,8 +212,13 @@ Future<void> _openForm(
     ),
     _Form.text => TextToVideoScreen(
       progressRepository: repository,
-      submit: ({required prompt, required isHd, required isLongTime}) =>
-          submit(),
+      submit:
+          ({
+            required prompt,
+            required isHd,
+            required isLongTime,
+            required aspectRatio,
+          }) => submit(),
     ),
     _Form.theme => ThemeToVideoScreen(
       theme: const VideoPost(

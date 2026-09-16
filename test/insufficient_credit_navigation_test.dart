@@ -188,8 +188,13 @@ Widget _buildForm(
           }) => submit(),
     ),
     _GenerationForm.text => TextToVideoScreen(
-      submit: ({required prompt, required isHd, required isLongTime}) =>
-          submit(),
+      submit:
+          ({
+            required prompt,
+            required isHd,
+            required isLongTime,
+            required aspectRatio,
+          }) => submit(),
     ),
     _GenerationForm.theme => ThemeToVideoScreen(
       theme: const VideoPost(

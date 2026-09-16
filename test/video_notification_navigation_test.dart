@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
+import 'package:video_gen/core/events/video_generation_events.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/presentation/screens/image_to_video/generated_video_screen.dart';
@@ -11,6 +12,11 @@ void main() {
   testWidgets('opens the generated video from a completed notification', (
     tester,
   ) async {
+    final successRequestIds = <String>[];
+    final successSubscription = VideoGenerationEvents.successes.listen(
+      successRequestIds.add,
+    );
+    addTearDown(successSubscription.cancel);
     final notification = VideoNotificationOpen.fromData(<String, dynamic>{
       'type': 'video_generated',
       'request_id': 'completed-request',
@@ -34,6 +40,7 @@ void main() {
 
     expect(find.byType(GeneratedVideoScreen), findsOneWidget);
     expect(find.text('Your Video'), findsOneWidget);
+    expect(successRequestIds, ['completed-request']);
     expect(tester.takeException(), isNull);
   });
 

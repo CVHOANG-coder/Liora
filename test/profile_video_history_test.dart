@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_gen/core/events/video_generation_events.dart';
 import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/presentation/screens/generation_history/generation_history_screen.dart';
@@ -102,5 +103,45 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reloads videos when another flow reports generation success', (
+    tester,
+  ) async {
+    var loadCount = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileVideoHistoryProvider.overrideWith((ref) async {
+            loadCount += 1;
+            return GenerationHistoryPage(
+              requests: [
+                I2VRequestStatus.fromJson({
+                  'request_id': 'profile-video-$loadCount',
+                  'request_status': 'COMPLETED',
+                  'prompt': 'Generated video $loadCount',
+                  'result_data': 'https://example.com/video-$loadCount.mp4',
+                }),
+              ],
+              pagination: const GenerationHistoryPagination(
+                page: 1,
+                limit: 6,
+                total: 1,
+                totalPages: 1,
+              ),
+            );
+          }),
+        ],
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(loadCount, 1);
+
+    VideoGenerationEvents.notifySuccess('request-from-another-screen');
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 2);
+    expect(find.text('Generated video 2'), findsOneWidget);
   });
 }

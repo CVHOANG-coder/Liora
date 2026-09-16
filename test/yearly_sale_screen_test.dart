@@ -33,7 +33,16 @@ void main() {
     expect(find.text('SAVE 70%'), findsOneWidget);
     expect(find.text(r'Only $0.58/week'), findsOneWidget);
     expect(find.textContaining('Billed annually'), findsNothing);
-    expect(find.text('7-day free trial'), findsOneWidget);
+    expect(find.text('7-day free trial'), findsNothing);
+    expect(find.text('Upgrade to Annually Pro'), findsOneWidget);
+    expect(find.text('Buy more credits'), findsOneWidget);
+    expect(find.text('Top up without changing your plan'), findsOneWidget);
+    expect(
+      tester
+          .getBottomRight(find.byKey(const Key('yearlySaleBuyCreditsButton')))
+          .dy,
+      lessThanOrEqualTo(tester.view.physicalSize.height),
+    );
     expect(tester.takeException(), isNull);
   });
 

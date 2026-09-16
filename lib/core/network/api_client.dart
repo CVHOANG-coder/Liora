@@ -124,10 +124,12 @@ class ApiClient {
     required String prompt,
     required bool isHd,
     required bool isLongTime,
+    required String aspectRatio,
   }) => t2vGenerationService.generate(
     prompt: prompt,
     isHd: isHd,
     isLongTime: isLongTime,
+    aspectRatio: aspectRatio,
   );
 
   Future<I2VGeneration> generateThemeVideo({

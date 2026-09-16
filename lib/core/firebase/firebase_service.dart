@@ -9,6 +9,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../events/video_generation_events.dart';
+
 const _notificationChannel = AndroidNotificationChannel(
   'high_importance_channel',
   'Important notifications',
@@ -395,6 +397,7 @@ class FirebaseService {
 
   static void _listenForMessages() {
     FirebaseMessaging.onMessage.listen((message) async {
+      _notifyVideoGenerationSuccess(message.data);
       await analytics.logEvent(
         name: 'push_received_foreground',
         parameters: {
@@ -517,6 +520,18 @@ class FirebaseService {
       if (kDebugMode) {
         debugPrint('Ignored notification navigation: ${error.message}');
       }
+    }
+  }
+
+  static void _notifyVideoGenerationSuccess(Map<String, dynamic> data) {
+    try {
+      final notification = VideoNotificationOpen.fromData(data);
+      if (notification.type == 'video_generated' &&
+          notification.status == 'COMPLETED') {
+        VideoGenerationEvents.notifySuccess(notification.requestId);
+      }
+    } on FormatException {
+      // Other notification types do not affect the generated video history.
     }
   }
 

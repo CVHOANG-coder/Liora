@@ -240,13 +240,15 @@ class VideoPromptBox extends StatelessWidget {
 class VideoFormSettingRow extends StatelessWidget {
   const VideoFormSettingRow({
     super.key,
-    required this.asset,
+    this.asset,
+    this.icon,
     required this.title,
     required this.value,
     required this.onTap,
-  });
+  }) : assert(asset != null || icon != null);
 
-  final String asset;
+  final String? asset;
+  final IconData? icon;
   final String title;
   final String value;
   final VoidCallback? onTap;
@@ -270,12 +272,27 @@ class VideoFormSettingRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
           child: Row(
             children: [
-              Image.asset(
-                asset,
-                width: 34,
-                height: 34,
-                excludeFromSemantics: true,
-              ),
+              if (asset != null)
+                Image.asset(
+                  asset!,
+                  width: 34,
+                  height: 34,
+                  excludeFromSemantics: true,
+                )
+              else
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF201A31),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: const Color(0xFF604A76),
+                      width: 0.6,
+                    ),
+                  ),
+                  child: Icon(icon, color: VideoFormStyle.accent, size: 21),
+                ),
               const SizedBox(width: 14),
               Expanded(child: Text(title, style: VideoFormStyle.serif(17))),
               const SizedBox(width: 10),
