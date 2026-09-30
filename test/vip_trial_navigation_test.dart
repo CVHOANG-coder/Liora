@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:video_gen/core/constants/app_features.dart';
-import 'package:video_gen/core/storage/yearly_sale_preferences.dart';
+import 'package:video_gen/core/device/device_identity_service.dart';
+import 'package:video_gen/core/network/api_client.dart';
+import 'package:video_gen/core/storage/token_storage.dart';
 import 'package:video_gen/data/models/package_catalog.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/data/video_categories.dart';
@@ -55,6 +57,31 @@ void main() {
     expect(find.byType(FreeTrialScreen), findsOneWidget);
     expect(find.byType(AllPlans), findsNothing);
     expect(find.byKey(const Key('trialClaimButton')), findsOneWidget);
+  });
+
+  testWidgets('new user does not see annual sale after dismissing Free Trial', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    final container = _profileContainer(isSubscribed: false);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(YearlySaleScreen), findsNothing);
+
+    await tester.tap(find.byKey(const Key('trialLaterButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FreeTrialScreen), findsNothing);
+    expect(find.byType(YearlySaleScreen), findsNothing);
   });
 
   testWidgets('yearly subscriber sees credits and opens Buy Credits', (
@@ -202,7 +229,7 @@ void main() {
     expect(find.text('Pro'), findsOneWidget);
   });
 
-  testWidgets('weekly subscriber sees the scheduled yearly sale only once', (
+  testWidgets('weekly subscriber sees the yearly sale on app entry', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -210,7 +237,6 @@ void main() {
       isSubscribed: true,
       isVIP: true,
       subscriptionDays: 7,
-      yearlySalePending: true,
     );
     addTearDown(container.dispose);
 
@@ -234,18 +260,9 @@ void main() {
     await tester.tap(find.byKey(const Key('homeProButton')));
     await tester.pumpAndSettle();
     expect(find.byType(AllPlans), findsOneWidget);
-
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(YearlySaleScreen), findsNothing);
-    expect(find.byType(AllPlans), findsOneWidget);
   });
 
-  testWidgets('weekly subscriber does not see an unscheduled yearly sale', (
-    tester,
-  ) async {
+  testWidgets('weekly subscriber sees sale on each app entry', (tester) async {
     _configurePhoneSize(tester);
     final container = _profileContainer(
       isSubscribed: true,
@@ -262,9 +279,194 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));
+    await tester.pumpAndSettle();
     expect(find.byType(YearlySaleScreen), findsNothing);
-    expect(find.byKey(const Key('homeProButton')), findsOneWidget);
-    expect(find.text('Upgrade'), findsOneWidget);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+  });
+
+  testWidgets('active weekly trial sees sale when app resumes', (tester) async {
+    _configurePhoneSize(tester);
+    late final ProviderContainer container;
+    final profileClient = _FakeProfileApiClient(
+      () => container.read(profileProvider)!,
+    );
+    container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 3,
+      profileClient: profileClient,
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(profileClient.fetchCount, 1);
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+  });
+
+  testWidgets('paid weekly plan sees sale when app resumes', (tester) async {
+    _configurePhoneSize(tester);
+    late final ProviderContainer container;
+    final profileClient = _FakeProfileApiClient(
+      () => container.read(profileProvider)!,
+    );
+    container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 7,
+      profileClient: profileClient,
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(profileClient.fetchCount, 1);
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+  });
+
+  testWidgets('expired weekly plan does not see sale on entry or resume', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    late final ProviderContainer container;
+    final profileClient = _FakeProfileApiClient(
+      () => container.read(profileProvider)!,
+    );
+    container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 7,
+      expired: true,
+      profileClient: profileClient,
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(YearlySaleScreen), findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(profileClient.fetchCount, 1);
+    expect(find.byType(YearlySaleScreen), findsNothing);
+  });
+
+  testWidgets('annual plan does not see sale on entry or resume', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    late final ProviderContainer container;
+    final profileClient = _FakeProfileApiClient(
+      () => container.read(profileProvider)!,
+    );
+    container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 365,
+      profileClient: profileClient,
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(YearlySaleScreen), findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(profileClient.fetchCount, 1);
+    expect(find.byType(YearlySaleScreen), findsNothing);
+  });
+
+  testWidgets('resume skips sale after the weekly plan changes to annual', (
+    tester,
+  ) async {
+    _configurePhoneSize(tester);
+    late UserProfile serverProfile;
+    final profileClient = _FakeProfileApiClient(() => serverProfile);
+    final container = _profileContainer(
+      isSubscribed: true,
+      subscriptionDays: 7,
+      profileClient: profileClient,
+    );
+    addTearDown(container.dispose);
+    serverProfile = container.read(profileProvider)!;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: MainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(YearlySaleScreen), findsOneWidget);
+    await tester.tap(find.byKey(const Key('yearlySaleCloseButton')));
+    await tester.pumpAndSettle();
+
+    final startedAt = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    serverProfile = UserProfile.fromJson(<String, dynamic>{
+      'id': 2,
+      'isVIP': true,
+      'isSubscribed': true,
+      'sub_time': startedAt.toIso8601String(),
+      'sub_end_time': startedAt
+          .add(const Duration(days: 365))
+          .toIso8601String(),
+    });
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(profileClient.fetchCount, 1);
+    expect(find.byType(YearlySaleScreen), findsNothing);
   });
 }
 
@@ -272,17 +474,20 @@ ProviderContainer _profileContainer({
   required bool isSubscribed,
   bool? isVIP,
   int subscriptionDays = 7,
-  bool yearlySalePending = false,
+  bool expired = false,
   String? googlePlayProductId,
+  ApiClient? profileClient,
 }) {
+  final subscriptionStart = DateTime.now().toUtc().subtract(
+    Duration(days: expired ? subscriptionDays + 1 : 1),
+  );
   final container = ProviderContainer(
     overrides: [
       themeCategoriesProvider.overrideWith(
         (ref) async => const <VideoCategory>[],
       ),
-      yearlySalePreferencesProvider.overrideWithValue(
-        _MemoryYearlySalePreferences(yearlySalePending),
-      ),
+      if (profileClient != null)
+        apiClientProvider.overrideWithValue(profileClient),
       if (googlePlayProductId != null)
         googlePlayPastPurchasesProvider.overrideWith(
           (ref) async => <PurchaseDetails>[
@@ -311,13 +516,11 @@ ProviderContainer _profileContainer({
           'is_actived': true,
           'isVIP': isVIP ?? isSubscribed,
           'isSubscribed': isSubscribed,
-          'sub_time': isSubscribed ? '2026-08-01T00:00:00Z' : null,
+          'sub_time': isSubscribed ? subscriptionStart.toIso8601String() : null,
           'sub_end_time': isSubscribed
-              ? DateTime.utc(
-                  2026,
-                  8,
-                  1,
-                ).add(Duration(days: subscriptionDays)).toIso8601String()
+              ? subscriptionStart
+                    .add(Duration(days: subscriptionDays))
+                    .toIso8601String()
               : null,
           'total_credit': 100,
           'i2v_credit_base': 35,
@@ -346,20 +549,45 @@ ProviderContainer _profileContainer({
   return container;
 }
 
-class _MemoryYearlySalePreferences implements YearlySalePreferences {
-  _MemoryYearlySalePreferences(this.pending);
+class _FakeProfileApiClient extends ApiClient {
+  _FakeProfileApiClient(this.currentProfile)
+    : super(
+        deviceIdentity: const _FakeDeviceIdentity(),
+        tokenStorage: _FakeTokenStorage(),
+      );
 
-  bool pending;
+  final UserProfile Function() currentProfile;
+  int fetchCount = 0;
 
   @override
-  Future<bool> consumeScheduledOffer() async {
-    final result = pending;
-    pending = false;
-    return result;
+  Future<UserProfile> fetchProfile() async {
+    fetchCount += 1;
+    return currentProfile();
   }
+}
+
+class _FakeDeviceIdentity implements DeviceIdentityProvider {
+  const _FakeDeviceIdentity();
 
   @override
-  Future<void> scheduleAfterWeeklyPurchase() async => pending = true;
+  String get countryCode => 'US';
+
+  @override
+  String get platform => 'ANDROID';
+
+  @override
+  Future<String> getDeviceId() async => 'test-device';
+}
+
+class _FakeTokenStorage implements TokenStorage {
+  @override
+  Future<void> clearToken() async {}
+
+  @override
+  Future<String?> readToken() async => null;
+
+  @override
+  Future<void> saveToken(String token) async {}
 }
 
 void _configurePhoneSize(WidgetTester tester) {

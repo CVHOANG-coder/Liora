@@ -25,6 +25,13 @@ SDK native quản lý lifecycle; không gửi thêm sự kiện activation trên
 resume và không gửi thủ công purchase để tránh đếm trùng với auto logging.
 Không truyền tên, email, mã hồ sơ hoặc user ID riêng vào Meta.
 
+Android và iOS Meta SDK có bộ theo dõi giao dịch Google Play/StoreKit. App bật
+`AutoLogAppEventsEnabled` trước khi gọi `activateApp()`, sau quyết định ATT trên
+iOS. Purchase tự động chỉ hoạt động khi Meta cũng bật **Automatic In-App
+Purchase Logging** trong cấu hình app phía server. Flutter không đọc được cờ
+này; chỉ cấu hình client không đảm bảo sự kiện `Purchase` đã đến Meta. Không
+gọi thêm `logPurchase` cho cùng giao dịch khi tính năng tự động đang bật.
+
 ## Tracking trên iOS
 
 - IDFA mặc định tắt trong Info.plist. Chỉ bật khi ATT trả về `granted`.
@@ -65,9 +72,11 @@ riêng, cần nối trạng thái consent vào bước này trước khi cho ph�
    có thể được gửi theo batch; không kết luận ngay chỉ từ log local.
 5. Trên iOS thử cả Allow và Ask App Not to Track, sau đó thay đổi quyền trong
    Settings và mở lại app. Trên Android kiểm tra thêm bản release từ Play.
-6. Chỉ chọn app để chạy chiến dịch App promotion sau khi xác nhận Meta nhận
-   events. Nếu tối ưu Purchase/Subscribe/StartTrial, kiểm tra sự kiện giao dịch
-   sandbox thực tế trước; không mặc định auto logging đã đủ cho mọi flow IAP.
+6. Trong cài đặt App Events của Meta, kiểm tra **Automatic In-App Purchase
+   Logging** đang bật. Thực hiện một giao dịch sandbox trên thiết bị thật ở
+   từng nền tảng và kiểm tra `Purchase` trong Test Events/Diagnostics, gồm giá
+   trị, tiền tệ và số lượng sự kiện. Chỉ tối ưu Purchase sau khi xác nhận Meta
+   nhận đúng một sự kiện cho mỗi giao dịch. Trial và renewal cần kiểm tra riêng.
 
 Chưa có quyền truy cập dashboard trong lần tích hợp này nên chưa thể xác nhận
 event đã đến Meta, liên kết tài khoản quảng cáo hoặc tạo chiến dịch.

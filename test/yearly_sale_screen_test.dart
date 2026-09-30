@@ -29,14 +29,18 @@ void main() {
     expect(find.text('Sale Pro'), findsOneWidget);
     expect(find.text(r'$29.99'), findsOneWidget);
     expect(find.text(r'$99.99/year'), findsOneWidget);
-    expect(find.text('Save 70%'), findsOneWidget);
     expect(find.text('SAVE 70%'), findsOneWidget);
-    expect(find.text(r'Only $0.58/week'), findsOneWidget);
+    expect(find.textContaining(r'Pay $29.99 for one year'), findsOneWidget);
+    expect(find.textContaining(r'Auto-renews at $29.99/year'), findsOneWidget);
+    expect(
+      find.textContaining('Offer applies to the Annually Sale Pro plan'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('/week'), findsNothing);
     expect(find.textContaining('Billed annually'), findsNothing);
     expect(find.text('7-day free trial'), findsNothing);
-    expect(find.text('Upgrade to Annually Pro'), findsOneWidget);
+    expect(find.text('Upgrade to Annual'), findsOneWidget);
     expect(find.text('Buy more credits'), findsOneWidget);
-    expect(find.text('Top up without changing your plan'), findsOneWidget);
     expect(
       tester
           .getBottomRight(find.byKey(const Key('yearlySaleBuyCreditsButton')))

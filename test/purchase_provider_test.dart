@@ -9,7 +9,6 @@ import 'package:video_gen/core/device/device_identity_service.dart';
 import 'package:video_gen/core/network/api_client.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/core/storage/token_storage.dart';
-import 'package:video_gen/core/storage/yearly_sale_preferences.dart';
 import 'package:video_gen/data/models/package_catalog.dart';
 import 'package:video_gen/data/models/purchase_verification.dart';
 import 'package:video_gen/data/models/user_profile.dart';
@@ -22,14 +21,12 @@ void main() {
   test('refreshes profile into Riverpod after a verified purchase', () async {
     final gateway = _FakePurchaseGateway();
     final apiClient = _FakeApiClient();
-    final yearlySalePreferences = _MemoryYearlySalePreferences();
     addTearDown(gateway.dispose);
     final container = ProviderContainer(
       overrides: [
         googlePlayPlatformProvider.overrideWithValue(true),
         purchaseGatewayProvider.overrideWithValue(gateway),
         apiClientProvider.overrideWithValue(apiClient),
-        yearlySalePreferencesProvider.overrideWithValue(yearlySalePreferences),
       ],
     );
     addTearDown(container.dispose);
@@ -83,7 +80,6 @@ void main() {
     expect(profile?.isVIP, isTrue);
     expect(profile?.isSubscribed, isTrue);
     expect(profile?.totalCredit, 420);
-    expect(yearlySalePreferences.pending, isTrue);
   });
 
   test('selects an eligible free-trial offer and passes its token', () async {
@@ -400,20 +396,6 @@ class _MemoryTokenStorage implements TokenStorage {
 
   @override
   Future<void> saveToken(String token) async => this.token = token;
-}
-
-class _MemoryYearlySalePreferences implements YearlySalePreferences {
-  bool pending = false;
-
-  @override
-  Future<bool> consumeScheduledOffer() async {
-    final result = pending;
-    pending = false;
-    return result;
-  }
-
-  @override
-  Future<void> scheduleAfterWeeklyPurchase() async => pending = true;
 }
 
 class _FakePurchaseGateway implements PurchaseGateway {

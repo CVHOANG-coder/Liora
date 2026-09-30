@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
+import '../../../data/models/user_profile.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../in_app_purchase/all_plans_screen.dart';
@@ -30,14 +31,17 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   late int _selectedIndex;
   late final List<Widget> _screens;
   bool _isShowingInitialOffer = false;
+  bool _wasBackgrounded = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _screens = [
       HomeScreen(onProfilePressed: () => _selectTab(1)),
       const ProfileScreen(),
@@ -50,6 +54,54 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+    } else if (state == AppLifecycleState.resumed && _wasBackgrounded) {
+      _wasBackgrounded = false;
+      unawaited(_showSaleOnResume());
+    }
+  }
+
+  Future<void> _showSaleOnResume() async {
+    if (!AppFeatures.commerceEnabled ||
+        !mounted ||
+        _isShowingInitialOffer ||
+        _isPurchaseInProgress()) {
+      return;
+    }
+    _isShowingInitialOffer = true;
+    try {
+      final profile = await ref.read(apiClientProvider).fetchProfile();
+      if (!mounted) return;
+      ref.read(profileProvider.notifier).setProfile(profile);
+      if (_hasActiveWeeklyPlan(profile) && !_isPurchaseInProgress()) {
+        await YearlySaleScreen.open(context);
+      }
+    } catch (_) {
+      // A failed profile refresh must not show an offer for a stale plan.
+    } finally {
+      _isShowingInitialOffer = false;
+    }
+  }
+
+  bool _isPurchaseInProgress() =>
+      switch (ref.read(purchaseControllerProvider).status) {
+        PurchaseFlowStatus.launching ||
+        PurchaseFlowStatus.pending ||
+        PurchaseFlowStatus.verifying ||
+        PurchaseFlowStatus.restoring => true,
+        _ => false,
+      };
+
   Future<void> _showInitialOfferIfNeeded() async {
     if (!AppFeatures.commerceEnabled ||
         !mounted ||
@@ -61,20 +113,28 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     try {
       final profile = ref.read(profileProvider);
       final activePlan = resolveProPlanStatus(profile);
-      if (activePlan == ProPlanStatus.weekly) {
-        final shouldShow = await ref
-            .read(yearlySalePreferencesProvider)
-            .consumeScheduledOffer();
-        if (!mounted || !shouldShow) return;
+      if (_hasActiveWeeklyPlan(profile)) {
         await YearlySaleScreen.open(context);
-      } else if (profile?.isVIP == true) {
-        return;
-      } else if (!(profile?.isSubscribed ?? false)) {
+      } else if (activePlan == ProPlanStatus.none && profile?.isVIP != true) {
         await FreeTrialScreen.open(context);
       }
     } finally {
       _isShowingInitialOffer = false;
     }
+  }
+
+  bool _hasActiveWeeklyPlan(UserProfile? profile) {
+    final startedAt = profile?.subscriptionTime;
+    final endsAt = profile?.subscriptionEndTime;
+    final now = DateTime.now();
+    return profile != null &&
+        profile.isSubscribed &&
+        startedAt != null &&
+        endsAt != null &&
+        !startedAt.isAfter(now) &&
+        endsAt.isAfter(now) &&
+        endsAt.isAfter(startedAt) &&
+        resolveProPlanStatus(profile) == ProPlanStatus.weekly;
   }
 
   Future<void> _requestHomeNotificationPermission() {

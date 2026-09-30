@@ -87,7 +87,7 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
                           SizedBox(height: 9 * scale),
                           _PriceCard(pricing: pricing),
                           SizedBox(height: 7 * scale),
-                          const _BillingNote(),
+                          _BillingNote(pricing: pricing),
                           SizedBox(height: 10 * scale),
                           _PrimaryButton(
                             busy: purchaseState.isBusy,
@@ -260,7 +260,6 @@ class _SalePricing {
   const _SalePricing({
     required this.salePrice,
     required this.regularPrice,
-    required this.weeklyPrice,
     required this.savingsPercent,
   });
 
@@ -296,27 +295,13 @@ class _SalePricing {
       regularPrice:
           recurringSubscriptionPrice(storeRegular) ??
           '\$${safeRegularAmount.toStringAsFixed(2)}',
-      weeklyPrice: _formatWeeklyPrice(storeSale, saleAmount),
       savingsPercent: percent,
     );
   }
 
   final String salePrice;
   final String regularPrice;
-  final String weeklyPrice;
   final int savingsPercent;
-}
-
-String _formatWeeklyPrice(ProductDetails? product, double yearlyAmount) {
-  final amount = yearlyAmount / 52;
-  final currencyCode = product?.currencyCode.toUpperCase();
-  if (currencyCode == 'VND') {
-    return '${amount.round()} ₫';
-  }
-  if (currencyCode == null || currencyCode.isEmpty || currencyCode == 'USD') {
-    return '\$${amount.toStringAsFixed(2)}';
-  }
-  return '$currencyCode ${amount.toStringAsFixed(2)}';
 }
 
 class _SaleBackground extends StatelessWidget {
@@ -435,7 +420,7 @@ class _SaleHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = _saleScale(context);
     return SizedBox(
-      height: 205 * scale,
+      height: 153 * scale,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -450,36 +435,6 @@ class _SaleHero extends StatelessWidget {
             ),
           ),
           Positioned(left: 4, top: 34 * scale, child: const _GradientTitle()),
-          Positioned(
-            left: 4,
-            right: 4,
-            top: 127 * scale,
-            child: Text(
-              'Unlimited AI videos, premium styles, faster generation, '
-              'and watermark-free export.',
-              style: TextStyle(
-                color: const Color(0xFFD8D2DA),
-                fontSize: 12.5 * scale,
-                height: 1.32,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 4,
-            bottom: 1,
-            child: const Row(
-              children: [
-                _SaleBadge(icon: Icons.bolt_rounded, label: 'LIMITED SALE'),
-                SizedBox(width: 7),
-                _SaleBadge(
-                  icon: Icons.workspace_premium_rounded,
-                  label: 'BEST VALUE',
-                  orange: true,
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -526,61 +481,13 @@ class _GradientTitle extends StatelessWidget {
   }
 }
 
-class _SaleBadge extends StatelessWidget {
-  const _SaleBadge({
-    required this.icon,
-    required this.label,
-    this.orange = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool orange;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _saleScale(context);
-    final color = orange ? VideoFormStyle.accent : VideoFormStyle.pink;
-    return Container(
-      height: 29 * scale,
-      padding: EdgeInsets.symmetric(horizontal: 9 * scale),
-      decoration: BoxDecoration(
-        color: const Color(0xD80C0710),
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: color),
-        boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.18), blurRadius: 8),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 15 * scale),
-          SizedBox(width: 5 * scale),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 9.5 * scale,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BenefitsCard extends StatelessWidget {
   const _BenefitsCard();
 
   static const _benefits = [
-    (Icons.all_inclusive_rounded, 'Unlimited AI video generation'),
-    (Icons.auto_awesome_rounded, 'Premium styles & templates'),
-    (Icons.bolt_rounded, 'Faster generation'),
-    (Icons.water_drop_outlined, 'Watermark-free export'),
-    (Icons.workspace_premium_rounded, 'Monthly bonus crown coins'),
+    (Icons.all_inclusive_rounded, 'Unlimited AI videos'),
+    (Icons.auto_awesome_rounded, 'Premium styles and faster generation'),
+    (Icons.water_drop_outlined, 'Export without a watermark'),
   ];
 
   @override
@@ -759,52 +666,6 @@ class _PriceCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(height: 5 * scale),
-                Text(
-                  'Save ${pricing.savingsPercent}%',
-                  style: TextStyle(
-                    color: VideoFormStyle.pink,
-                    fontSize: 15 * scale,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 2 * scale),
-                Text(
-                  'Only ${pricing.weeklyPrice}/week',
-                  style: TextStyle(
-                    color: const Color(0xFFBDB6C1),
-                    fontSize: 11.5 * scale,
-                  ),
-                ),
-                // const SizedBox(height: 10),
-                // Container(
-                //   height: 36,
-                //   padding: const EdgeInsets.symmetric(horizontal: 17),
-                //   decoration: BoxDecoration(
-                //     color: const Color(0xFF14152B),
-                //     borderRadius: BorderRadius.circular(19),
-                //     border: Border.all(color: VideoFormStyle.accent),
-                //   ),
-                //   child: const Row(
-                //     mainAxisSize: MainAxisSize.min,
-                //     children: [
-                //       Icon(
-                //         Icons.calendar_month_outlined,
-                //         color: VideoFormStyle.pink,
-                //         size: 19,
-                //       ),
-                //       SizedBox(width: 8),
-                //       Text(
-                //         '7-day free trial',
-                //         style: TextStyle(
-                //           color: VideoFormStyle.pink,
-                //           fontSize: 14,
-                //           fontWeight: FontWeight.w700,
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                // ),
               ],
             ),
           ),
@@ -861,28 +722,24 @@ class _SelectedPlanIcon extends StatelessWidget {
 }
 
 class _BillingNote extends StatelessWidget {
-  const _BillingNote();
+  const _BillingNote({required this.pricing});
+
+  final _SalePricing pricing;
 
   @override
   Widget build(BuildContext context) {
     final scale = _saleScale(context);
-    return Center(
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: 13 * scale,
-          vertical: 5 * scale,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xA10D1220),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: VideoFormStyle.border),
-        ),
-        child: Text(
-          'Cancel anytime',
-          style: TextStyle(
-            color: const Color(0xFFC5BEC8),
-            fontSize: 10 * scale,
-          ),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 6 * scale),
+      child: Text(
+        'Pay ${pricing.salePrice} for one year. Auto-renews at '
+        '${pricing.salePrice}/year until canceled. '
+        'Offer applies to the Annually Sale Pro plan.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: const Color(0xFFC5BEC8),
+          fontSize: 11 * scale,
+          height: 1.35,
         ),
       ),
     );
@@ -930,7 +787,7 @@ class _PrimaryButton extends StatelessWidget {
                     const SizedBox(width: 10),
                   ],
                   Text(
-                    busy ? 'Processing...' : 'Upgrade to Annually Pro',
+                    busy ? 'Processing...' : 'Upgrade to Annual',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16 * scale,
@@ -1044,15 +901,6 @@ class _BuyCreditsButton extends StatelessWidget {
                           fontSize: 15 * scale,
                           height: 1.15,
                           fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 2 * scale),
-                      Text(
-                        'Top up without changing your plan',
-                        style: TextStyle(
-                          color: const Color(0xFFBEB8C8),
-                          fontSize: 10 * scale,
-                          height: 1.2,
                         ),
                       ),
                     ],

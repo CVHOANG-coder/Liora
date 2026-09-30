@@ -10,7 +10,6 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import '../../core/constants/iap_product_ids.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
-import '../../core/storage/yearly_sale_preferences.dart';
 import '../../data/models/package_catalog.dart';
 import '../../data/models/purchase_verification.dart';
 import '../../data/services/google_play_purchase_gateway.dart';
@@ -101,10 +100,6 @@ final iapCatalogPlatformProvider = Provider<String?>((ref) {
   };
 });
 
-final yearlySalePreferencesProvider = Provider<YearlySalePreferences>(
-  (ref) => SharedPreferencesYearlySalePreferences(),
-);
-
 final purchaseControllerProvider =
     NotifierProvider<PurchaseController, PurchaseState>(PurchaseController.new);
 
@@ -136,14 +131,12 @@ class PurchaseController extends Notifier<PurchaseState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   late PurchaseGateway _gateway;
   late ApiClient _apiClient;
-  late YearlySalePreferences _yearlySalePreferences;
   final Set<String> _consumableProductIds = <String>{
     ...IapProductIds.consumableProductIds,
   };
   final Set<String> _subscriptionProductIds = <String>{
     ...IapProductIds.subscriptionProductIds,
   };
-  final Set<String> _weeklySubscriptionProductIds = <String>{};
   final Set<String> _processingPurchaseTokens = <String>{};
   bool _billingAvailable = false;
   bool _disposed = false;
@@ -156,7 +149,6 @@ class PurchaseController extends Notifier<PurchaseState> {
 
     _gateway = ref.watch(purchaseGatewayProvider);
     _apiClient = ref.watch(apiClientProvider);
-    _yearlySalePreferences = ref.watch(yearlySalePreferencesProvider);
     ref.onDispose(() {
       _disposed = true;
       unawaited(_purchaseSubscription?.cancel());
@@ -219,14 +211,6 @@ class PurchaseController extends Notifier<PurchaseState> {
           ...packages.subscriptions,
           ...packages.sales,
         ].map((package) => package.productId).where((id) => id.isNotEmpty),
-      );
-    _weeklySubscriptionProductIds
-      ..clear()
-      ..addAll(
-        packages.subscriptions
-            .where((package) => package.durationDays <= 14)
-            .map((package) => package.productId)
-            .where((id) => id.isNotEmpty),
       );
     final ids = <String>{
       ...IapProductIds.allProductIds,
@@ -484,16 +468,6 @@ class PurchaseController extends Notifier<PurchaseState> {
 
       final profileRefreshed = await _refreshProfileAfterPurchase();
       if (!profileRefreshed) _scheduleBackgroundProfileRefresh();
-
-      if (purchase.status == PurchaseStatus.purchased &&
-          _weeklySubscriptionProductIds.contains(purchase.productID)) {
-        try {
-          await _yearlySalePreferences.scheduleAfterWeeklyPurchase();
-        } catch (_) {
-          // A local preference failure must not turn a verified payment into
-          // a failed purchase.
-        }
-      }
 
       if (!_disposed) {
         final successMessage = result.message.isEmpty
