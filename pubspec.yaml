@@ -2,7 +2,7 @@ name: video_gen
 description: "A lightweight AI content creation app starter."
 publish_to: "none"
 
-version: 1.0.0+5
+version: 1.0.0+6
 
 environment:
   sdk: ^3.12.2

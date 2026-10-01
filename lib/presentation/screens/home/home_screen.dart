@@ -338,22 +338,22 @@ class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 174,
+      height: 140,
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
           Positioned(
             right: -12,
-            top: 0,
-            width: 270,
-            height: 202,
+            bottom: 0,
+            width: 202.5,
+            height: 151.5,
             child: Image.asset(
               'assets/images/home/bg_banner_home.png',
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
           ),
-          const Positioned(left: 8, top: 32, child: _HeroCopy()),
+          const Positioned(left: 8, top: 10, child: _HeroCopy()),
         ],
       ),
     );
@@ -396,22 +396,22 @@ class _HeroCopy extends StatelessWidget {
             'short films',
             style: TextStyle(
               fontFamily: 'serif',
-              fontSize: 35,
+              fontSize: 32,
               height: 1.05,
               fontWeight: FontWeight.w700,
               letterSpacing: -1.5,
             ),
           ),
         ),
-        const SizedBox(height: 22),
-        const Text(
-          'Image to Video, \nmade to go viral.',
-          style: TextStyle(
-            color: Color(0xFFBDB8C1),
-            fontSize: 16,
-            height: 1.45,
-          ),
-        ),
+        // const SizedBox(height: 22),
+        // const Text(
+        //   'Image to Video, \nmade to go viral.',
+        //   style: TextStyle(
+        //     color: Color(0xFFBDB8C1),
+        //     fontSize: 16,
+        //     height: 1.45,
+        //   ),
+        // ),
       ],
     );
   }
@@ -473,14 +473,14 @@ class _FeatureCard extends StatelessWidget {
             Positioned(
               left: 13,
               top: 14,
-              width: 40,
-              height: 40,
+              width: 64,
+              height: 64,
               child: Image.asset(asset, fit: BoxFit.contain),
             ),
             Positioned(
               left: 13,
               right: 13,
-              bottom: 14,
+              bottom: 20,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -490,29 +490,29 @@ class _FeatureCard extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          maxLines: 1,
+                          // maxLines: 1,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Color(0xFFBBB5BE),
-                            fontSize: 11.5,
-                            height: 1.3,
-                          ),
-                        ),
+                        // const SizedBox(height: 6),
+                        // Text(
+                        //   subtitle,
+                        //   style: const TextStyle(
+                        //     color: Color(0xFFBBB5BE),
+                        //     fontSize: 11.5,
+                        //     height: 1.3,
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 2),
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: const Color(0xFF121421).withValues(alpha: 0.78),

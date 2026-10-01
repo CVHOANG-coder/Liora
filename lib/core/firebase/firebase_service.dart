@@ -89,11 +89,16 @@ class VideoNotificationOpen {
 
 String? firebaseUserTopicFor(String userCode) {
   final normalizedUserCode = userCode.trim();
-  if (normalizedUserCode.isEmpty) return null;
-
-  final topic = 'user_$normalizedUserCode';
-  final validTopic = RegExp(r'^[a-zA-Z0-9-_.~%]{1,900}$');
-  return validTopic.hasMatch(topic) ? topic : null;
+  // The backend's user_code must be an identifier, not an empty or malformed
+  // value coerced into a valid-looking FCM topic.
+  final validUserCode = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9-_.~%]*$');
+  if (normalizedUserCode.length > 895 ||
+      !validUserCode.hasMatch(normalizedUserCode) ||
+      normalizedUserCode.toLowerCase() == 'null' ||
+      normalizedUserCode.toLowerCase() == 'undefined') {
+    return null;
+  }
+  return 'user_$normalizedUserCode';
 }
 
 class FirebaseService {
@@ -158,6 +163,7 @@ class FirebaseService {
   static Future<bool> subscribeToUserTopic(String userCode) async {
     final topic = firebaseUserTopicFor(userCode);
     if (topic == null) {
+      _pendingUserTopic = null;
       if (kDebugMode) {
         debugPrint('Skipped FCM topic subscription: invalid user_code.');
       }

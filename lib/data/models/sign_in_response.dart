@@ -44,7 +44,7 @@ class SignInData {
 
     return SignInData(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      userCode: json['user_code']?.toString() ?? '',
+      userCode: json['user_code'] is String ? json['user_code'] as String : '',
       platform: json['platform']?.toString() ?? '',
       country: json['country']?.toString() ?? '',
       token: token,

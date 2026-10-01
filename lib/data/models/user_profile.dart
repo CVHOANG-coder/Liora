@@ -53,7 +53,7 @@ class UserProfile {
       id: (json['id'] as num?)?.toInt() ?? 0,
       email: json['email']?.toString() ?? '',
       username: json['username']?.toString(),
-      userCode: json['user_code']?.toString() ?? '',
+      userCode: json['user_code'] is String ? json['user_code'] as String : '',
       platform: json['platform']?.toString() ?? '',
       country: json['country']?.toString() ?? '',
       countryCode: json['country_code']?.toString(),

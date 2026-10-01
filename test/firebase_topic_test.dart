@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
+import 'package:video_gen/data/models/user_profile.dart';
 
 void main() {
   test('builds the Firebase topic from user_code', () {
@@ -11,6 +12,25 @@ void main() {
     expect(firebaseUserTopicFor(''), isNull);
     expect(firebaseUserTopicFor('contains spaces'), isNull);
     expect(firebaseUserTopicFor('contains/slash'), isNull);
+    expect(firebaseUserTopicFor('null'), isNull);
+    expect(firebaseUserTopicFor('undefined'), isNull);
+    expect(firebaseUserTopicFor('---'), isNull);
+    expect(firebaseUserTopicFor('a' * 896), isNull);
+  });
+
+  test('does not subscribe without a valid user_code', () async {
+    expect(await FirebaseService.subscribeToUserTopic(''), isFalse);
+    expect(await FirebaseService.subscribeToUserTopic('null'), isFalse);
+    expect(await FirebaseService.subscribeToUserTopic('bad/code'), isFalse);
+  });
+
+  test('profile does not coerce a non-string user_code into a topic', () {
+    final profile = UserProfile.fromJson(<String, dynamic>{
+      'id': 2,
+      'user_code': 12345,
+    });
+    expect(profile.userCode, isEmpty);
+    expect(firebaseUserTopicFor(profile.userCode), isNull);
   });
 
   test('parses generated-video notification navigation data', () {
