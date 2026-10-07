@@ -28,9 +28,9 @@ class SupportContactScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasErrorDetails = errorCode != null || errorMessage != null;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xF208060B),
+        backgroundColor: const Color(0xF2252335),
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
         leading: IconButton(
@@ -43,13 +43,7 @@ class SupportContactScreen extends StatelessWidget {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.75),
-            radius: 1.1,
-            colors: [Color(0x554B123F), AppColors.background],
-          ),
-        ),
+        decoration: const BoxDecoration(color: AppColors.background),
         child: SafeArea(
           top: false,
           child: ListView(
@@ -81,8 +75,8 @@ class SupportContactScreen extends StatelessWidget {
                   icon: const Icon(Icons.copy_rounded, size: 19),
                   label: const Text('Copy Support Details'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFF73C0),
-                    side: const BorderSide(color: Color(0xFF7A315E)),
+                    foregroundColor: const Color(0xFFD192B5),
+                    side: const BorderSide(color: Color(0xFF7A526B)),
                     minimumSize: const Size.fromHeight(50),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
@@ -154,9 +148,8 @@ class _SupportIcon extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Color(0xFFFF1EB3), Color(0xFFFF9A2F)],
+          colors: [Color(0xFFD16DAF), Color(0xFFD1A473)],
         ),
-        boxShadow: [BoxShadow(color: Color(0x88FF20AA), blurRadius: 24)],
       ),
       child: const Icon(
         Icons.support_agent_rounded,
@@ -295,7 +288,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFFFF65B8), size: 22),
+        Icon(icon, color: const Color(0xFFD18CB1), size: 22),
         const SizedBox(width: 13),
         Expanded(
           child: Text(
@@ -330,9 +323,8 @@ class _GradientButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(27),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF16A8), Color(0xFFFF4E5C), Color(0xFFFFA42B)],
+          colors: [Color(0xFFD16DAC), Color(0xFFD18188), Color(0xFFD1A871)],
         ),
-        boxShadow: const [BoxShadow(color: Color(0x66FF1AA6), blurRadius: 15)],
       ),
       child: Material(
         color: Colors.transparent,

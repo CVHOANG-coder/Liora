@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/data/models/generation_history.dart';
@@ -19,9 +20,8 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 void main() {
   const previewPath = String.fromEnvironment('PROFILE_PREVIEW_PATH');
   const sansPath = String.fromEnvironment('PROFILE_PREVIEW_SANS');
-  const serifPath = String.fromEnvironment('PROFILE_PREVIEW_SERIF');
 
-  // Optional local preview uses real fonts; regular CI tests need no host fonts.
+  // Optional local preview loads the bundled app fonts.
   setUpAll(() async {
     if (previewPath.isEmpty) return;
     final icons = FontLoader('MaterialIcons')
@@ -33,11 +33,12 @@ void main() {
         ..addFont(File(sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
-    if (serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -103,21 +104,53 @@ void main() {
         expect(tester.takeException(), isNull);
 
         final scale = size.width / 393;
-        expect(
-          tester.getSize(find.byKey(const Key('profileAvatar'))).width,
-          closeTo(118 * scale, 0.01),
-        );
+        expect(find.byKey(const Key('profileAvatar')), findsNothing);
+        expect(find.byKey(const Key('profilePlanBadge')), findsNothing);
         expect(find.byKey(const Key('profileStats')), findsNothing);
         expect(find.byKey(const Key('videoHistoryRow')), findsNothing);
         expect(find.byKey(const Key('settingsRow')), findsNothing);
         expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('profileSettingsButton')),
+            matching: find.byType(SvgPicture),
+          ),
+          findsOneWidget,
+        );
         if (AppFeatures.commerceEnabled) {
+          final action = tester.widget<Container>(
+            find.byKey(const Key('profileCreditActionButton')),
+          );
+          expect(
+            ((action.decoration! as BoxDecoration).gradient! as LinearGradient)
+                .colors,
+            const [Color(0xFFB846B9), Color(0xFF5033CB), Color(0xFF2155E6)],
+          );
           final credit = tester.getRect(
             find.byKey(const Key('profileCreditCard')),
           );
+          final divider = tester.getRect(
+            find.byKey(const Key('profileCreditDivider')),
+          );
+          expect(divider.height, closeTo(92 * scale, .01));
+          expect(
+            divider.right,
+            lessThan(
+              tester
+                  .getRect(find.byKey(const Key('profileCreditActionButton')))
+                  .left,
+            ),
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('profileCreditCard')),
+              matching: find.byType(Positioned),
+            ),
+            findsNothing,
+          );
           expect(credit.height, closeTo(152 * scale, 0.01));
           final history = tester.getRect(
-            find.byKey(const Key('profileVideoHistory')),
+            find.byKey(const Key('emptyProfileVideos')),
           );
           expect(history.top - credit.bottom, closeTo(14 * scale, 0.01));
         } else {
@@ -127,15 +160,6 @@ void main() {
           find.text('Upgrade to Pro'),
           AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
         );
-        if (AppFeatures.commerceEnabled) {
-          final badge = tester.widget<Container>(
-            find.byKey(const Key('profilePlanBadge')),
-          );
-          expect((badge.decoration! as BoxDecoration).boxShadow, isNull);
-        } else {
-          expect(find.byKey(const Key('profilePlanBadge')), findsNothing);
-        }
-
         if (previewPath.isNotEmpty && size == const Size(393, 698)) {
           await tester.runAsync(() async {
             final context = tester.element(find.byType(ProfileScreen));

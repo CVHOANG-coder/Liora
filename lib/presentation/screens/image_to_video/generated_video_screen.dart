@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -59,11 +62,37 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   bool _leaving = false;
   String? _playerError;
   bool _isInitializing = false;
+  bool _controlsVisible = true;
+  Timer? _controlsHideTimer;
 
   @override
   void initState() {
     super.initState();
     _initializePlayer();
+    _scheduleControlsHide();
+  }
+
+  void _scheduleControlsHide() {
+    _controlsHideTimer?.cancel();
+    if (!_controlsVisible) return;
+    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _toggleControlsVisibility() {
+    if (_controlsVisible) {
+      _controlsHideTimer?.cancel();
+      setState(() => _controlsVisible = false);
+    } else {
+      _showControls();
+    }
+  }
+
+  void _showControls() {
+    if (!mounted) return;
+    setState(() => _controlsVisible = true);
+    _scheduleControlsHide();
   }
 
   Future<void> _initializePlayer() async {
@@ -125,6 +154,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
 
   @override
   void dispose() {
+    _controlsHideTimer?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -138,6 +168,7 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
   Future<void> _toggleMuted() async {
     final controller = _controller;
     if (controller == null) return;
+    _scheduleControlsHide();
     setState(() => _isMuted = !_isMuted);
     await controller.setVolume(_isMuted ? 0 : 1);
   }
@@ -278,117 +309,139 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: VideoFormStyle.background,
+        systemNavigationBarColor: Colors.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: VideoFormStyle.background,
-        appBar: AppBar(
-          key: const Key('generatedVideoHeader'),
-          backgroundColor: VideoFormStyle.background,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          centerTitle: true,
-          toolbarHeight: 64,
-          leadingWidth: 64,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: _RoundAction(
-              key: const Key('generatedVideoBack'),
-              icon: Icons.arrow_back_rounded,
-              tooltip: 'Back',
-              onTap: _leaveScreen,
-            ),
-          ),
-          title: Text(
-            'Your Video',
-            style: VideoFormStyle.serif(25),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: _RoundAction(
-                key: const Key('generatedVideoMute'),
-                icon: _isMuted
-                    ? Icons.volume_off_outlined
-                    : Icons.volume_up_outlined,
-                tooltip: _isMuted ? 'Turn sound on' : 'Mute',
-                onTap: _isReady ? _toggleMuted : null,
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            SizedBox.expand(
+              key: const Key('generatedVideoFrame'),
+              child: _VideoSurface(
+                controller: _controller,
+                isReady: _isReady,
+                cacheKey: 'request:${widget.result.requestId}',
+                fallbackImage: widget.result.thumbnailUrl.isNotEmpty
+                    ? widget.result.thumbnailUrl
+                    : widget.result.imageUrl,
+                error: _playerError,
+                onRetry: _initializePlayer,
+                onTap: _toggleControlsVisibility,
               ),
             ),
-          ],
-        ),
-        body: SafeArea(
-          top: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final previewHeight = (constraints.maxHeight - 254).clamp(
-                180.0,
-                560.0,
-              );
-              return SingleChildScrollView(
-                key: const PageStorageKey<String>('generatedVideoScroll'),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 680),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          key: const Key('generatedVideoFrame'),
-                          height: previewHeight,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF050914),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: const Color(0xFF3C3C56),
-                              width: .7,
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(1),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(21),
-                            child: _VideoSurface(
-                              controller: _controller,
-                              isReady: _isReady,
-                              cacheKey: 'request:${widget.result.requestId}',
-                              fallbackImage:
-                                  widget.result.thumbnailUrl.isNotEmpty
-                                  ? widget.result.thumbnailUrl
-                                  : widget.result.imageUrl,
-                              error: _playerError,
-                              onRetry: _initializePlayer,
-                              onTap: _togglePlayback,
-                            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  key: const Key('generatedVideoHeader'),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Row(
+                    children: [
+                      _RoundAction(
+                        key: const Key('generatedVideoBack'),
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: 'Back',
+                        onTap: _leaveScreen,
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Your Video',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: VideoFormStyle.heading(
+                            25,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        _PlaybackControls(
-                          controller: _controller,
-                          isReady: _isReady,
-                          onTogglePlayback: _togglePlayback,
+                      ),
+                      _RoundAction(
+                        key: const Key('generatedVideoMute'),
+                        icon: _isMuted
+                            ? Icons.volume_off_outlined
+                            : Icons.volume_up_outlined,
+                        tooltip: _isMuted ? 'Turn sound on' : 'Mute',
+                        onTap: _isReady ? _toggleMuted : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (_controlsVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+                  ),
+                  child: Listener(
+                    onPointerDown: (_) => _scheduleControlsHide(),
+                    onPointerMove: (_) => _scheduleControlsHide(),
+                    onPointerUp: (_) => _scheduleControlsHide(),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          key: const Key('generatedVideoBottom'),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xB82B2436), Color(0xDF16131E)],
+                            ),
+                            border: Border(
+                              top: BorderSide(color: Color(0x55FFFFFF)),
+                            ),
+                          ),
+                          child: SafeArea(
+                            top: false,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                18,
+                                16,
+                                12,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _PlaybackControls(
+                                    controller: _controller,
+                                    isReady: _isReady,
+                                    onTogglePlayback: _togglePlayback,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _ResultActions(
+                                    isDownloading: _isDownloading,
+                                    downloadProgress: _downloadProgress,
+                                    onDownload: _downloadVideo,
+                                    isSharing: _isSharing,
+                                    isDeleting: _isDeleting,
+                                    onShare: _shareVideo,
+                                    onDelete: _deleteVideo,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        _VideoDetails(result: widget.result),
-                        const SizedBox(height: 20),
-                        _ResultActions(
-                          isDownloading: _isDownloading,
-                          downloadProgress: _downloadProgress,
-                          onDownload: _downloadVideo,
-                          isSharing: _isSharing,
-                          isDeleting: _isDeleting,
-                          onShare: _shareVideo,
-                          onDelete: _deleteVideo,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+          ],
         ),
       ),
     ),
@@ -416,152 +469,125 @@ class _VideoSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = controller;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (isReady && player != null)
-          GestureDetector(
-            onTap: onTap,
-            child: ColoredBox(
-              color: const Color(0xFF050914),
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: player.value.aspectRatio > 0
-                      ? player.value.aspectRatio
-                      : 9 / 16,
+    final videoSize = player?.value.size ?? Size.zero;
+    return GestureDetector(
+      key: const Key('generatedVideoSurface'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            key: Key('generatedVideoBackdrop'),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF21192D),
+                  Color(0xFF100F18),
+                  Color(0xFF21192D),
+                ],
+                stops: [0, 0.5, 1],
+              ),
+            ),
+          ),
+          if (isReady && player != null)
+            ClipRect(
+              child: FittedBox(
+                fit: BoxFit.fitWidth,
+                child: SizedBox(
+                  width: videoSize.width > 0 ? videoSize.width : 9,
+                  height: videoSize.height > 0 ? videoSize.height : 16,
                   child: VideoPlayer(player),
                 ),
               ),
+            )
+          else
+            CachedVideoThumbnail(
+              cacheKey: cacheKey,
+              imageUrl: fallbackImage,
+              fit: BoxFit.fitWidth,
+              placeholder: _placeholder,
+              errorWidget: _placeholder,
+              maxDecodeWidth: 1080,
             ),
-          )
-        else
-          CachedVideoThumbnail(
-            cacheKey: cacheKey,
-            imageUrl: fallbackImage,
-            fit: BoxFit.contain,
-            placeholder: _placeholder,
-            errorWidget: _placeholder,
-            maxDecodeWidth: 1080,
-          ),
-        if (isReady && player != null)
-          ValueListenableBuilder<VideoPlayerValue>(
-            valueListenable: player,
-            builder: (context, value, _) => Center(
-              child: IgnorePointer(
-                ignoring: value.isPlaying,
-                child: AnimatedOpacity(
-                  opacity: value.isPlaying ? 0 : 1,
-                  duration: const Duration(milliseconds: 160),
-                  child: Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      color: const Color(0xD90E1421),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF9990B6),
-                        width: .7,
-                      ),
-                    ),
-                    child: IconButton(
-                      key: const Key('generatedVideoCenterPlay'),
-                      tooltip: 'Play',
-                      onPressed: onTap,
-                      icon: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 34,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          )
-        else
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: error == null
-                  ? const SizedBox.square(
-                      dimension: 28,
-                      child: CircularProgressIndicator(
-                        color: VideoFormStyle.accent,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Container(
-                      key: const Key('generatedVideoPreviewError'),
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xEC0B1020),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.videocam_off_outlined,
-                              color: VideoFormStyle.accent,
-                              size: 26,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              error!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+          if (!isReady || player == null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: error == null
+                    ? const SizedBox.square(
+                        dimension: 28,
+                        child: CircularProgressIndicator(
+                          color: VideoFormStyle.accent,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Container(
+                        key: const Key('generatedVideoPreviewError'),
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xEC312E42),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.videocam_off_outlined,
+                                color: VideoFormStyle.accent,
+                                size: 26,
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'You can still save or share this video.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: VideoFormStyle.secondary,
-                                fontSize: 12,
-                                height: 1.4,
+                              const SizedBox(height: 10),
+                              Text(
+                                error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            TextButton(
-                              key: const Key('retryGeneratedVideo'),
-                              onPressed: onRetry,
-                              style: TextButton.styleFrom(
-                                foregroundColor: VideoFormStyle.accent,
+                              const SizedBox(height: 6),
+                              const Text(
+                                'You can still save or share this video.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: VideoFormStyle.secondary,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
                               ),
-                              child: const Text('Retry preview'),
-                            ),
-                          ],
+                              TextButton(
+                                key: const Key('retryGeneratedVideo'),
+                                onPressed: onRetry,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: VideoFormStyle.accent,
+                                ),
+                                child: const Text('Retry preview'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget get _placeholder => DecoratedBox(
-    decoration: const BoxDecoration(
-      gradient: RadialGradient(
-        center: Alignment(.2, -.3),
-        radius: 1,
-        colors: [Color(0xFF17182C), Color(0xFF070C18)],
-      ),
-    ),
-    child: Center(
-      child: Opacity(
-        opacity: .2,
-        child: Image.asset(
-          'assets/images/profile/video_icon.png',
-          width: 110,
-          height: 110,
-          excludeFromSemantics: true,
-        ),
+  Widget get _placeholder => Center(
+    child: Opacity(
+      opacity: .2,
+      child: Image.asset(
+        'assets/images/profile/video_icon.png',
+        width: 110,
+        height: 110,
+        excludeFromSemantics: true,
       ),
     ),
   );
@@ -664,47 +690,6 @@ class _PlaybackControls extends StatelessWidget {
       '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
 }
 
-class _VideoDetails extends StatelessWidget {
-  const _VideoDetails({required this.result});
-  final I2VRequestStatus result;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'MADE WITH LIORA',
-        style: TextStyle(
-          color: VideoFormStyle.accent,
-          fontSize: 9,
-          letterSpacing: 1.8,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      const SizedBox(height: 7),
-      Text(
-        result.prompt.trim().isEmpty ? 'Your latest creation' : result.prompt,
-        key: const Key('generatedVideoPrompt'),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: VideoFormStyle.serif(22).copyWith(height: 1.2),
-      ),
-      const SizedBox(height: 10),
-      Wrap(
-        spacing: 7,
-        runSpacing: 7,
-        children: [
-          VideoLibraryTag(
-            result.isTextToVideo ? 'Text to video' : 'Image to video',
-          ),
-          if (result.duration > 0) VideoLibraryTag('${result.duration}s'),
-          VideoLibraryTag(result.isHd ? 'HD' : 'Standard'),
-        ],
-      ),
-    ],
-  );
-}
-
 class _ResultActions extends StatelessWidget {
   const _ResultActions({
     required this.isDownloading,
@@ -750,7 +735,7 @@ class _ResultActions extends StatelessWidget {
       final delete = VideoLibraryAction(
         key: const Key('deleteGeneratedVideo'),
         label: isDeleting ? 'Deleting' : 'Delete',
-        icon: Icons.delete_outline_rounded,
+        iconAsset: VideoLibraryTrashIcon.assetPath,
         destructive: true,
         busy: isDeleting,
         onTap: busy ? null : onDelete,
@@ -802,7 +787,7 @@ class _RoundAction extends StatelessWidget {
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF0D1220),
+        color: const Color(0xFF342D3E),
         border: Border.all(color: VideoFormStyle.border, width: .6),
       ),
       child: IconButton(

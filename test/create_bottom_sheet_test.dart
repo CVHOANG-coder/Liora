@@ -16,7 +16,6 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 
 const _previewPath = String.fromEnvironment('CREATE_SHEET_PREVIEW_PATH');
 const _sansPath = String.fromEnvironment('CREATE_SHEET_PREVIEW_SANS');
-const _serifPath = String.fromEnvironment('CREATE_SHEET_PREVIEW_SERIF');
 
 void main() {
   setUpAll(() async {
@@ -31,11 +30,12 @@ void main() {
         await loader.load();
       }
     }
-    if (_serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(_serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -74,7 +74,7 @@ void main() {
                       )
                       .decoration!
                   as BoxDecoration;
-          expect(surface.color, const Color(0xFF02050C));
+          expect(surface.color, const Color(0xFF292431));
           expect(
             (surface.border! as Border).top.color,
             const Color(0xFF343743),
@@ -84,7 +84,7 @@ void main() {
             const BorderRadius.vertical(top: Radius.circular(28)),
           );
           final title = tester.widget<Text>(find.text('Create AI video'));
-          expect(title.style!.fontFamily, 'Times New Roman');
+          expect(title.style!.fontFamily, 'Nunito');
           expect(title.style!.fontWeight, FontWeight.w400);
           final close = tester.getRect(
             find.byKey(const Key('createSheetCloseButton')),
@@ -144,8 +144,8 @@ void main() {
                         .decoration!
                     as BoxDecoration;
             expect((card.gradient! as LinearGradient).colors, const [
-              Color(0xFF0B101D),
-              Color(0xFF070C17),
+              Color(0xFF40364C),
+              Color(0xFF342D3E),
             ]);
             expect(card.borderRadius, BorderRadius.circular(14));
             expect(card.boxShadow, isNull);
@@ -254,7 +254,7 @@ void main() {
 ThemeData get _theme => _previewPath.isEmpty
     ? AppTheme.dark
     : AppTheme.dark.copyWith(
-        textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Roboto'),
+        textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Nunito Sans'),
       );
 
 void _configureView(WidgetTester tester, Size size) {

@@ -23,7 +23,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(r'$0.96/week'), findsOneWidget);
+    expect(find.text(r'only $0.96/week'), findsOneWidget);
     expect(find.text(r'$7.99/week'), findsOneWidget);
   });
 
@@ -121,7 +121,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Keep Weekly Plan'), findsNothing);
     expect(find.textContaining('Billed annually'), findsNothing);
-    expect(find.text(r'$0.96/week'), findsOneWidget);
+    expect(find.text(r'$49.99/year'), findsOneWidget);
     await tester.tap(button);
     await tester.pump();
 
@@ -315,7 +315,7 @@ void main() {
 
     expect(find.byType(AllPlans), findsOneWidget);
     expect(find.byType(FreeTrialScreen), findsNothing);
-    expect(find.text('Annually Pro'), findsOneWidget);
+    expect(find.text('Annually'), findsOneWidget);
     expect(find.text('Weekly Pro'), findsNothing);
   });
 }

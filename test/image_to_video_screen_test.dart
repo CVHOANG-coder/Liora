@@ -168,7 +168,7 @@ void main() {
     expect(find.text('Creating Video'), findsOneWidget);
     expect(find.byKey(const Key('creatingSourceImage')), findsOneWidget);
     expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
-    expect(find.byKey(const Key('creatingImageScanLine')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageScanLine')), findsNothing);
     final sourceImage = tester.widget<Image>(
       find.byKey(const Key('creatingSourceImage')),
     );

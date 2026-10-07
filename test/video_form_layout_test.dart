@@ -15,7 +15,6 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 
 const _previewDirectory = String.fromEnvironment('FORM_PREVIEW_DIR');
 const _sansPath = String.fromEnvironment('FORM_PREVIEW_SANS');
-const _serifPath = String.fromEnvironment('FORM_PREVIEW_SERIF');
 
 const _theme = VideoPost(
   id: 'dance',
@@ -37,11 +36,12 @@ void main() {
         ..addFont(File(_sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
-    if (_serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(_serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final form in ['image', 'text', 'theme']) {
@@ -67,7 +67,7 @@ void main() {
           final title = tester.widget<Text>(
             find.text('${_title(form)} to video'),
           );
-          expect(title.style!.fontFamily, 'Times New Roman');
+          expect(title.style!.fontFamily, 'Nunito');
 
           if (_previewDirectory.isNotEmpty &&
               size == const Size(393, 852) &&
@@ -218,7 +218,7 @@ Future<void> _pumpForm(
   final theme = _previewDirectory.isEmpty
       ? AppTheme.dark
       : AppTheme.dark.copyWith(
-          textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Roboto'),
+          textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Nunito Sans'),
         );
   await tester.pumpWidget(
     RepaintBoundary(

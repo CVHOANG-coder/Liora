@@ -16,9 +16,9 @@ typedef VideoThumbnailGenerator =
       required int quality,
     });
 
-/// Generates one still frame per video and reuses it from the temporary disk
-/// cache. Generation is throttled so a scrolling grid cannot start a large
-/// number of native decoders at once.
+/// Generates a still frame at the requested time and reuses it from the
+/// temporary disk cache. Generation is throttled so a scrolling grid cannot
+/// start a large number of native decoders at once.
 class VideoThumbnailCache {
   VideoThumbnailCache({
     Future<Directory> Function()? temporaryDirectory,
@@ -40,17 +40,22 @@ class VideoThumbnailCache {
     required String videoUrl,
     required String cacheKey,
     int maxWidth = 512,
+    int timeMs = 300,
   }) {
     final url = videoUrl.trim();
     if (url.isEmpty) return Future<File?>.value();
-    final fileKey = sha256
-        .convert(utf8.encode(cacheKey.trim().isEmpty ? url : cacheKey.trim()))
-        .toString();
+    final identity = cacheKey.trim().isEmpty ? url : cacheKey.trim();
+    final fileKey = sha256.convert(utf8.encode('$identity:$timeMs')).toString();
 
     return _inFlight.putIfAbsent(fileKey, () async {
       try {
         return await _limiter.run(
-          () => _create(url: url, fileKey: fileKey, maxWidth: maxWidth),
+          () => _create(
+            url: url,
+            fileKey: fileKey,
+            maxWidth: maxWidth,
+            timeMs: timeMs,
+          ),
         );
       } finally {
         _inFlight.remove(fileKey);
@@ -74,6 +79,7 @@ class VideoThumbnailCache {
     required String url,
     required String fileKey,
     required int maxWidth,
+    required int timeMs,
   }) async {
     try {
       final directory = await _directory();
@@ -84,7 +90,7 @@ class VideoThumbnailCache {
         video: url,
         thumbnailPath: target.path,
         maxWidth: maxWidth,
-        timeMs: 300,
+        timeMs: timeMs,
         quality: 78,
       );
       if (generatedPath == null || generatedPath.isEmpty) return null;

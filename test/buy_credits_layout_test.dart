@@ -15,11 +15,19 @@ const _productPrefix = 'com.lioraai.videogenerator.';
 
 void main() {
   const previewPath = String.fromEnvironment('CREDITS_PREVIEW_PATH');
+  const bannerPreviewPath = String.fromEnvironment(
+    'CREDITS_BANNER_PREVIEW_PATH',
+  );
   const sansPath = String.fromEnvironment('CREDITS_PREVIEW_SANS');
-  const serifPath = String.fromEnvironment('CREDITS_PREVIEW_SERIF');
 
   setUpAll(() async {
-    if (previewPath.isEmpty) return;
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
+    if (previewPath.isEmpty && bannerPreviewPath.isEmpty) return;
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
@@ -29,11 +37,6 @@ void main() {
           ..addFont(File(sansPath).readAsBytes().then(ByteData.sublistView));
         await loader.load();
       }
-    }
-    if (serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
     }
   });
 
@@ -61,7 +64,7 @@ void main() {
         );
         expect(
           tester.widget<Text>(find.text('Buy Credit')).style!.fontFamily,
-          'Times New Roman',
+          'Nunito',
         );
         final header = tester.getRect(
           find.byKey(const Key('buyCreditsHeader')),
@@ -122,7 +125,7 @@ void main() {
                 .widget<Text>(find.text('$credits Credits'))
                 .style!
                 .fontFamily,
-            'Times New Roman',
+            'Nunito',
           );
           expect(
             find.descendant(
@@ -152,14 +155,14 @@ void main() {
           Color(0xFF4561DF),
         ]);
 
-        final disclaimer = find.byKey(const Key('buyCreditsDisclaimer'));
+        final restore = find.text('Restore Purchase');
         await tester.scrollUntilVisible(
-          disclaimer,
+          restore,
           100,
           scrollable: _scrollable(),
         );
         await tester.pumpAndSettle();
-        expect(disclaimer.hitTestable(), findsOneWidget);
+        expect(restore.hitTestable(), findsOneWidget);
         expect(find.text('Buy Now').hitTestable(), findsOneWidget);
         expect(find.text('Restore Purchase').hitTestable(), findsOneWidget);
         expect(
@@ -174,6 +177,66 @@ void main() {
       });
     }
   }
+
+  testWidgets('subscription banner uses bright gradient text and border', (
+    tester,
+  ) async {
+    _configureView(tester, const Size(393, 852));
+    final container = _container();
+    addTearDown(container.dispose);
+    await _pumpScreen(
+      tester,
+      container,
+      previewFonts: bannerPreviewPath.isNotEmpty,
+    );
+    final banner = find.byKey(const Key('subscriptionBanner'));
+    await tester.scrollUntilVisible(banner, 100, scrollable: _scrollable());
+    await tester.pumpAndSettle();
+
+    if (bannerPreviewPath.isNotEmpty) {
+      await tester.runAsync(() async {
+        await precacheImage(
+          const AssetImage('assets/images/in_app_purchase/gift.png'),
+          tester.element(find.byType(BuyCredits)),
+        );
+      });
+      await tester.pumpAndSettle();
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const Key('creditsPreview')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            bannerPreviewPath,
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+        } finally {
+          image.dispose();
+        }
+      });
+    }
+
+    final bannerBorder = tester.widget<Container>(
+      find.byKey(const Key('subscriptionBannerBorder')),
+    );
+    expect(
+      (bannerBorder.decoration! as BoxDecoration).gradient,
+      const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFF91CF), Color(0xFFC59BFF), Color(0xFF8EAFFF)],
+      ),
+    );
+    expect(
+      find.byKey(const Key('subscriptionBannerTitleGradient')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('subscriptionBannerSubtitleGradient')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'uses store prices, selects a package, and prevents duplicate purchases',
@@ -279,7 +342,7 @@ Future<void> _pumpScreen(
           theme: previewFonts
               ? AppTheme.dark.copyWith(
                   textTheme: AppTheme.dark.textTheme.apply(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Nunito Sans',
                   ),
                 )
               : AppTheme.dark,

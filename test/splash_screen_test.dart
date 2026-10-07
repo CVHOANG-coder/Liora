@@ -30,7 +30,17 @@ void main() {
       ),
     );
 
-    expect(find.text('Liora'), findsOneWidget);
+    final splashTitle = tester.widget<Image>(
+      find.byKey(const Key('splashTitle')),
+    );
+    expect(
+      (splashTitle.image as AssetImage).assetName,
+      'assets/images/home/liora_header_title.png',
+    );
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      const Color(0xFF03020A),
+    );
     expect(find.text('Create cinematic AI videos'), findsOneWidget);
     expect(find.text('Loading...'), findsOneWidget);
 
@@ -129,7 +139,7 @@ void main() {
     Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
     await tester.pumpAndSettle();
     expect(find.text('Get Started'), findsNothing);
-    expect(find.text('Create AI short films'), findsOneWidget);
+    expect(find.byKey(const Key('homeVideoBanner')), findsOneWidget);
   });
 }
 

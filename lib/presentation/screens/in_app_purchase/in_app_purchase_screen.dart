@@ -28,6 +28,17 @@ const _creditBorder = LinearGradient(
   end: Alignment.bottomRight,
   colors: [Color(0xFF655683), Color(0xFF292C3C), Color(0xFF242838)],
 );
+const _subscriptionBorder = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFFF91CF), Color(0xFFC59BFF), Color(0xFF8EAFFF)],
+);
+const _subscriptionTitleGradient = LinearGradient(
+  colors: [Color(0xFFFFF2FC), Color(0xFFFF94D4), Color(0xFFC9A5FF)],
+);
+const _subscriptionSubtitleGradient = LinearGradient(
+  colors: [Color(0xFFFFCCE8), Color(0xFFD5C5FF)],
+);
 
 double _creditScale(BuildContext context) =>
     (MediaQuery.sizeOf(context).width / 393).clamp(0.8, 1.3);
@@ -161,9 +172,9 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
                         slivers: [
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
-                              18 * scale,
+                              12 * scale,
                               4 * scale,
-                              18 * scale,
+                              12 * scale,
                               8 * scale,
                             ),
                             sliver: SliverList.list(
@@ -372,10 +383,10 @@ class _PurchaseHeader extends StatelessWidget {
                 'Buy Credit',
                 style: TextStyle(
                   color: const Color(0xFFF4F0FB),
-                  fontFamily: 'Times New Roman',
+                  fontFamily: 'Nunito',
                   fontSize: 25 * scale,
                   height: 1.15,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -484,10 +495,10 @@ class _CreditPackageTile extends StatelessWidget {
       '${package.credits} Credits',
       style: TextStyle(
         color: const Color(0xFFF0EDF5),
-        fontFamily: 'Times New Roman',
+        fontFamily: 'Nunito',
         fontSize: 18 * scale,
         height: 1.15,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.25,
       ),
     );
@@ -497,7 +508,7 @@ class _CreditPackageTile extends StatelessWidget {
         color: const Color(0xFFD3D0DC),
         fontSize: 14.5 * scale,
         height: 1.2,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w800,
       ),
     );
 
@@ -664,24 +675,23 @@ class _SubscriptionBanner extends StatelessWidget {
       button: true,
       label: 'View subscription plans and save up to 50 percent',
       child: Container(
+        key: const Key('subscriptionBannerBorder'),
         height: 100 * scale,
-        padding: const EdgeInsets.all(0.6),
+        padding: EdgeInsets.all(1.5 * scale),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12 * scale),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF725389), Color(0xFF43376C)],
-          ),
+          gradient: _subscriptionBorder,
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12 * scale - 0.6),
+          borderRadius: BorderRadius.circular(12 * scale - 1.5 * scale),
           clipBehavior: Clip.antiAlias,
           child: Ink(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF100D20), Color(0xFF070A19)],
+                colors: [Color(0xFF1B1630), Color(0xFF0B0D21)],
               ),
             ),
             child: InkWell(
@@ -707,7 +717,7 @@ class _SubscriptionBanner extends StatelessWidget {
                       right: 19 * scale,
                       top: 11 * scale,
                       bottom: 6 * scale,
-                      width: constraints.maxWidth * 0.33,
+                      width: constraints.maxWidth * 0.2,
                       child: const Image(
                         image: AssetImage(
                           'assets/images/in_app_purchase/gift.png',
@@ -719,8 +729,8 @@ class _SubscriptionBanner extends StatelessWidget {
                     Positioned(
                       left: 24 * scale,
                       right: constraints.maxWidth * 0.46,
-                      top: 22 * scale,
-                      bottom: 20 * scale,
+                      top: 10 * scale,
+                      bottom: 10 * scale,
                       child: const _SubscriptionCopy(),
                     ),
                   ],
@@ -744,54 +754,58 @@ class _SubscriptionCopy extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Get Up to ',
-                style: TextStyle(
-                  color: const Color(0xFFE9DFF5),
-                  fontFamily: 'Times New Roman',
-                  fontSize: 26 * scale,
-                  height: 1.1,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.6,
+        ShaderMask(
+          key: const Key('subscriptionBannerTitleGradient'),
+          blendMode: BlendMode.srcIn,
+          shaderCallback: _subscriptionTitleGradient.createShader,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Get Up to ',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Nunito',
+                    fontSize: 25 * scale,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                  ),
                 ),
-              ),
-              ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFEC5F9B), Color(0xFFB557C8)],
-                ).createShader(bounds),
-                child: Text(
+                Text(
                   '50%',
                   style: TextStyle(
                     color: Colors.white,
-                    fontFamily: 'Times New Roman',
+                    fontFamily: 'Nunito',
                     fontSize: 28 * scale,
                     height: 1.1,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         SizedBox(height: 5 * scale),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'off with Subscription',
-            maxLines: 1,
-            style: TextStyle(
-              color: const Color(0xFFACA6BD),
-              fontSize: 13.5 * scale,
-              height: 1.3,
-              fontWeight: FontWeight.w400,
+        ShaderMask(
+          key: const Key('subscriptionBannerSubtitleGradient'),
+          blendMode: BlendMode.srcIn,
+          shaderCallback: _subscriptionSubtitleGradient.createShader,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'off with Subscription',
+              maxLines: 1,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16 * scale,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -863,10 +877,10 @@ class _BuyButton extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
-                      fontFamily: busy ? null : 'Times New Roman',
+                      fontFamily: busy ? null : 'Nunito',
                       fontSize: (busy ? 15 : 22) * scale,
                       height: 1.2,
-                      fontWeight: FontWeight.w400,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -927,18 +941,6 @@ class _PurchaseFooter extends StatelessWidget {
                 style: linkStyle,
               ),
             ],
-          ),
-        ),
-        SizedBox(height: 2 * scale),
-        Text(
-          key: const Key('buyCreditsDisclaimer'),
-          'Credits are used for generating AI content.\n'
-          'Purchased credits do not expire.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFF827E8E),
-            fontSize: 10 * scale,
-            height: 1.45,
           ),
         ),
       ],

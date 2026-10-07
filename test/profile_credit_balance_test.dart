@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
@@ -54,8 +55,20 @@ void main() {
     expect(find.text('CREDIT BALANCE'), findsOneWidget);
     expect(find.text('Buy More Credits'), findsOneWidget);
     expect(find.text('2,350'), findsOneWidget);
-    expect(find.text('Ava Studio'), findsOneWidget);
-    expect(find.text('ava@example.com'), findsOneWidget);
+    final creditIcon = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/profile/icon_credit_balance.png',
+    );
+    expect(creditIcon, findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('2,350')).dx,
+      lessThan(tester.getTopLeft(creditIcon).dx),
+    );
+    expect(find.text('credits'), findsNothing);
+    expect(find.byKey(const Key('profileAvatar')), findsNothing);
     expect(find.byKey(const Key('profileStats')), findsNothing);
     expect(find.byKey(const Key('profileCreditActionButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -70,9 +83,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('new VIP user can upgrade to Pro from the credit card', (
-    tester,
-  ) async {
+  testWidgets('VIP user opens All Plans from the credit card', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     container
@@ -98,6 +109,53 @@ void main() {
     await tester.tap(find.byKey(const Key('profileCreditActionButton')));
     await tester.pumpAndSettle();
 
+    expect(find.byType(AllPlans), findsOneWidget);
+  });
+
+  testWidgets('non-VIP user opens Free Trial from the credit card', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container
+        .read(profileProvider.notifier)
+        .setProfile(
+          UserProfile.fromJson(<String, dynamic>{
+            'id': 4,
+            'isVIP': false,
+            'isSubscribed': false,
+          }),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('profileCreditActionButton')));
+    await tester.pumpAndSettle();
+
     expect(find.byType(FreeTrialScreen), findsOneWidget);
+  });
+
+  testWidgets('missing profile opens All Plans from the credit card', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('profileCreditActionButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AllPlans), findsOneWidget);
   });
 }

@@ -9,10 +9,10 @@ import '../../../data/video_categories.dart';
 import '../../widgets/cached_video_thumbnail.dart';
 import '../theme_to_video/theme_to_video_screen.dart';
 
-const _detailBackground = Color(0xFF030611);
-const _pink = Color(0xFFED58BD);
+const _detailBackground = Color(0xFF292431);
+const _pink = Color(0xFFD189BA);
 const _outlineGradient = LinearGradient(
-  colors: [Color(0xFFEFA1CF), Color(0xFF9D60EB), Color(0xFF87A9FF)],
+  colors: [Color(0xFFEFA1CF), Color(0xFFAB8DD1), Color(0xFF9BAAD1)],
 );
 
 class VideoDetailScreen extends StatefulWidget {
@@ -52,13 +52,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
           builder: (context, constraints) {
             final scale = (constraints.maxWidth / 393).clamp(0.8, 1.3);
             return DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0, -0.1),
-                  radius: 1.1,
-                  colors: [Color(0xFF0D0A24), _detailBackground],
-                ),
-              ),
+              decoration: const BoxDecoration(color: _detailBackground),
               child: SafeArea(
                 minimum: EdgeInsets.only(bottom: 30 * scale),
                 child: Padding(
@@ -205,18 +199,6 @@ class _TemplatePreview extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         gradient: _outlineGradient,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x29BA49BA),
-            blurRadius: 22 * scale,
-            offset: Offset(-4 * scale, 0),
-          ),
-          BoxShadow(
-            color: const Color(0x234541D1),
-            blurRadius: 22 * scale,
-            offset: Offset(4 * scale, 0),
-          ),
-        ],
       ),
       child: Container(
         padding: EdgeInsets.all(8 * scale - 0.6),
@@ -225,7 +207,7 @@ class _TemplatePreview extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF190C24), Color(0xFF080B21), Color(0xFF0B081E)],
+            colors: [Color(0xFF40364C), Color(0xFF342D3E), Color(0xFF342D3E)],
           ),
         ),
         child: ClipRRect(
@@ -368,7 +350,7 @@ class _VideoCoverState extends State<_VideoCover> with WidgetsBindingObserver {
               filterQuality: FilterQuality.high,
               maxDecodeWidth: 1080,
               placeholder: const ColoredBox(
-                color: Color(0xFF171016),
+                color: Color(0xFF40364C),
                 child: Center(
                   child: Icon(
                     Icons.movie_creation_outlined,
@@ -378,7 +360,7 @@ class _VideoCoverState extends State<_VideoCover> with WidgetsBindingObserver {
                 ),
               ),
               errorWidget: const ColoredBox(
-                color: Color(0xFF171016),
+                color: Color(0xFF40364C),
                 child: Center(
                   child: Icon(
                     Icons.image_not_supported_outlined,
@@ -450,7 +432,7 @@ class _ScreenOverlay extends StatelessWidget {
             Colors.transparent,
             Color(0x6B060515),
             Color(0xF5060515),
-            Color(0xFF060515),
+            Color(0xFF342D3E),
           ],
           stops: [0, 0.63, 0.75, 0.88, 1],
         ),
@@ -495,12 +477,6 @@ class _RoundButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: _outlineGradient,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x535C3191),
-                      blurRadius: 12 * scale,
-                    ),
-                  ],
                 ),
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
@@ -508,7 +484,7 @@ class _RoundButton extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF25102D), Color(0xFF0A0C25)],
+                      colors: [Color(0xFF40364C), Color(0xFF342D3E)],
                     ),
                   ),
                   child: Icon(icon, size: 19 * scale, color: Colors.white),
@@ -544,7 +520,7 @@ class _BottomDetails extends StatelessWidget {
             children: [
               Icon(
                 Icons.music_note_rounded,
-                color: const Color(0xFFD168EB),
+                color: const Color(0xFFC491D1),
                 size: 20 * scale,
               ),
               SizedBox(width: 9 * scale),
@@ -574,7 +550,7 @@ class _BottomDetails extends StatelessWidget {
               SizedBox(width: 12 * scale),
               Icon(
                 Icons.graphic_eq_rounded,
-                color: const Color(0xFFB04BF2),
+                color: const Color(0xFFB282D1),
                 size: 22 * scale,
               ),
             ],
@@ -650,9 +626,9 @@ class _GlassPill extends StatelessWidget {
             borderRadius: radius,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFFF455A3),
-                const Color(0xFFB455DE),
-                compact ? const Color(0xFFC875E6) : const Color(0xFF7789F7),
+                const Color(0xFFD186AB),
+                const Color(0xFFBB8AD1),
+                compact ? const Color(0xFFC299D1) : const Color(0xFF969ED1),
               ],
             ),
           ),
@@ -667,7 +643,7 @@ class _GlassPill extends StatelessWidget {
                 colors: [
                   Color(0xFF200D26),
                   Color(0xFF140B23),
-                  Color(0xFF0A0D21),
+                  Color(0xFF342D3E),
                 ],
               ),
             ),
@@ -698,24 +674,12 @@ class _GradientButton extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [Color(0xFFFFDEEF), Color(0xFFF4B5F3), Color(0xFF99BDFF)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x7AFB269E),
-            blurRadius: 22 * scale,
-            offset: Offset(-10 * scale, 0),
-          ),
-          BoxShadow(
-            color: const Color(0x735451F4),
-            blurRadius: 22 * scale,
-            offset: Offset(10 * scale, 0),
-          ),
-        ],
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius - 0.8),
           gradient: const LinearGradient(
-            colors: [Color(0xFFFF349F), Color(0xFFA244C5), Color(0xFF285CF1)],
+            colors: [Color(0xFFD176A6), Color(0xFFB27EC5), Color(0xFF718AD1)],
           ),
         ),
         child: Material(
@@ -737,8 +701,8 @@ class _GradientButton extends StatelessWidget {
                         'Use AI Template',
                         style: TextStyle(
                           color: Colors.white,
-                          fontFamily: 'Times New Roman',
-                          fontFamilyFallback: const ['Times', 'serif'],
+                          fontFamily: 'Nunito',
+                          fontFamilyFallback: const ['Nunito Sans'],
                           fontSize: 21 * scale,
                           height: 1.15,
                           fontWeight: FontWeight.w600,
@@ -752,7 +716,7 @@ class _GradientButton extends StatelessWidget {
                       ExcludeSemantics(
                         child: Icon(
                           Icons.auto_awesome_rounded,
-                          color: const Color(0xFFFFD54A),
+                          color: const Color(0xFFD1BE7F),
                           size: 22 * scale,
                         ),
                       ),

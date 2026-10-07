@@ -606,22 +606,14 @@ class GenerationFailureDialog extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFF24B5), Color(0xFFFF4E68), Color(0xFFFF9F2B)],
+            colors: [Color(0xFFD16EB0), Color(0xFFD1818D), Color(0xFFD1A671)],
           ),
-          boxShadow: const [
-            BoxShadow(color: Color(0x77FF1BAB), blurRadius: 25),
-            BoxShadow(color: Color(0x44FF8C2A), blurRadius: 20),
-          ],
         ),
         child: Container(
           padding: const EdgeInsets.fromLTRB(22, 25, 22, 20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: const RadialGradient(
-              center: Alignment(0, -0.65),
-              radius: 1.05,
-              colors: [Color(0xFF251027), Color(0xFF0B060F)],
-            ),
+            color: const Color(0xFF342D3E),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -703,13 +695,12 @@ class _FailureIcon extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Color(0xFFFF24B7), Color(0xFFFF9A2E)],
+          colors: [Color(0xFFD16EB1), Color(0xFFD1A473)],
         ),
-        boxShadow: [BoxShadow(color: Color(0x88FF20AA), blurRadius: 20)],
       ),
       child: Container(
         decoration: const BoxDecoration(
-          color: Color(0xFF170919),
+          color: Color(0xFF342D3E),
           shape: BoxShape.circle,
         ),
         padding: EdgeInsets.all(visual == AppErrorVisual.credits ? 13 : 18),
@@ -718,7 +709,7 @@ class _FailureIcon extends StatelessWidget {
                 'assets/images/in_app_purchase/credit.png',
                 fit: BoxFit.contain,
               )
-            : Icon(icon, color: const Color(0xFFFF58AD), size: 43),
+            : Icon(icon, color: const Color(0xFFD186AC), size: 43),
       ),
     );
   }
@@ -742,9 +733,8 @@ class _PrimaryDialogButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(27),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF16A8), Color(0xFFFF4E5C), Color(0xFFFFA42B)],
+          colors: [Color(0xFFD16DAC), Color(0xFFD18188), Color(0xFFD1A871)],
         ),
-        boxShadow: const [BoxShadow(color: Color(0x77FF1AA6), blurRadius: 15)],
       ),
       child: Material(
         color: Colors.transparent,

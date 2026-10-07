@@ -87,4 +87,48 @@ void main() {
     expect(results.whereType<File>(), hasLength(2));
     expect(generationCalls, 1);
   });
+
+  test('keeps the first frame separate from other thumbnail times', () async {
+    final temporary = await Directory.systemTemp.createTemp(
+      'video_thumbnail_first_frame_test_',
+    );
+    addTearDown(() async {
+      if (await temporary.exists()) await temporary.delete(recursive: true);
+    });
+    final times = <int>[];
+    final cache = VideoThumbnailCache(
+      temporaryDirectory: () async => temporary,
+      generator:
+          ({
+            required video,
+            required thumbnailPath,
+            required maxWidth,
+            required timeMs,
+            required quality,
+          }) async {
+            times.add(timeMs);
+            await File(thumbnailPath).writeAsBytes(<int>[timeMs % 256]);
+            return thumbnailPath;
+          },
+    );
+
+    final firstFrame = await cache.getOrCreate(
+      videoUrl: 'https://example.test/video.mp4',
+      cacheKey: 'profile-video',
+      timeMs: 0,
+    );
+    final laterFrame = await cache.getOrCreate(
+      videoUrl: 'https://example.test/video.mp4',
+      cacheKey: 'profile-video',
+    );
+    final reusedFirstFrame = await cache.getOrCreate(
+      videoUrl: 'https://example.test/video.mp4',
+      cacheKey: 'profile-video',
+      timeMs: 0,
+    );
+
+    expect(times, [0, 300]);
+    expect(firstFrame?.path, reusedFirstFrame?.path);
+    expect(firstFrame?.path, isNot(laterFrame?.path));
+  });
 }

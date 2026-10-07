@@ -76,7 +76,9 @@ void main() {
     expect(permissionRequests, 1);
   });
 
-  testWidgets('Home avatar selects the Profile tab', (tester) async {
+  testWidgets('Profile tab remains accessible without a Home avatar', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -95,7 +97,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('homeAvatarButton')));
+    expect(find.byKey(const Key('homeAvatarButton')), findsNothing);
+    await tester.tap(find.byKey(const Key('profileTab')));
     await tester.pumpAndSettle();
 
     final profileTicker = tester.widget<TickerMode>(
@@ -127,20 +130,21 @@ void main() {
     expect(find.text('Liora'), findsOneWidget);
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    expect(find.text('Create AI'), findsOneWidget);
+    expect(find.text('To Video'), findsOneWidget);
     for (var page = 1; page < 4; page++) {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
     await _dismissInitialTrialOffer(tester);
-    expect(find.text('Create AI short films'), findsOneWidget);
+    expect(find.byKey(const Key('homeVideoBanner')), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('profileTab')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Liora User'), findsOneWidget);
-    expect(find.text('Profile unavailable'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byKey(const Key('profileAvatar')), findsNothing);
+    expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
   });
 
   testWidgets('center add button opens Image to Video directly', (
@@ -201,6 +205,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('homeTextToVideoCard')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('homeTextToVideoCard')));
     await tester.pumpAndSettle();
 

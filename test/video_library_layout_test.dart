@@ -13,7 +13,6 @@ import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/presentation/screens/generation_history/generation_history_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/generated_video_screen.dart';
-import 'package:video_gen/presentation/widgets/video_form_style.dart';
 import 'package:video_gen/presentation/widgets/video_library_widgets.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
@@ -35,12 +34,12 @@ void main() {
           ))
           .load();
     }
-    await (FontLoader('Times New Roman')..addFont(
-          File(
-            '/System/Library/Fonts/Supplemental/Times New Roman.ttf',
-          ).readAsBytes().then(ByteData.sublistView),
-        ))
-        .load();
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   setUp(() {
@@ -138,11 +137,44 @@ void main() {
         final frame = tester.getRect(
           find.byKey(const Key('generatedVideoFrame')),
         );
-        expect(frame.left, 16);
-        expect(frame.right, size.width - 16);
+        expect(frame.left, 0);
+        expect(frame.right, size.width);
+        expect(frame.top, 0);
+        expect(frame.bottom, size.height);
+        expect(
+          tester
+              .widget<FittedBox>(
+                find
+                    .ancestor(
+                      of: find.byType(VideoPlayer),
+                      matching: find.byType(FittedBox),
+                    )
+                    .first,
+              )
+              .fit,
+          BoxFit.fitWidth,
+        );
+        final videoRect = tester.getRect(find.byType(VideoPlayer));
+        expect(videoRect.width, closeTo(size.width, 0.1));
+        expect(videoRect.center.dy, closeTo(size.height / 2, 0.1));
+        expect(find.byKey(const Key('generatedVideoBackdrop')), findsOneWidget);
+        expect(find.byKey(const Key('generatedVideoPrompt')), findsNothing);
+        expect(find.text('MADE WITH LIORA'), findsNothing);
+        expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: find.byKey(const Key('generatedVideoBottom')),
+            matching: find.byType(BackdropFilter),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(find.byKey(const Key('generatedVideoBottom'))).bottom,
+          size.height,
+        );
         expect(
           tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
-          VideoFormStyle.background,
+          Colors.black,
         );
         if (size == const Size(393, 852) && textScale == 1) {
           await _capture(tester, 'video');
@@ -215,7 +247,7 @@ void main() {
     await tester.tap(find.byKey(const Key('generatedVideoPlayPause')));
     await tester.pump();
     expect(controller.value.isPlaying, isFalse);
-    await tester.tap(find.byKey(const Key('generatedVideoCenterPlay')));
+    await tester.tap(find.byKey(const Key('generatedVideoPlayPause')));
     await tester.pump();
     expect(controller.value.isPlaying, isTrue);
     await tester.tap(find.byKey(const Key('generatedVideoMute')));
@@ -230,6 +262,47 @@ void main() {
     expect(controller.value.position.inSeconds, closeTo(5, 1));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('tapping video toggles bottom controls and idle hides them', (
+    tester,
+  ) async {
+    _setView(tester, const Size(393, 852));
+    final controller = _FixtureVideoController();
+    await tester.pumpWidget(
+      _app(
+        GeneratedVideoScreen(
+          result: _request('one'),
+          controllerFactory: (_) async => controller,
+        ),
+      ),
+    );
+    await tester.pump();
+    final video = find.byKey(const Key('generatedVideoSurface'));
+    expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+
+    await tester.tap(video);
+    await tester.pump();
+    expect(find.byKey(const Key('generatedVideoBottom')), findsNothing);
+    expect(controller.value.isPlaying, isTrue);
+
+    await tester.tap(video);
+    await tester.pump();
+    expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('generatedVideoPlayPause')));
+    await tester.pump();
+    expect(controller.value.isPlaying, isFalse);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const Key('generatedVideoBottom')), findsNothing);
+
+    await tester.tap(video);
+    await tester.pump();
+    expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
   });
 
   testWidgets('Failed preview retries; saving disables conflicting actions', (

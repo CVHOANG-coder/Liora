@@ -340,14 +340,38 @@ class PurchaseController extends Notifier<PurchaseState> {
             )
           : PurchaseParam(productDetails: product);
       PurchaseDetails? oldSubscription;
-      if (!consumable && replaceExistingSubscription) {
+      if (!consumable &&
+          replaceExistingSubscription &&
+          ref.read(googlePlayPlatformProvider)) {
+        final configuredWeeklyId = ref
+            .read(packageCatalogProvider)
+            ?.forPlatform(ref.read(iapCatalogPlatformProvider))
+            ?.weeklySubscription
+            ?.productId;
+        final weeklyProductIds = <String>{
+          IapProductIds.weekly,
+          if (configuredWeeklyId != null && configuredWeeklyId.isNotEmpty)
+            configuredWeeklyId,
+        };
         final purchases = await _gateway.queryPastPurchases();
         for (final purchase in purchases) {
-          if (_subscriptionProductIds.contains(purchase.productID) &&
-              purchase.productID != productId) {
+          if (purchase is GooglePlayPurchaseDetails &&
+              weeklyProductIds.contains(purchase.productID) &&
+              (purchase.status == PurchaseStatus.purchased ||
+                  purchase.status == PurchaseStatus.restored) &&
+              purchase.verificationData.serverVerificationData.isNotEmpty) {
             oldSubscription = purchase;
             break;
           }
+        }
+        if (oldSubscription == null) {
+          _setError(
+            'Unable to find the active weekly subscription in Google Play. '
+            'Please refresh your purchases and try again.',
+            productId: productId,
+            errorCode: ApiErrorCode.purchaseFailed,
+          );
+          return;
         }
       }
       final launched = consumable

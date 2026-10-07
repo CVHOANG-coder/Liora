@@ -10,18 +10,18 @@ import '../../../core/storage/playback_preferences.dart';
 import '../support/app_web_view_screen.dart';
 
 // Match the navy surfaces and violet icon treatment used by Profile.
-const _settingsBackground = Color(0xFF02050C);
+const _settingsBackground = Color(0xFF292431);
 const _settingsSecondary = Color(0xFFB4B1BD);
 const _settingsBorder = Color(0xFF343743);
 const _settingsSurface = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF0B101D), Color(0xFF070C17)],
+  colors: [Color(0xFF40364C), Color(0xFF342D3E)],
 );
 const _settingsIconGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFFE49CEE), Color(0xFFB640F1)],
+  colors: [Color(0xFFE49CEE), Color(0xFFB57DD1)],
 );
 
 class SettingsScreen extends StatefulWidget {
@@ -148,8 +148,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
-                fontFamily: 'Times New Roman',
-                fontFamilyFallback: ['Times', 'serif'],
+                fontFamily: 'Nunito',
+                fontFamilyFallback: ['Nunito Sans'],
                 fontSize: 32,
                 height: 1.1,
                 fontWeight: FontWeight.w400,
@@ -163,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(3),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFEC5FB6), Color(0xFF6657FF)],
+                  colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
                 ),
               ),
             ),
@@ -287,7 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Center(
                     child: Text(
                       'Liora • Create beyond imagination',
-                      style: TextStyle(color: Color(0xFF777585), fontSize: 11),
+                      style: TextStyle(color: Color(0xFF9D95AA), fontSize: 11),
                     ),
                   ),
                 ],
@@ -343,7 +343,7 @@ class _SettingsHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF21172E), Color(0xFF0B101D), Color(0xFF070C17)],
+          colors: [Color(0xFF21172E), Color(0xFF40364C), Color(0xFF342D3E)],
         ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _settingsBorder, width: 0.6),
@@ -402,7 +402,7 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         title,
         style: const TextStyle(
-          color: Color(0xFFB052F5),
+          color: Color(0xFFB185D1),
           fontSize: 11,
           fontWeight: FontWeight.w500,
           letterSpacing: 0.8,
@@ -460,14 +460,14 @@ class _SwitchSettingsTile extends StatelessWidget {
         child: Switch.adaptive(
           value: value,
           onChanged: enabled ? onChanged : null,
-          activeTrackColor: const Color(0xFFA850CF),
+          activeTrackColor: const Color(0xFFA45CF4),
           activeThumbColor: Colors.white,
           inactiveTrackColor: const Color(0xFF242638),
           inactiveThumbColor: const Color(0xFF9295A3),
           trackOutlineWidth: const WidgetStatePropertyAll(0.6),
           trackOutlineColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return const Color(0xFFC875E1);
+              return const Color(0xFFC49AD1);
             }
             return const Color(0xFF454655);
           }),
@@ -508,7 +508,7 @@ class _ActionSettingsTile extends StatelessWidget {
                   dimension: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
-                    color: Color(0xFFB052F5),
+                    color: Color(0xFFB185D1),
                     semanticsLabel: 'Clearing cached media',
                   ),
                 )

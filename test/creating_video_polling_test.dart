@@ -21,7 +21,6 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 
 const _previewPath = String.fromEnvironment('CREATING_PREVIEW_PATH');
 const _sansPath = String.fromEnvironment('CREATING_PREVIEW_SANS');
-const _serifPath = String.fromEnvironment('CREATING_PREVIEW_SERIF');
 
 void main() {
   setUpAll(() async {
@@ -29,15 +28,17 @@ void main() {
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
-    for (final font in [
-      ('Roboto', _sansPath),
-      ('Times New Roman', _serifPath),
-    ]) {
-      if (font.$2.isEmpty) continue;
-      final loader = FontLoader(font.$1)
-        ..addFont(File(font.$2).readAsBytes().then(ByteData.sublistView));
+    if (_sansPath.isNotEmpty) {
+      final loader = FontLoader('Roboto')
+        ..addFont(File(_sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -53,7 +54,9 @@ void main() {
         final theme = _previewPath.isEmpty
             ? AppTheme.dark
             : AppTheme.dark.copyWith(
-                textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Roboto'),
+                textTheme: AppTheme.dark.textTheme.apply(
+                  fontFamily: 'Nunito Sans',
+                ),
               );
         await tester.pumpWidget(
           RepaintBoundary(
@@ -536,7 +539,7 @@ void main() {
 
     expect(find.byType(MainScreen), findsOneWidget);
     expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

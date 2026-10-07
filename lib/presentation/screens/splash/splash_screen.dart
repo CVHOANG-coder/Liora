@@ -251,10 +251,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 double _splashLayoutWidth(Size size) =>
     size.width.clamp(0.0, size.height * 941 / 1672);
 
-const _splashGradient = LinearGradient(
-  colors: [Color(0xFFEC5FB6), Color(0xFFB14DE4), Color(0xFF5B5FF4)],
-);
-
 class _SplashArtwork extends StatelessWidget {
   const _SplashArtwork({required this.size, required this.compact});
 
@@ -383,7 +379,7 @@ class _SplashContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = _splashLayoutWidth(size);
     final scale = width / 393;
-    final titleSize = width * (isAuthenticating ? 0.18 : 0.14);
+    final titleWidth = width * (isAuthenticating ? 0.48 : 0.38);
     final footerWidth = width * 0.68;
     final safeBottom = MediaQuery.paddingOf(context).bottom;
 
@@ -396,24 +392,16 @@ class _SplashContent extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: _splashGradient.createShader,
-                  child: Text(
-                    'Liora',
+              Semantics(
+                label: 'Liora',
+                child: SizedBox(
+                  width: titleWidth,
+                  child: Image.asset(
+                    'assets/images/home/liora_header_title.png',
                     key: const Key('splashTitle'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Times New Roman',
-                      fontFamilyFallback: const ['Times', 'serif'],
-                      fontSize: titleSize,
-                      height: 1,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.7 * scale,
-                    ),
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    excludeFromSemantics: true,
                   ),
                 ),
               ),

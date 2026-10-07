@@ -110,7 +110,7 @@ class _AppWebViewScreenState extends State<AppWebViewScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xF208060B),
+          backgroundColor: const Color(0xF2252335),
           surfaceTintColor: Colors.transparent,
           centerTitle: true,
           leading: IconButton(
@@ -139,7 +139,7 @@ class _AppWebViewScreenState extends State<AppWebViewScreen> {
                   value: _progress == 0 ? null : _progress / 100,
                   minHeight: 3,
                   backgroundColor: const Color(0xFF2A1024),
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFF35AA)),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFFD176AB)),
                 ),
               ),
             if (_hasPageError)
@@ -154,7 +154,7 @@ class _AppWebViewScreenState extends State<AppWebViewScreen> {
                         children: [
                           const Icon(
                             Icons.cloud_off_rounded,
-                            color: Color(0xFFFF4CAF),
+                            color: Color(0xFFD180AD),
                             size: 54,
                           ),
                           const SizedBox(height: 16),
@@ -183,7 +183,7 @@ class _AppWebViewScreenState extends State<AppWebViewScreen> {
                             icon: const Icon(Icons.refresh_rounded),
                             label: const Text('Try Again'),
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF38A8),
+                              backgroundColor: const Color(0xFFD177AA),
                               foregroundColor: Colors.white,
                             ),
                           ),

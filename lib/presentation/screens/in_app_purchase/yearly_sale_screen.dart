@@ -8,6 +8,7 @@ import '../../providers/package_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/pro_banner_video.dart';
 import '../../widgets/video_form_style.dart';
 import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
@@ -31,7 +32,6 @@ class YearlySaleScreen extends ConsumerStatefulWidget {
 }
 
 class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
-  bool _muted = true;
   bool _purchaseStarted = false;
   AppPackage? _lastAttemptedPackage;
   bool _lastAttemptWasReplacement = false;
@@ -58,7 +58,6 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
         children: [
           const Positioned.fill(child: _SaleBackground()),
           SafeArea(
-            bottom: false,
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
@@ -71,44 +70,56 @@ class _YearlySaleScreenState extends ConsumerState<YearlySaleScreen> {
                         12 * scale,
                         6 * scale,
                         12 * scale,
-                        12 * scale + MediaQuery.paddingOf(context).bottom,
+                        12 * scale,
                       ),
-                      sliver: SliverList.list(
-                        children: [
-                          _TopActions(
-                            muted: _muted,
-                            onClose: () => Navigator.maybePop(context),
-                            onSoundTap: () => setState(() => _muted = !_muted),
-                          ),
-                          SizedBox(height: 4 * scale),
-                          const _SaleHero(),
-                          SizedBox(height: 7 * scale),
-                          const _BenefitsCard(),
-                          SizedBox(height: 9 * scale),
-                          _PriceCard(pricing: pricing),
-                          SizedBox(height: 7 * scale),
-                          _BillingNote(pricing: pricing),
-                          SizedBox(height: 10 * scale),
-                          _PrimaryButton(
-                            busy: purchaseState.isBusy,
-                            onTap: purchaseState.isBusy
-                                ? null
-                                : () => _startYearlySale(salePackage),
-                          ),
-                          SizedBox(height: 7 * scale),
-                          _BuyCreditsButton(onTap: _openBuyCredits),
-                          SizedBox(height: 2 * scale),
-                          _TextLink(
-                            key: const Key('yearlySaleViewAllPlansButton'),
-                            label: 'View all plans',
-                            icon: Icons.chevron_right_rounded,
-                            onTap: _openAllPlans,
-                          ),
-                          SizedBox(height: 5 * scale),
-                          _LegalFooter(
-                            onRestore: purchaseState.isBusy ? null : _restore,
-                          ),
-                        ],
+                      sliver: SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _TopActions(
+                              onClose: () => Navigator.maybePop(context),
+                            ),
+                            const Spacer(),
+                            Column(
+                              key: const Key('yearlySaleBottomContent'),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(height: 4 * scale),
+                                const _SaleHero(),
+                                SizedBox(height: 7 * scale),
+                                const _BenefitsCard(),
+                                SizedBox(height: 9 * scale),
+                                _PriceCard(pricing: pricing),
+                                SizedBox(height: 7 * scale),
+                                SizedBox(height: 10 * scale),
+                                _PrimaryButton(
+                                  busy: purchaseState.isBusy,
+                                  onTap: purchaseState.isBusy
+                                      ? null
+                                      : () => _startYearlySale(salePackage),
+                                ),
+                                SizedBox(height: 7 * scale),
+                                _BuyCreditsButton(onTap: _openBuyCredits),
+                                SizedBox(height: 2 * scale),
+                                _TextLink(
+                                  key: const Key(
+                                    'yearlySaleViewAllPlansButton',
+                                  ),
+                                  label: 'View all plans',
+                                  icon: Icons.chevron_right_rounded,
+                                  onTap: _openAllPlans,
+                                ),
+                                SizedBox(height: 5 * scale),
+                                _LegalFooter(
+                                  onRestore: purchaseState.isBusy
+                                      ? null
+                                      : _restore,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -312,27 +323,20 @@ class _SaleBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          'assets/images/in_app_purchase/all_plans_hero.png',
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: (MediaQuery.sizeOf(context).width * .82).clamp(0.0, 420.0),
+          child: const ProBannerVideo(key: Key('yearlySaleProBannerVideo')),
         ),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x7202050C), Color(0xF202050C), Color(0xFF02050C)],
+              colors: [Color(0x72252335), Color(0xF2252335), Color(0xFF292431)],
               stops: [0, 0.34, 0.72],
-            ),
-          ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(0.75, -0.66),
-              radius: 0.72,
-              colors: [Color(0x423D0051), Color(0x0002050C)],
             ),
           ),
         ),
@@ -342,15 +346,9 @@ class _SaleBackground extends StatelessWidget {
 }
 
 class _TopActions extends StatelessWidget {
-  const _TopActions({
-    required this.muted,
-    required this.onClose,
-    required this.onSoundTap,
-  });
+  const _TopActions({required this.onClose});
 
-  final bool muted;
   final VoidCallback onClose;
-  final VoidCallback onSoundTap;
 
   @override
   Widget build(BuildContext context) {
@@ -361,12 +359,6 @@ class _TopActions extends StatelessWidget {
           label: 'Close',
           icon: Icons.close_rounded,
           onTap: onClose,
-        ),
-        const Spacer(),
-        _RoundButton(
-          label: muted ? 'Turn sound on' : 'Mute sound',
-          icon: muted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
-          onTap: onSoundTap,
         ),
       ],
     );
@@ -400,7 +392,7 @@ class _RoundButton extends StatelessWidget {
           gradient: VideoFormStyle.gradient,
         ),
         child: Material(
-          color: const Color(0xE20B1020),
+          color: const Color(0xE2312E42),
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -493,7 +485,7 @@ class _BenefitsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scale = _saleScale(context);
-    return _NeonCard(
+    return _OutlinedCard(
       child: Column(
         children: [
           for (var index = 0; index < _benefits.length; index++) ...[
@@ -541,13 +533,13 @@ class _BenefitIcon extends StatelessWidget {
         color: const Color(0xFF14152B),
         border: Border.all(color: VideoFormStyle.accent),
       ),
-      child: Icon(icon, color: const Color(0xFFFF42B7), size: 16 * scale),
+      child: Icon(icon, color: const Color(0xFFD17CB1), size: 16 * scale),
     );
   }
 }
 
-class _NeonCard extends StatelessWidget {
-  const _NeonCard({required this.child, this.highlight = false});
+class _OutlinedCard extends StatelessWidget {
+  const _OutlinedCard({required this.child, this.highlight = false});
 
   final Widget child;
   final bool highlight;
@@ -558,16 +550,7 @@ class _NeonCard extends StatelessWidget {
       padding: EdgeInsets.all(highlight ? 1.1 : .8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          colors: highlight
-              ? const [
-                  VideoFormStyle.pink,
-                  VideoFormStyle.accent,
-                  Color(0xFF294CD7),
-                ]
-              : const [Color(0xFF474253), Color(0xFF29263B)],
-        ),
-        boxShadow: null,
+        color: highlight ? const Color(0xFF9366AA) : const Color(0xFF474253),
       ),
       child: Container(
         padding: EdgeInsets.fromLTRB(
@@ -597,7 +580,7 @@ class _PriceCard extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        _NeonCard(
+        _OutlinedCard(
           highlight: true,
           child: Padding(
             padding: EdgeInsets.only(top: 3 * scale),
@@ -721,31 +704,6 @@ class _SelectedPlanIcon extends StatelessWidget {
   }
 }
 
-class _BillingNote extends StatelessWidget {
-  const _BillingNote({required this.pricing});
-
-  final _SalePricing pricing;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _saleScale(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 6 * scale),
-      child: Text(
-        'Pay ${pricing.salePrice} for one year. Auto-renews at '
-        '${pricing.salePrice}/year until canceled. '
-        'Offer applies to the Annually Sale Pro plan.',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: const Color(0xFFC5BEC8),
-          fontSize: 11 * scale,
-          height: 1.35,
-        ),
-      ),
-    );
-  }
-}
-
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({required this.busy, required this.onTap});
 
@@ -761,7 +719,6 @@ class _PrimaryButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(13 * scale),
         gradient: VideoFormStyle.gradient,
-        boxShadow: const [BoxShadow(color: Color(0x2EDB3C91), blurRadius: 14)],
       ),
       child: Material(
         color: Colors.transparent,
@@ -831,11 +788,11 @@ class _TextLink extends StatelessWidget {
       child: TextButton.icon(
         onPressed: onTap,
         iconAlignment: IconAlignment.end,
-        icon: Icon(icon, color: const Color(0xFFFF42AD), size: 19 * scale),
+        icon: Icon(icon, color: const Color(0xFFD17CAC), size: 19 * scale),
         label: Text(
           label,
           style: TextStyle(
-            color: const Color(0xFFFF42AD),
+            color: const Color(0xFFD17CAC),
             fontSize: 13 * scale,
             fontWeight: FontWeight.w600,
           ),
@@ -863,13 +820,12 @@ class _BuyCreditsButton extends StatelessWidget {
           colors: [
             VideoFormStyle.pink,
             VideoFormStyle.accent,
-            Color(0xFF4D61E0),
+            Color(0xFF8690D1),
           ],
         ),
-        boxShadow: const [BoxShadow(color: Color(0x35EC4F94), blurRadius: 16)],
       ),
       child: Material(
-        color: const Color(0xF20B1020),
+        color: const Color(0xF2312E42),
         borderRadius: BorderRadius.circular(12 * scale),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

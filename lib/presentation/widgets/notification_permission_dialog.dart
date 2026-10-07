@@ -28,22 +28,14 @@ class NotificationPermissionDialog extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFF24B5), Color(0xFFFF5C62), Color(0xFFFF9F2B)],
+            colors: [Color(0xFFD16EB0), Color(0xFFD1888A), Color(0xFFD1A671)],
           ),
-          boxShadow: const [
-            BoxShadow(color: Color(0x66FF1BAB), blurRadius: 25),
-            BoxShadow(color: Color(0x33FF8C2A), blurRadius: 20),
-          ],
         ),
         child: Container(
           padding: const EdgeInsets.fromLTRB(22, 25, 22, 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: const RadialGradient(
-              center: Alignment(0, -0.7),
-              radius: 1.1,
-              colors: [Color(0xFF251027), Color(0xFF0B060F)],
-            ),
+            color: const Color(0xFF342D3E),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -55,20 +47,17 @@ class NotificationPermissionDialog extends StatelessWidget {
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Color(0xFFFF24B7), Color(0xFFFF9A2E)],
+                    colors: [Color(0xFFD16EB1), Color(0xFFD1A473)],
                   ),
-                  boxShadow: [
-                    BoxShadow(color: Color(0x77FF20AA), blurRadius: 20),
-                  ],
                 ),
                 child: const DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color(0xFF170919),
+                    color: Color(0xFF342D3E),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.notifications_active_rounded,
-                    color: Color(0xFFFF70B8),
+                    color: Color(0xFFD191B1),
                     size: 42,
                   ),
                 ),
@@ -103,14 +92,11 @@ class NotificationPermissionDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(27),
                   gradient: const LinearGradient(
                     colors: [
-                      Color(0xFFFF16A8),
-                      Color(0xFFFF4E5C),
-                      Color(0xFFFFA42B),
+                      Color(0xFFD16DAC),
+                      Color(0xFFD18188),
+                      Color(0xFFD1A871),
                     ],
                   ),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x66FF1AA6), blurRadius: 15),
-                  ],
                 ),
                 child: Material(
                   color: Colors.transparent,

@@ -6,7 +6,7 @@ The display name is Liora on iOS, Android and in Flutter. User-facing copy, shar
 - Launcher master: `assets/branding/lola_app_icon.png`.
 - iOS variants: `ios/Runner/Assets.xcassets/AppIcon.appiconset/`.
 - Android variants: `android/app/src/main/res/mipmap-*/ic_launcher.png`.
-- Native launch mark: `ios/Runner/Assets.xcassets/LaunchImage.imageset/Liora*.png`.
+- Native launch mark: the three `appstore*.png` variants listed in `ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json`.
 
 Launcher artwork was composed with the built-in ImageGen tool and resized for each native slot. Unused legacy source images and the old splash/purchase artwork were removed from `assets/` after verifying that no app or test code referenced them.
 

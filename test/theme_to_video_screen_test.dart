@@ -109,7 +109,7 @@ void main() {
     expect(find.byType(CreatingVideoScreen), findsOneWidget);
     expect(find.byKey(const Key('creatingSourceImage')), findsOneWidget);
     expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
-    expect(find.byKey(const Key('creatingImageScanLine')), findsOneWidget);
+    expect(find.byKey(const Key('creatingImageScanLine')), findsNothing);
     expect(submittedTheme, 'mad_dance');
     expect(submittedFirstImage, imagePath);
     expect(submittedHd, isFalse);

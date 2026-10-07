@@ -56,22 +56,10 @@ class StorePurchaseGateway implements PurchaseGateway {
     PurchaseParam purchaseParam, {
     PurchaseDetails? oldPurchase,
   }) {
-    final offerToken = purchaseParam is GooglePlayPurchaseParam
-        ? purchaseParam.offerToken
-        : purchaseParam.productDetails is GooglePlayProductDetails
-        ? (purchaseParam.productDetails as GooglePlayProductDetails).offerToken
-        : null;
-    final effectiveParam = oldPurchase is GooglePlayPurchaseDetails
-        ? GooglePlayPurchaseParam(
-            productDetails: purchaseParam.productDetails,
-            applicationUserName: purchaseParam.applicationUserName,
-            offerToken: offerToken,
-            changeSubscriptionParam: ChangeSubscriptionParam(
-              oldPurchaseDetails: oldPurchase,
-              replacementMode: ReplacementMode.withTimeProration,
-            ),
-          )
-        : purchaseParam;
+    final effectiveParam = subscriptionPurchaseParam(
+      purchaseParam,
+      oldPurchase: oldPurchase,
+    );
     return _store.buyNonConsumable(purchaseParam: effectiveParam);
   }
 
@@ -114,4 +102,27 @@ class StorePurchaseGateway implements PurchaseGateway {
 
 class GooglePlayPurchaseGateway extends StorePurchaseGateway {
   GooglePlayPurchaseGateway({super.store});
+}
+
+PurchaseParam subscriptionPurchaseParam(
+  PurchaseParam purchaseParam, {
+  PurchaseDetails? oldPurchase,
+}) {
+  if (oldPurchase is! GooglePlayPurchaseDetails) return purchaseParam;
+
+  final offerToken = purchaseParam is GooglePlayPurchaseParam
+      ? purchaseParam.offerToken
+      : purchaseParam.productDetails is GooglePlayProductDetails
+      ? (purchaseParam.productDetails as GooglePlayProductDetails).offerToken
+      : null;
+  return GooglePlayPurchaseParam(
+    productDetails: purchaseParam.productDetails,
+    applicationUserName: purchaseParam.applicationUserName,
+    offerToken: offerToken,
+    // The Android plugin maps this to BillingFlowParams.SubscriptionUpdateParams.
+    changeSubscriptionParam: ChangeSubscriptionParam(
+      oldPurchaseDetails: oldPurchase,
+      replacementMode: ReplacementMode.chargeFullPrice,
+    ),
+  );
 }

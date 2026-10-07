@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/app_features.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../data/video_categories.dart';
 import '../../providers/home_subscription_plan_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -13,22 +18,33 @@ import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/free_trial_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
-import '../profile/profile_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
 
-const _themeCardAspectRatio = 9 / 16;
+const _themeCardAspectRatio = 2 / 3;
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key, this.onProfilePressed});
-
-  final VoidCallback? onProfilePressed;
+  const HomeScreen({super.key});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _bannerVisible = true;
+
+  bool _onHomeScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    final bannerHeight =
+        MediaQuery.sizeOf(context).width * .60 +
+        MediaQuery.paddingOf(context).top;
+    final visible = notification.metrics.pixels < bannerHeight;
+    if (visible != _bannerVisible) setState(() => _bannerVisible = visible);
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
@@ -43,73 +59,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     };
     final categories = ref.watch(themeCategoriesProvider);
 
+    final safeTop = MediaQuery.paddingOf(context).top;
     return ColoredBox(
-      color: Colors.black,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              key: const Key('homeHeader'),
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: _HomeHeader(
-                showPlanAction: AppFeatures.commerceEnabled,
-                planAction: planAction,
-                creditBalance: profile?.totalCredit ?? 0,
-                onAvatarPressed:
-                    widget.onProfilePressed ??
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const ProfileScreen(),
-                      ),
-                    ),
-                onCreditPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const BuyCredits()),
+      color: AppColors.background,
+      child: Stack(
+        children: [
+          NotificationListener<ScrollNotification>(
+            onNotification: _onHomeScroll,
+            child: CustomScrollView(
+              key: const PageStorageKey('homeScroll'),
+              physics: const BouncingScrollPhysics(),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _HeroBanner(isVisible: _bannerVisible),
                 ),
-                onProPressed: () {
-                  if (planStatus == HomeSubscriptionPlan.none &&
-                      profile?.isVIP != true) {
-                    FreeTrialScreen.open(context);
-                    return;
-                  }
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const AllPlans()),
-                  );
-                },
-              ),
-            ),
-            Expanded(
-              child: CustomScrollView(
-                key: const PageStorageKey('homeScroll'),
-                physics: const BouncingScrollPhysics(),
-                // Offscreen animated previews must not keep decoding frames.
-                scrollCacheExtent: const ScrollCacheExtent.pixels(0),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                    sliver: SliverToBoxAdapter(
-                      child: Column(
-                        children: const [
-                          _HeroBanner(),
-                          SizedBox(height: 2),
-                          _FeatureCards(),
-                        ],
-                      ),
-                    ),
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(14, 12, 14, 22),
+                  sliver: SliverToBoxAdapter(child: _FeatureCards()),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 0, 118),
+                  sliver: _VideoCategories(
+                    categories: categories,
+                    onRetry: () => ref.invalidate(themeCategoriesProvider),
                   ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 118),
-                    sliver: _VideoCategories(
-                      categories: categories,
-                      onRetry: () => ref.invalidate(themeCategoriesProvider),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            top: safeTop - 10,
+            left: 14,
+            right: 14,
+            child: _HomeHeader(
+              showPlanAction: AppFeatures.commerceEnabled,
+              planAction: planAction,
+              creditBalance: profile?.totalCredit ?? 0,
+              onCreditPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const BuyCredits()),
+              ),
+              onProPressed: () {
+                if (planStatus == HomeSubscriptionPlan.none &&
+                    profile?.isVIP != true) {
+                  FreeTrialScreen.open(context);
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AllPlans()),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -122,7 +124,6 @@ class _HomeHeader extends StatelessWidget {
     required this.showPlanAction,
     required this.planAction,
     required this.creditBalance,
-    required this.onAvatarPressed,
     required this.onCreditPressed,
     required this.onProPressed,
   });
@@ -130,7 +131,6 @@ class _HomeHeader extends StatelessWidget {
   final bool showPlanAction;
   final _HomePlanAction planAction;
   final int creditBalance;
-  final VoidCallback onAvatarPressed;
   final VoidCallback onCreditPressed;
   final VoidCallback onProPressed;
 
@@ -147,28 +147,11 @@ class _HomeHeader extends StatelessWidget {
       _HomePlanAction.credit => 'View Pro plan',
     };
     return SizedBox(
+      key: const Key('homeHeader'),
       height: 48,
       child: Row(
+        crossAxisAlignment: .center,
         children: [
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: const Key('homeAvatarButton'),
-              onTap: onAvatarPressed,
-              child: SizedBox(
-                key: const Key('homeAvatar'),
-                width: 40,
-                height: 40,
-                child: Image.asset(
-                  'assets/images/profile/avatar_default.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
           const Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -190,17 +173,8 @@ class _HomeHeader extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFDA4A9A),
-                      Color(0xFF7D45C5),
-                      Color(0xFF315BD9),
-                    ],
-                  ),
-                  border: Border.all(color: const Color(0xFFCF9BE7), width: .7),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x66B947B1), blurRadius: 14),
-                  ],
+                  color: AppColors.primary,
+                  border: Border.all(color: const Color(0xFFCB9DFF), width: .7),
                 ),
                 child: Material(
                   color: Colors.transparent,
@@ -215,13 +189,13 @@ class _HomeHeader extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SvgPicture.asset(
-                            'assets/svgs/pro.svg',
-                            width: 19,
-                            height: 19,
-                            colorFilter: const ColorFilter.mode(
-                              Colors.white,
-                              BlendMode.srcIn,
-                            ),
+                            'assets/svgs/pro_2.svg',
+                            width: 22,
+                            height: 22,
+                            // colorFilter: const ColorFilter.mode(
+                            //   Colors.white,
+                            //   BlendMode.srcIn,
+                            // ),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -253,39 +227,57 @@ class _HomeCreditButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0xFF111521),
-    borderRadius: BorderRadius.circular(22),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      key: const Key('homeCreditButton'),
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFF423653), width: .7),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/in_app_purchase/credit.png',
-              width: 22,
-              height: 22,
-              fit: BoxFit.contain,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Buy credits, $balance credits',
+    child: Container(
+      key: const Key('homeCreditSurface'),
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: AppColors.primary,
+        border: Border.all(color: const Color(0xFFCB9DFF), width: .7),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const Key('homeCreditButton'),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset(
+                  'assets/svgs/diamond.svg',
+                  width: 26,
+                  height: 26,
+                  // colorFilter: const ColorFilter.mode(
+                  //   Colors.white,
+                  //   BlendMode.srcIn,
+                  // ),
+                ),
+                // Image.asset(
+                //   'assets/images/in_app_purchase/credit.png',
+                //   width: 32,
+                //   height: 32,
+                //   fit: BoxFit.contain,
+                //   excludeFromSemantics: true,
+                // ),
+                // const SizedBox(width: 6),
+                // Text(
+                //   _formatHomeCredits(balance),
+                //   style: const TextStyle(
+                //     color: Colors.white,
+                //     fontSize: 14,
+                //     fontWeight: FontWeight.w700,
+                //   ),
+                // ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Text(
-              _formatHomeCredits(balance),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     ),
@@ -307,112 +299,277 @@ class _Brand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      key: const Key('homeBrand'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset(
-          'assets/images/home/lola_logo.png',
-          width: 28,
-          height: 28,
+    return Semantics(
+      label: 'Liora',
+      child: SizedBox(
+        key: const Key('homeBrand'),
+        width: 84,
+        height: 33,
+        child: Image.asset(
+          'assets/images/home/liora_header_title.png',
           fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          excludeFromSemantics: true,
         ),
-        const SizedBox(width: 6),
-        const Text(
-          'Liora',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 140,
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Positioned(
-            right: -12,
-            bottom: 0,
-            width: 202.5,
-            height: 151.5,
-            child: Image.asset(
-              'assets/images/home/bg_banner_home.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-            ),
-          ),
-          const Positioned(left: 8, top: 10, child: _HeroCopy()),
-        ],
       ),
     );
   }
 }
 
-class _HeroCopy extends StatelessWidget {
-  const _HeroCopy();
+const _bannerVideos = [
+  'assets/videos/home_banner/slide_1.mp4',
+  'assets/videos/home_banner/slide_2.mp4',
+  'assets/videos/home_banner/slide_3.mp4',
+];
+
+const _bannerPosters = [
+  'assets/images/home/home_banner_poster.jpg',
+  'assets/images/home/home_banner_poster_2.jpg',
+  'assets/images/home/home_banner_poster_3.jpg',
+];
+
+class _HeroBanner extends StatefulWidget {
+  const _HeroBanner({required this.isVisible});
+
+  final bool isVisible;
+
+  @override
+  State<_HeroBanner> createState() => _HeroBannerState();
+}
+
+class _HeroBannerState extends State<_HeroBanner> with WidgetsBindingObserver {
+  VideoPlayerController? _video;
+  Timer? _retryTimer;
+  int _index = 0;
+  int _loadFailures = 0;
+  bool _ready = false;
+  bool _advancing = false;
+  bool _appActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appActive = _canPlayForLifecycle(WidgetsBinding.instance.lifecycleState);
+    _loadVideo();
+  }
+
+  static bool _canPlayForLifecycle(AppLifecycleState? state) => switch (state) {
+    AppLifecycleState.paused ||
+    AppLifecycleState.hidden ||
+    AppLifecycleState.detached => false,
+    _ => true,
+  };
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPlayback();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isVisible != widget.isVisible) _syncPlayback();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = _canPlayForLifecycle(state);
+    _syncPlayback();
+  }
+
+  Future<void> _loadVideo() async {
+    final controller = VideoPlayerController.asset(_bannerVideos[_index]);
+    _video = controller;
+    controller.addListener(_onVideoValue);
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.setVolume(0);
+      if (!mounted || _video != controller) return;
+      _loadFailures = 0;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      setState(() => _ready = true);
+      await _syncPlayback();
+    } catch (error) {
+      if (_video != controller) return;
+      controller.removeListener(_onVideoValue);
+      _video = null;
+      try {
+        await controller.dispose();
+      } catch (_) {
+        // The poster is still available if native player cleanup fails.
+      }
+      debugPrint(
+        'Home banner video could not load ${_bannerVideos[_index]}: $error',
+      );
+      if (mounted && _loadFailures < 2) {
+        _loadFailures += 1;
+        _retryTimer = Timer(Duration(seconds: _loadFailures), () {
+          if (mounted && _video == null) _loadVideo();
+        });
+      }
+    }
+  }
+
+  Future<void> _syncPlayback() async {
+    final controller = _video;
+    if (!_ready || controller == null) return;
+    final shouldPlay =
+        widget.isVisible && TickerMode.valuesOf(context).enabled && _appActive;
+    try {
+      if (!shouldPlay) {
+        if (controller.value.isPlaying) await controller.pause();
+        return;
+      }
+      if (controller.value.isPlaying) return;
+      // The texture needs one frame to attach after initialization or a tab switch.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted ||
+          _video != controller ||
+          !widget.isVisible ||
+          !TickerMode.valuesOf(context).enabled ||
+          !_appActive) {
+        return;
+      }
+      await controller.play();
+    } catch (_) {
+      // A lifecycle or clip change may dispose the player during a platform call.
+    }
+  }
+
+  void _onVideoValue() {
+    final value = _video?.value;
+    if (value == null || !mounted) return;
+    if (value.isCompleted && !_advancing) {
+      _advancing = true;
+      scheduleMicrotask(_advanceVideo);
+      return;
+    }
+  }
+
+  Future<void> _advanceVideo() async {
+    final previous = _video;
+    setState(() {
+      _index = (_index + 1) % _bannerVideos.length;
+      _ready = false;
+      _video = null;
+    });
+    if (previous != null) {
+      previous.removeListener(_onVideoValue);
+      try {
+        await previous.dispose();
+      } catch (_) {
+        // A failed platform cleanup should not stop the remaining clips.
+      }
+    }
+    if (!mounted) return;
+    _advancing = false;
+    _loadVideo();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _retryTimer?.cancel();
+    _video?.removeListener(_onVideoValue);
+    _video?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(
-          width: 1,
-          height: 1,
-          child: Opacity(
-            opacity: 0,
-            child: Text('Create AI short films', style: TextStyle(fontSize: 0)),
-          ),
-        ),
-        const Text(
-          'Create AI',
-          style: TextStyle(
-            color: Color(0xFFF8F6F8),
-            fontFamily: 'serif',
-            fontSize: 35,
-            height: 0.98,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -1.5,
-          ),
-        ),
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFFF71AD), Color(0xFF9B75FF)],
-          ).createShader(bounds),
-          child: const Text(
-            'short films',
-            style: TextStyle(
-              fontFamily: 'serif',
-              fontSize: 32,
-              height: 1.05,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -1.5,
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final height = MediaQuery.sizeOf(context).width * .60 + safeTop;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+      child: SizedBox(
+        key: const Key('homeVideoBanner'),
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(_bannerPosters[_index], fit: BoxFit.cover),
+            if (_ready && _video != null)
+              FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _video!.value.size.width,
+                  height: _video!.value.size.height,
+                  child: VideoPlayer(_video!),
+                ),
+              ),
+            const ColoredBox(color: Color(0x330E0B18)),
+            Positioned(
+              right: 18,
+              bottom: 20,
+              child: Semantics(
+                button: true,
+                label: 'Create Video Now',
+                child: Material(
+                  key: const Key('homeBannerCreateButton'),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ImageToVideoScreen(),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [
+                            Color(0xFFC444A5),
+                            Color(0xFF7A43CB),
+                            Color(0xFF2668CC),
+                          ],
+                        ).createShader(bounds),
+                        child: const Text(
+                          'Create Video Now',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _bannerVideos.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: index == _index ? Colors.white : Colors.white54,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        // const SizedBox(height: 22),
-        // const Text(
-        //   'Image to Video, \nmade to go viral.',
-        //   style: TextStyle(
-        //     color: Color(0xFFBDB8C1),
-        //     fontSize: 16,
-        //     height: 1.45,
-        //   ),
-        // ),
-      ],
+      ),
     );
   }
 }
@@ -427,7 +584,6 @@ class _FeatureCards extends StatelessWidget {
         Expanded(
           child: _FeatureCard(
             title: 'Image to Video',
-            subtitle: 'Animate photos\nand characters',
             asset: 'assets/images/home/image_to_video.png',
             backgroundAsset: 'assets/images/home/image_to_video_bg.png',
           ),
@@ -436,7 +592,6 @@ class _FeatureCards extends StatelessWidget {
         Expanded(
           child: _FeatureCard(
             title: 'Text to Video',
-            subtitle: 'Turn ideas into\nAI short videos',
             asset: 'assets/images/home/text_to_video.png',
             backgroundAsset: 'assets/images/home/text_to_video_bg.png',
           ),
@@ -449,98 +604,129 @@ class _FeatureCards extends StatelessWidget {
 class _FeatureCard extends StatelessWidget {
   const _FeatureCard({
     required this.title,
-    required this.subtitle,
     required this.asset,
     required this.backgroundAsset,
   });
 
   final String title;
-  final String subtitle;
   final String asset;
   final String backgroundAsset;
 
   @override
   Widget build(BuildContext context) {
-    final card = AspectRatio(
-      aspectRatio: 1.36,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(19),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Image.asset(backgroundAsset, fit: BoxFit.cover),
+    final isTextToVideo = title == 'Text to Video';
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final displayTitle = textScale > 1.35
+            ? title.replaceAll(' ', '\n')
+            : constraints.maxWidth < 155
+            ? title.replaceFirst(' to ', ' to\n')
+            : title;
+        final cardHeight = math
+            .max(
+              (constraints.maxWidth / 1.25).clamp(144.0, 160.0),
+              144 + math.max(0, textScale - 1) * 150,
+            )
+            .toDouble();
+        return Semantics(
+          button: true,
+          label: title,
+          child: GestureDetector(
+            key: Key(
+              isTextToVideo ? 'homeTextToVideoCard' : 'homeImageToVideoCard',
             ),
-            Positioned(
-              left: 13,
-              top: 14,
-              width: 64,
-              height: 64,
-              child: Image.asset(asset, fit: BoxFit.contain),
-            ),
-            Positioned(
-              left: 13,
-              right: 13,
-              bottom: 20,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          // maxLines: 1,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        // const SizedBox(height: 6),
-                        // Text(
-                        //   subtitle,
-                        //   style: const TextStyle(
-                        //     color: Color(0xFFBBB5BE),
-                        //     fontSize: 11.5,
-                        //     height: 1.3,
-                        //   ),
-                        // ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF121421).withValues(alpha: 0.78),
-                      border: Border.all(color: const Color(0xFF5A5576)),
-                    ),
-                    child: const Icon(Icons.arrow_forward_rounded, size: 21),
-                  ),
-                ],
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => isTextToVideo
+                    ? const TextToVideoScreen()
+                    : const ImageToVideoScreen(),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-
-    final isTextToVideo = title == 'Text to Video';
-    final isImageToVideo = title == 'Image to Video';
-    if (!isTextToVideo && !isImageToVideo) return card;
-    return GestureDetector(
-      key: Key(isTextToVideo ? 'homeTextToVideoCard' : 'homeImageToVideoCard'),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => isTextToVideo
-              ? const TextToVideoScreen()
-              : const ImageToVideoScreen(),
-        ),
-      ),
-      child: card,
+            child: SizedBox(
+              height: cardHeight,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(19),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        1.5,
+                        0,
+                        0,
+                        0,
+                        18,
+                        0,
+                        1.5,
+                        0,
+                        0,
+                        18,
+                        0,
+                        0,
+                        1.5,
+                        0,
+                        18,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                      ]),
+                      // These assets include a dark frame; crop it so the
+                      // artwork reaches the rounded edges of the card.
+                      child: Transform.scale(
+                        scale: 1.15,
+                        child: Image.asset(backgroundAsset, fit: BoxFit.cover),
+                      ),
+                    ),
+                    Positioned(
+                      left: 13,
+                      top: 13,
+                      width: 64,
+                      height: 64,
+                      child: Image.asset(asset, fit: BoxFit.contain),
+                    ),
+                    Positioned(
+                      top: 14,
+                      right: 13,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xCC171B2B),
+                          border: Border.all(color: const Color(0xFF666B82)),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 19,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 13,
+                      right: 13,
+                      bottom: 14,
+                      child: Text(
+                        displayTitle,
+                        softWrap: true,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -586,7 +772,7 @@ class _VideoCategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final thumbnailWidth = ((screenWidth - 44) / 2.25).clamp(126.0, 184.0);
+    final thumbnailWidth = (screenWidth * .26).clamp(108.0, 172.0);
     final thumbnailHeight = thumbnailWidth / _themeCardAspectRatio;
     final decodeWidth =
         (thumbnailWidth * MediaQuery.devicePixelRatioOf(context)).ceil().clamp(
@@ -608,7 +794,7 @@ class _VideoCategorySection extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -621,7 +807,7 @@ class _VideoCategorySection extends StatelessWidget {
                 ),
               ),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCFCCD2),
+                foregroundColor: AppColors.textSecondary,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 minimumSize: const Size(0, 36),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -634,7 +820,7 @@ class _VideoCategorySection extends StatelessWidget {
             const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF969198),
+              color: AppColors.textSecondary,
               size: 20,
             ),
           ],
@@ -649,14 +835,14 @@ class _VideoCategorySection extends StatelessWidget {
             scrollCacheExtent: const ScrollCacheExtent.pixels(0),
             addAutomaticKeepAlives: false,
             itemCount: category.posts.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) => SizedBox(
               width: thumbnailWidth,
               child: _VideoThumbnail(
                 post: category.posts[index],
                 index: index,
                 decodeWidth: decodeWidth,
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
               ),
             ),
           ),
@@ -680,9 +866,9 @@ class _CategoryThemesScreen extends StatelessWidget {
     final decodeWidth = (cardWidth * pixelRatio).ceil().clamp(1, 768);
     return Scaffold(
       key: const Key('categoryThemesScreen'),
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         title: Text(category.title),
       ),
@@ -725,18 +911,7 @@ class _CategoryIcon extends StatelessWidget {
         : normalized.contains('animate')
         ? Icons.auto_awesome_rounded
         : Icons.local_fire_department_rounded;
-    final colors = normalized.contains('revive')
-        ? const [Color(0xFF8276FF), Color(0xFFB97CFF)]
-        : normalized.contains('animate')
-        ? const [Color(0xFF6C69FF), Color(0xFFB37AFF)]
-        : const [Color(0xFFE458FF), Color(0xFF965BFF)];
-
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) =>
-          LinearGradient(colors: colors).createShader(bounds),
-      child: Icon(icon, size: 23),
-    );
+    return Icon(icon, size: 25, color: AppColors.primary);
   }
 }
 
@@ -774,13 +949,31 @@ class _VideoThumbnail extends StatelessWidget {
             tag: 'video_${post.id}',
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: RepaintBoundary(
-                child: _PreviewBody(
-                  post: post,
-                  index: index,
-                  decodeWidth: decodeWidth,
-                  fit: fit,
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RepaintBoundary(
+                    child: _PreviewBody(
+                      post: post,
+                      index: index,
+                      decodeWidth: decodeWidth,
+                      fit: fit,
+                    ),
+                  ),
+                  const Positioned(
+                    left: 10,
+                    bottom: 10,
+                    child: CircleAvatar(
+                      radius: 13,
+                      backgroundColor: Color(0xCC211B2A),
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 19,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -927,7 +1120,7 @@ class _CategoriesError extends StatelessWidget {
         children: [
           const Icon(
             Icons.cloud_off_rounded,
-            color: Color(0xFFFF4DA6),
+            color: Color(0xFFD181A9),
             size: 30,
           ),
           const SizedBox(height: 10),
@@ -945,7 +1138,7 @@ class _CategoriesError extends StatelessWidget {
             icon: const Icon(Icons.refresh_rounded, size: 19),
             label: const Text('Retry'),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF4DA6),
+              foregroundColor: const Color(0xFFD181A9),
             ),
           ),
         ],
@@ -981,7 +1174,7 @@ class _QuickCreate extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Icon(Icons.bolt_rounded, color: Color(0xFFB45CFF), size: 24),
+            Icon(Icons.bolt_rounded, color: Color(0xFFAF88D1), size: 24),
             SizedBox(width: 8),
             Text(
               'Quick Create',
@@ -1054,7 +1247,7 @@ class _QuickTool extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF20181B), Color(0xFF0D0D11)],
+          colors: [Color(0xFF40364C), Color(0xFF342D3E)],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFF40363C)),
@@ -1064,7 +1257,7 @@ class _QuickTool extends StatelessWidget {
           ShaderMask(
             blendMode: BlendMode.srcIn,
             shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFFFF49BB), Color(0xFFFF8A5B)],
+              colors: [Color(0xFFD17FB2), Color(0xFFD19C87)],
             ).createShader(bounds),
             child: Icon(icon, color: Colors.white, size: 32),
           ),

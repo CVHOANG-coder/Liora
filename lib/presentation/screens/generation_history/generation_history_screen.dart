@@ -280,7 +280,7 @@ class _GenerationHistoryScreenState extends State<GenerationHistoryScreen> {
         'Video History',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: VideoFormStyle.serif(25),
+        style: VideoFormStyle.heading(25),
       ),
       actions: [
         Padding(
@@ -417,7 +417,7 @@ class _HeaderAction extends StatelessWidget {
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF0D1220),
+        color: const Color(0xFF342D3E),
         border: Border.all(color: VideoFormStyle.border, width: .6),
       ),
       child: IconButton(
@@ -457,7 +457,9 @@ class _HistoryOverview extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: Text('My videos', style: VideoFormStyle.serif(31))),
+            Expanded(
+              child: Text('My videos', style: VideoFormStyle.heading(31)),
+            ),
             const SizedBox(width: 12),
             VideoLibraryTag('$total videos'),
           ],
@@ -537,9 +539,9 @@ class _HistoryGridItem extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Color(0x3302050C),
+                              Color(0x33252335),
                               Colors.transparent,
-                              Color(0x6602050C),
+                              Color(0x66252335),
                             ],
                             stops: [0, .5, 1],
                           ),
@@ -672,11 +674,7 @@ class _GridDeleteButton extends StatelessWidget {
                 strokeWidth: 1.5,
               ),
             )
-          : const Icon(
-              Icons.delete_outline_rounded,
-              color: VideoFormStyle.muted,
-              size: 18,
-            ),
+          : const VideoLibraryTrashIcon(color: VideoFormStyle.muted, size: 18),
     ),
   );
 }
@@ -723,7 +721,7 @@ class _GridPreview extends StatelessWidget {
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFF20203B), Color(0xFF0A1221)],
+        colors: [Color(0xFF20203B), Color(0xFF342D3E)],
       ),
     ),
     child: Center(
@@ -760,7 +758,7 @@ class _QueuedOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const ColoredBox(
-    color: Color(0x3302050C),
+    color: Color(0x33252335),
     child: Center(
       child: SizedBox.square(
         dimension: 25,
@@ -779,7 +777,7 @@ class _TerminalOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: const Color(0x7702050C),
+    color: const Color(0x77252335),
     child: Center(
       child: Icon(
         status == GenerationRequestStatus.cancelled
@@ -813,7 +811,7 @@ class _EmptyState extends StatelessWidget {
         Text(
           'No videos yet',
           textAlign: TextAlign.center,
-          style: VideoFormStyle.serif(30),
+          style: VideoFormStyle.heading(30),
         ),
         const SizedBox(height: 12),
         const Text(
@@ -854,7 +852,7 @@ class _ErrorState extends StatelessWidget {
               Text(
                 'Could not load video history',
                 textAlign: TextAlign.center,
-                style: VideoFormStyle.serif(27),
+                style: VideoFormStyle.heading(27),
               ),
               const SizedBox(height: 12),
               Text(

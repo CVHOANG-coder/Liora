@@ -111,7 +111,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      barrierColor: const Color(0xB802050C),
+      barrierColor: const Color(0xB8252335),
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (_) => const VideoImageSourceSheet(),
     );
@@ -192,7 +192,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [Color(0xFFEC5FB6), Color(0xFFA850CF)],
+              colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
             ),
           ),
           child: Icon(

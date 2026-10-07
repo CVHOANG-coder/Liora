@@ -1,28 +1,55 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
+
 abstract final class VideoFormStyle {
-  static const background = Color(0xFF02050C);
-  static const border = Color(0xFF474253);
-  static const secondary = Color(0xFFB4B1BD);
-  static const muted = Color(0xFF85818F);
-  static const accent = Color(0xFFC68AED);
-  static const pink = Color(0xFFEC5FB6);
+  static const background = AppColors.background;
+  static const border = AppColors.divider;
+  static const secondary = AppColors.textSecondary;
+  static const muted = Color(0xFFAFA2BA);
+  static const accent = AppColors.primary;
+  static const pink = AppColors.primary;
   static const surface = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0E1020), Color(0xFF070C17)],
+    colors: [AppColors.surface, AppColors.surface],
   );
   static const gradient = LinearGradient(
-    colors: [Color(0xFFCF559F), Color(0xFF8643B5), Color(0xFF294CD7)],
+    colors: [AppColors.primary, AppColors.primary],
   );
+  static const artworkFilter = ColorFilter.matrix([
+    0.54803,
+    0.22886,
+    0.02310,
+    0,
+    0,
+    0.06803,
+    0.70886,
+    0.02310,
+    0,
+    0,
+    0.06803,
+    0.22886,
+    0.50310,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ]);
 
-  static TextStyle serif(double size, {Color color = Colors.white}) =>
-      TextStyle(
-        fontFamily: 'Times New Roman',
-        fontFamilyFallback: const ['Times', 'serif'],
-        fontSize: size,
-        fontWeight: FontWeight.w400,
-        height: 1.15,
-        color: color,
-      );
+  static TextStyle heading(
+    double size, {
+    Color color = Colors.white,
+    FontWeight fontWeight = FontWeight.w400,
+  }) => TextStyle(
+    fontFamily: 'Nunito',
+    fontFamilyFallback: const ['Nunito Sans'],
+    fontSize: size,
+    fontWeight: fontWeight,
+    height: 1.15,
+    color: color,
+  );
 }

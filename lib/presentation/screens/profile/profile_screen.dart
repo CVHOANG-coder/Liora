@@ -9,19 +9,42 @@ import '../../../core/constants/app_features.dart';
 import '../../../core/events/video_generation_events.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/generation_history.dart';
+import '../../../data/models/generation_progress.dart';
+import '../../../data/models/i2v_generation.dart';
 import '../../../data/models/i2v_request_status.dart';
 import '../../../data/models/user_profile.dart';
+import '../../../data/services/generation_progress_repository.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/cached_video_thumbnail.dart';
 import '../../widgets/video_form_style.dart';
-import '../generation_history/generation_history_screen.dart';
+import '../../widgets/video_library_widgets.dart';
+import '../image_to_video/creating_video_screen.dart';
+import '../image_to_video/generated_video_screen.dart';
 import '../image_to_video/image_to_video_screen.dart';
+import '../in_app_purchase/all_plans_screen.dart';
 import '../in_app_purchase/free_trial_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../settings/settings_screen.dart';
 
+typedef ProfileHistoryPageFetcher =
+    Future<GenerationHistoryPage> Function({
+      required int page,
+      required int limit,
+    });
+typedef ProfileVideoDeleter = Future<void> Function(String requestId);
+
+final profileHistoryPageFetcherProvider = Provider<ProfileHistoryPageFetcher>(
+  (ref) =>
+      ({required page, required limit}) =>
+          ApiClient.instance.fetchGenerationHistory(page: page, limit: limit),
+);
+
 final profileVideoHistoryProvider = FutureProvider<GenerationHistoryPage>(
-  (ref) => ApiClient.instance.fetchGenerationHistory(page: 1, limit: 6),
+  (ref) => ref.read(profileHistoryPageFetcherProvider)(page: 1, limit: 10),
+);
+
+final profileVideoDeleterProvider = Provider<ProfileVideoDeleter>(
+  (ref) => ApiClient.instance.deleteGenerationRequest,
 );
 
 final appVersionProvider = FutureProvider<String>((ref) async {
@@ -38,10 +61,22 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   StreamSubscription<String>? _generationSuccessSubscription;
+  final ScrollController _scrollController = ScrollController();
+  GenerationHistoryPage? _firstHistoryPage;
+  final List<I2VRequestStatus> _additionalRequests = [];
+  int _loadedPage = 0;
+  int _totalPages = 1;
+  bool _loadingMore = false;
+  bool _loadMoreFailed = false;
+  bool _isSelectingVideos = false;
+  bool _isDeletingSelectedVideos = false;
+  final Set<String> _selectedRequestIds = <String>{};
+  final Set<String> _deletedRequestIds = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleHistoryScroll);
     _generationSuccessSubscription = VideoGenerationEvents.successes.listen(
       (_) => ref.invalidate(profileVideoHistoryProvider),
     );
@@ -50,16 +85,211 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void dispose() {
     _generationSuccessSubscription?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleHistoryScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter < 320) _loadMoreHistory();
+  }
+
+  void _checkHistoryAfterLayout() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _handleHistoryScroll();
+    });
+  }
+
+  Future<void> _loadMoreHistory() async {
+    final firstPage = _firstHistoryPage;
+    if (firstPage == null ||
+        ref.read(profileVideoHistoryProvider).isLoading ||
+        _loadingMore ||
+        _loadMoreFailed ||
+        _loadedPage >= _totalPages) {
+      return;
+    }
+    setState(() => _loadingMore = true);
+    try {
+      final nextPageNumber = _loadedPage + 1;
+      final nextPage = await ref.read(profileHistoryPageFetcherProvider)(
+        page: nextPageNumber,
+        limit: 10,
+      );
+      if (!mounted || !identical(_firstHistoryPage, firstPage)) return;
+      setState(() {
+        final existingIds = {
+          ...firstPage.requests.map((request) => request.requestId),
+          ..._additionalRequests.map((request) => request.requestId),
+        };
+        _additionalRequests.addAll(
+          nextPage.requests.where(
+            (request) => existingIds.add(request.requestId),
+          ),
+        );
+        _loadedPage = nextPageNumber;
+        _totalPages = nextPage.pagination.totalPages;
+      });
+      _checkHistoryAfterLayout();
+    } catch (_) {
+      if (mounted) setState(() => _loadMoreFailed = true);
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMore = false);
+        _checkHistoryAfterLayout();
+      }
+    }
+  }
+
+  Future<void> _openHistoryRequest(I2VRequestStatus request) async {
+    Widget? destination;
+    if (request.isCompleted && request.resultUrl.isNotEmpty) {
+      destination = GeneratedVideoScreen(
+        result: request,
+        returnToPreviousOnBack: true,
+      );
+    } else if (request.isActive) {
+      const repository = SharedPreferencesGenerationProgressRepository();
+      GenerationProgress? progress;
+      try {
+        progress = await repository.load(request.requestId);
+      } catch (_) {
+        // The request can still open with progress rebuilt from the server.
+      }
+      progress ??= GenerationProgress.create(
+        requestId: request.requestId,
+        startedAt: request.createTime ?? DateTime.now(),
+        videoDurationSeconds: request.duration > 0 ? request.duration : 5,
+        isHd: request.isHd,
+      );
+      if (!mounted) return;
+      destination = CreatingVideoScreen(
+        generation: I2VGeneration.fromRequestStatus(request),
+        returnToPreviousOnBack: true,
+        initialProgress: progress,
+        progressRepository: repository,
+        openedFromHistory: true,
+      );
+    }
+    if (destination == null || !mounted) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => destination!));
+    if (mounted) await _refreshHistory();
+  }
+
+  Future<void> _refreshHistory() async {
+    try {
+      final refreshed = ref.refresh(profileVideoHistoryProvider.future);
+      await refreshed;
+    } catch (_) {
+      // The provider displays its error state and offers a retry action.
+    }
+  }
+
+  void _startVideoSelection(String requestId) {
+    if (_isDeletingSelectedVideos) return;
+    setState(() {
+      _isSelectingVideos = true;
+      _selectedRequestIds.add(requestId);
+    });
+  }
+
+  void _toggleVideoSelection(String requestId) {
+    if (_isDeletingSelectedVideos) return;
+    setState(() {
+      if (!_selectedRequestIds.add(requestId)) {
+        _selectedRequestIds.remove(requestId);
+      }
+    });
+  }
+
+  void _cancelVideoSelection() {
+    if (_isDeletingSelectedVideos) return;
+    setState(() {
+      _isSelectingVideos = false;
+      _selectedRequestIds.clear();
+    });
+  }
+
+  Future<void> _deleteSelectedVideos() async {
+    if (_isDeletingSelectedVideos || _selectedRequestIds.isEmpty) return;
+    final requestIds = _selectedRequestIds.toList(growable: false);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0xCC000000),
+      builder: (_) => _DeleteSelectedVideosDialog(count: requestIds.length),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeletingSelectedVideos = true);
+    final deleted = <String>[];
+    final deleter = ref.read(profileVideoDeleterProvider);
+    for (final requestId in requestIds) {
+      try {
+        await deleter(requestId);
+        deleted.add(requestId);
+        try {
+          await const SharedPreferencesGenerationProgressRepository().remove(
+            requestId,
+          );
+        } catch (_) {
+          // Server deletion succeeded; local progress cleanup is best-effort.
+        }
+      } catch (_) {
+        // Keep failed requests selected so the user can retry them.
+      }
+    }
+    if (!mounted) return;
+    final failedCount = requestIds.length - deleted.length;
+    setState(() {
+      _isDeletingSelectedVideos = false;
+      _deletedRequestIds.addAll(deleted);
+      _selectedRequestIds.removeAll(deleted);
+      _additionalRequests.removeWhere(
+        (request) => _deletedRequestIds.contains(request.requestId),
+      );
+      if (failedCount == 0) _isSelectingVideos = false;
+    });
+    if (deleted.isNotEmpty && failedCount == 0) {
+      ref.invalidate(profileVideoHistoryProvider);
+    }
+    if (Scaffold.maybeOf(context) != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failedCount == 0
+                ? '${deleted.length} video${deleted.length == 1 ? '' : 's'} deleted.'
+                : '${deleted.length} deleted, $failedCount could not be deleted. Try again.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final videoHistory = ref.watch(profileVideoHistoryProvider);
+    final firstPage = videoHistory.asData?.value;
+    if (firstPage != null && !identical(_firstHistoryPage, firstPage)) {
+      _firstHistoryPage = firstPage;
+      _additionalRequests.clear();
+      _loadedPage = firstPage.pagination.page;
+      _totalPages = firstPage.pagination.totalPages;
+      _loadMoreFailed = false;
+      _checkHistoryAfterLayout();
+    }
+    final requests = firstPage == null
+        ? const <I2VRequestStatus>[]
+        : <I2VRequestStatus>[...firstPage.requests, ..._additionalRequests]
+              .where(
+                (request) => !_deletedRequestIds.contains(request.requestId),
+              )
+              .toList();
 
     return ColoredBox(
-      color: const Color(0xFF02050C),
+      color: const Color(0xFF292431),
       child: SafeArea(
         bottom: false,
         child: LayoutBuilder(
@@ -69,37 +299,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             final scale = (constraints.maxWidth / 393).clamp(0.8, 1.3);
             return Column(
               children: [
-                _ProfileHeader(scale: scale),
+                _ProfileHeader(
+                  scale: scale,
+                  isSelecting: _isSelectingVideos,
+                  selectedCount: _selectedRequestIds.length,
+                  isDeleting: _isDeletingSelectedVideos,
+                  onCancelSelection: _cancelVideoSelection,
+                  onDeleteSelected: _deleteSelectedVideos,
+                ),
                 Expanded(
-                  child: CustomScrollView(
-                    key: const PageStorageKey('profileScroll'),
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(
-                          14 * scale,
-                          2 * scale,
-                          14 * scale,
-                          MediaQuery.paddingOf(context).bottom + 24,
-                        ),
-                        sliver: SliverList.list(
-                          children: [
-                            _AccountCard(profile: profile, scale: scale),
-                            if (AppFeatures.commerceEnabled) ...[
-                              SizedBox(height: 10 * scale),
-                              _UpgradeCard(profile: profile, scale: scale),
-                            ],
-                            SizedBox(height: 14 * scale),
-                            _ProfileVideoHistory(
-                              history: videoHistory,
-                              scale: scale,
-                              onRefresh: () =>
-                                  ref.invalidate(profileVideoHistoryProvider),
-                            ),
-                          ],
-                        ),
+                  child: RefreshIndicator(
+                    onRefresh: _refreshHistory,
+                    color: VideoFormStyle.accent,
+                    backgroundColor: const Color(0xFF342D3E),
+                    child: CustomScrollView(
+                      key: const PageStorageKey('profileScroll'),
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
                       ),
-                    ],
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            14 * scale,
+                            8 * scale,
+                            14 * scale,
+                            MediaQuery.paddingOf(context).bottom + 24,
+                          ),
+                          sliver: SliverMainAxisGroup(
+                            slivers: [
+                              if (AppFeatures.commerceEnabled)
+                                SliverToBoxAdapter(
+                                  child: _UpgradeCard(
+                                    profile: profile,
+                                    scale: scale,
+                                  ),
+                                ),
+                              if (AppFeatures.commerceEnabled)
+                                SliverToBoxAdapter(
+                                  child: SizedBox(height: 14 * scale),
+                                ),
+                              _ProfileVideoHistory(
+                                history: videoHistory,
+                                requests: requests,
+                                scale: scale,
+                                loadingMore: _loadingMore,
+                                loadMoreFailed: _loadMoreFailed,
+                                onRefresh: () =>
+                                    ref.invalidate(profileVideoHistoryProvider),
+                                onRetryMore: () {
+                                  setState(() => _loadMoreFailed = false);
+                                  _loadMoreHistory();
+                                },
+                                onOpen: _openHistoryRequest,
+                                isSelecting: _isSelectingVideos,
+                                selectedRequestIds: _selectedRequestIds,
+                                onLongPress: _startVideoSelection,
+                                onToggleSelection: _toggleVideoSelection,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -114,269 +376,122 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 const _profileSurface = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF0B101D), Color(0xFF070C17)],
-);
-
-const _profileIconGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFFE49CEE), Color(0xFFB640F1)],
+  colors: [Color(0xFF40364C), Color(0xFF342D3E)],
 );
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.scale});
+  const _ProfileHeader({
+    required this.scale,
+    required this.isSelecting,
+    required this.selectedCount,
+    required this.isDeleting,
+    required this.onCancelSelection,
+    required this.onDeleteSelected,
+  });
 
   final double scale;
+  final bool isSelecting;
+  final int selectedCount;
+  final bool isDeleting;
+  final VoidCallback onCancelSelection;
+  final VoidCallback onDeleteSelected;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       key: const Key('profileHeader'),
       padding: EdgeInsets.fromLTRB(
-        20 * scale,
-        18 * scale,
-        20 * scale,
-        10 * scale,
+        16 * scale,
+        16 * scale,
+        16 * scale,
+        0 * scale,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: isSelecting
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
+          if (isSelecting)
+            IconButton(
+              key: const Key('cancelProfileVideoSelection'),
+              tooltip: 'Cancel selection',
+              onPressed: isDeleting ? null : onCancelSelection,
+              icon: const Icon(Icons.close_rounded, color: Color(0xFFD88AF0)),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Profile',
+                  isSelecting ? '$selectedCount selected' : 'Profile',
                   style: TextStyle(
                     color: Colors.white,
-                    fontFamily: 'Times New Roman',
-                    fontFamilyFallback: const ['Times', 'serif'],
-                    fontSize: 32 * scale,
+                    fontFamily: 'Nunito',
+                    fontFamilyFallback: const ['Nunito Sans'],
+                    fontSize: isSelecting ? 22 * scale : 32 * scale,
                     height: 1.1,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: isSelecting ? FontWeight.w500 : FontWeight.w800,
                     letterSpacing: -0.8 * scale,
                   ),
                 ),
-                SizedBox(height: 11 * scale),
-                Container(
-                  width: 26 * scale,
-                  height: 2.5 * scale,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFEC5FB6), Color(0xFF6657FF)],
+                if (!isSelecting)
+                  Container(
+                    width: 26 * scale,
+                    height: 2.5 * scale,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(top: 3 * scale),
-            child: IconButton(
-              key: const Key('profileSettingsButton'),
-              tooltip: 'Settings',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              ),
-              icon: Icon(
-                Icons.settings_outlined,
-                color: const Color(0xFFD88AF0),
-                size: 28 * scale,
-              ),
-            ),
+            padding: EdgeInsets.only(top: isSelecting ? 0 : 3 * scale),
+            child: isSelecting
+                ? IconButton(
+                    key: const Key('profileDeleteSelectedButton'),
+                    tooltip: 'Delete selected videos',
+                    onPressed: selectedCount == 0 || isDeleting
+                        ? null
+                        : onDeleteSelected,
+                    icon: isDeleting
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : VideoLibraryTrashIcon(
+                            color: selectedCount == 0
+                                ? VideoFormStyle.muted
+                                : const Color(0xFFE49AAA),
+                            size: 28 * scale,
+                          ),
+                  )
+                : IconButton(
+                    key: const Key('profileSettingsButton'),
+                    tooltip: 'Settings',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
+                    icon: SvgPicture.asset(
+                      'assets/svgs/setting.svg',
+                      width: 28 * scale,
+                      height: 28 * scale,
+                      colorFilter: const ColorFilter.mode(
+                        Color(0xFFD88AF0),
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
-}
-
-class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.profile, required this.scale});
-
-  final UserProfile? profile;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 9 * scale),
-          child: Row(
-            children: [
-              Container(
-                key: const Key('profileAvatar'),
-                width: 118 * scale,
-                height: 118 * scale,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF202332),
-                  border: Border.all(
-                    color: const Color(0xFF888793),
-                    width: 1.3,
-                  ),
-                ),
-                foregroundDecoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF888793),
-                    width: 1.3,
-                  ),
-                ),
-                child: ClipOval(
-                  child: Transform.scale(
-                    // Hide the neon ring baked into the shared Home avatar.
-                    scale: 1.08,
-                    child: ColorFiltered(
-                      colorFilter: const ColorFilter.matrix([
-                        0.60,
-                        0.20,
-                        0.10,
-                        0,
-                        0,
-                        0.15,
-                        0.75,
-                        0.10,
-                        0,
-                        0,
-                        0.15,
-                        0.15,
-                        0.70,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        1,
-                        0,
-                      ]),
-                      child: Image.asset(
-                        'assets/images/profile/avatar_default.png',
-                        fit: BoxFit.cover,
-                        excludeFromSemantics: true,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 15 * scale),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 145 * scale),
-                    child: _AccountDetails(profile: profile, scale: scale),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AccountDetails extends StatelessWidget {
-  const _AccountDetails({required this.profile, required this.scale});
-
-  final UserProfile? profile;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) {
-    final displayName = _profileDisplayName(profile);
-    final identifier = _profileIdentifier(profile);
-    final isPro = _hasProAccess(profile);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          displayName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22 * scale,
-            height: 1.15,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.4 * scale,
-          ),
-        ),
-        SizedBox(height: 8 * scale),
-        Text(
-          identifier,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: const Color(0xFF62616F),
-            fontSize: 13 * scale,
-            height: 1.2,
-          ),
-        ),
-        if (AppFeatures.commerceEnabled) ...[
-          SizedBox(height: 11 * scale),
-          Container(
-            key: const Key('profilePlanBadge'),
-            padding: EdgeInsets.symmetric(
-              horizontal: 11 * scale,
-              vertical: 6 * scale,
-            ),
-            decoration: BoxDecoration(
-              gradient: _profileSurface,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFF44414F), width: 0.6),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ProIcon(size: 16 * scale),
-                SizedBox(width: 10 * scale),
-                Text(
-                  isPro ? 'Pro' : 'Free',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13 * scale,
-                    height: 1.1,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-String _profileDisplayName(UserProfile? profile) {
-  final username = profile?.username?.trim() ?? '';
-  if (username.isNotEmpty) return username;
-
-  final userCode = profile?.userCode.trim() ?? '';
-  if (userCode.isNotEmpty) return userCode;
-
-  final email = profile?.email.trim() ?? '';
-  if (email.isNotEmpty) return email.split('@').first;
-  return 'Liora User';
-}
-
-String _profileIdentifier(UserProfile? profile) {
-  final email = profile?.email.trim() ?? '';
-  if (email.isNotEmpty) return email;
-
-  final userCode = profile?.userCode.trim() ?? '';
-  if (userCode.isNotEmpty) return 'ID: $userCode';
-  return 'Profile unavailable';
-}
-
-bool _hasProAccess(UserProfile? profile) {
-  return profile?.isSubscribed == true;
 }
 
 class _UpgradeCard extends StatelessWidget {
@@ -389,7 +504,7 @@ class _UpgradeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const Key('profileCreditCard'),
-      height: 152 * scale,
+      constraints: BoxConstraints(minHeight: 152 * scale),
       padding: const EdgeInsets.all(0.6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14 * scale),
@@ -406,43 +521,56 @@ class _UpgradeCard extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF241A33), Color(0xFF090E1B), Color(0xFF070C16)],
+            colors: [Color(0xFF241A33), Color(0xFF342D3E), Color(0xFF342D3E)],
           ),
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 14 * scale,
+            vertical: 16 * scale,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Positioned(
-                left: 9 * scale,
-                top: 12 * scale,
-                bottom: 8 * scale,
-                width: constraints.maxWidth * 0.42,
+              Expanded(
+                flex: 4,
                 child: Image.asset(
                   'assets/images/profile/balance_credit.png',
+                  height: 110 * scale,
                   fit: BoxFit.contain,
                   alignment: Alignment.bottomCenter,
                   excludeFromSemantics: true,
                 ),
               ),
-              Positioned(
-                left: constraints.maxWidth * 0.475,
-                right: 16 * scale,
-                top: 24 * scale,
-                bottom: 16 * scale,
+              SizedBox(width: 5 * scale),
+              Container(
+                key: const Key('profileCreditDivider'),
+                width: 1 * scale,
+                height: 92 * scale,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF79668A),
+                  borderRadius: BorderRadius.circular(scale),
+                ),
+              ),
+              SizedBox(width: 6 * scale),
+              Expanded(
+                flex: 6,
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
                       padding: EdgeInsets.only(left: 4 * scale),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
                         child: Text(
                           'CREDIT BALANCE',
                           style: TextStyle(
-                            color: const Color(0xFFB15AF7),
-                            fontSize: 10 * scale,
+                            color: const Color(0xFFB188D1),
+                            fontSize: 11.5 * scale,
                             height: 1.2,
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: 0.5 * scale,
                           ),
                         ),
@@ -454,6 +582,16 @@ class _UpgradeCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Row(
                         children: [
+                          Text(
+                            _formatCredits(profile?.totalCredit ?? 0),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32 * scale,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 7 * scale),
                           Image.asset(
                             'assets/images/profile/icon_credit_balance.png',
                             width: 40 * scale,
@@ -461,29 +599,10 @@ class _UpgradeCard extends StatelessWidget {
                             fit: BoxFit.contain,
                             excludeFromSemantics: true,
                           ),
-                          SizedBox(width: 7 * scale),
-                          Text(
-                            _formatCredits(profile?.totalCredit ?? 0),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32 * scale,
-                              height: 1,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          SizedBox(width: 6 * scale),
-                          Text(
-                            'credits',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14 * scale,
-                              height: 1.2,
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                    const Spacer(),
+                    SizedBox(height: 16 * scale),
                     _CreditActionButton(
                       scale: scale,
                       label: profile?.isSubscribed == true
@@ -495,7 +614,17 @@ class _UpgradeCard extends StatelessWidget {
                                 builder: (_) => const BuyCredits(),
                               ),
                             )
-                          : () => FreeTrialScreen.open(context),
+                          : () {
+                              if (profile?.isVIP == false) {
+                                FreeTrialScreen.open(context);
+                              } else {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const AllPlans(),
+                                  ),
+                                );
+                              }
+                            },
                     ),
                   ],
                 ),
@@ -550,8 +679,8 @@ class _CreditActionButton extends StatelessWidget {
                       label,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 13 * scale,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 16 * scale,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -574,105 +703,116 @@ class _CreditActionButton extends StatelessWidget {
 class _ProfileVideoHistory extends StatelessWidget {
   const _ProfileVideoHistory({
     required this.history,
+    required this.requests,
     required this.scale,
+    required this.loadingMore,
+    required this.loadMoreFailed,
     required this.onRefresh,
+    required this.onRetryMore,
+    required this.onOpen,
+    required this.isSelecting,
+    required this.selectedRequestIds,
+    required this.onLongPress,
+    required this.onToggleSelection,
   });
 
   final AsyncValue<GenerationHistoryPage> history;
+  final List<I2VRequestStatus> requests;
   final double scale;
+  final bool loadingMore;
+  final bool loadMoreFailed;
   final VoidCallback onRefresh;
+  final VoidCallback onRetryMore;
+  final ValueChanged<I2VRequestStatus> onOpen;
+  final bool isSelecting;
+  final Set<String> selectedRequestIds;
+  final ValueChanged<String> onLongPress;
+  final ValueChanged<String> onToggleSelection;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return SliverMainAxisGroup(
       key: const Key('profileVideoHistory'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'History videos',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Times New Roman',
-                  fontSize: 25 * scale,
-                  fontWeight: FontWeight.w400,
+      slivers: history.when(
+        loading: () => [
+          const SliverToBoxAdapter(
+            child: SizedBox(
+              height: 150,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: VideoFormStyle.accent,
+                  strokeWidth: 2,
                 ),
               ),
             ),
-            IconButton(
-              key: const Key('refreshProfileVideos'),
-              tooltip: 'Refresh videos',
-              onPressed: onRefresh,
-              icon: Icon(
-                Icons.refresh_rounded,
-                color: VideoFormStyle.accent,
-                size: 21 * scale,
-              ),
-            ),
-            TextButton(
-              key: const Key('viewAllProfileVideos'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const GenerationHistoryScreen(),
-                ),
-              ),
-              child: const Text('View all'),
-            ),
-          ],
-        ),
-        SizedBox(height: 8 * scale),
-        history.when(
-          loading: () => const SizedBox(
-            height: 150,
-            child: Center(
-              child: CircularProgressIndicator(
-                color: VideoFormStyle.accent,
-                strokeWidth: 2,
-              ),
+          ),
+        ],
+        error: (_, _) => [
+          SliverToBoxAdapter(
+            child: _ProfileVideoMessage(
+              message: 'Unable to load your videos.',
+              actionLabel: 'Try again',
+              onTap: onRefresh,
             ),
           ),
-          error: (_, _) => _ProfileVideoMessage(
-            message: 'Unable to load your videos.',
-            actionLabel: 'Try again',
-            onTap: onRefresh,
-          ),
-          data: (page) {
-            final requests = page.requests.take(6).toList(growable: false);
-            if (requests.isEmpty) {
-              return _EmptyProfileVideos(
-                onCreate: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ImageToVideoScreen(),
+        ],
+        data: (_) {
+          if (requests.isEmpty) {
+            return [
+              SliverToBoxAdapter(
+                child: _EmptyProfileVideos(
+                  onCreate: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ImageToVideoScreen(),
+                    ),
                   ),
                 ),
-              );
-            }
-            return GridView.builder(
+              ),
+            ];
+          }
+          return [
+            SliverGrid.builder(
               key: const Key('profileVideoGrid'),
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 10 * scale,
-                crossAxisSpacing: 10 * scale,
-                childAspectRatio: 0.82,
+                crossAxisCount: 3,
+                mainAxisSpacing: 8 * scale,
+                crossAxisSpacing: 8 * scale,
+                childAspectRatio: 9 / 16,
               ),
               itemCount: requests.length,
               itemBuilder: (context, index) => _ProfileVideoCard(
                 request: requests[index],
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const GenerationHistoryScreen(),
-                  ),
+                isSelecting: isSelecting,
+                isSelected: selectedRequestIds.contains(
+                  requests[index].requestId,
+                ),
+                onTap: () => isSelecting
+                    ? onToggleSelection(requests[index].requestId)
+                    : onOpen(requests[index]),
+                onLongPress: () => onLongPress(requests[index].requestId),
+              ),
+            ),
+            if (loadingMore || loadMoreFailed)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 16 * scale),
+                  child: loadMoreFailed
+                      ? _ProfileVideoMessage(
+                          message: 'Unable to load more videos.',
+                          actionLabel: 'Try again',
+                          onTap: onRetryMore,
+                        )
+                      : const Center(
+                          child: CircularProgressIndicator(
+                            color: VideoFormStyle.accent,
+                            strokeWidth: 2,
+                          ),
+                        ),
                 ),
               ),
-            );
-          },
-        ),
-      ],
+          ];
+        },
+      ),
     );
   }
 }
@@ -706,7 +846,13 @@ class _ProfileVideoMessage extends StatelessWidget {
         ),
         if (actionLabel != null) ...[
           const SizedBox(height: 8),
-          TextButton(onPressed: onTap, child: Text(actionLabel!)),
+          TextButton(
+            onPressed: onTap,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFB982FF),
+            ),
+            child: Text(actionLabel!),
+          ),
         ],
       ],
     ),
@@ -801,98 +947,131 @@ class _EmptyProfileVideos extends StatelessWidget {
 }
 
 class _ProfileVideoCard extends StatelessWidget {
-  const _ProfileVideoCard({required this.request, required this.onTap});
+  const _ProfileVideoCard({
+    required this.request,
+    required this.isSelecting,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final I2VRequestStatus request;
+  final bool isSelecting;
+  final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final previewUrl = request.thumbnailUrl.isNotEmpty
         ? request.thumbnailUrl
         : request.imageUrl;
-    final title = request.prompt.trim().isEmpty
-        ? 'Untitled video'
-        : request.prompt.trim();
+    final isCompleted = request.isCompleted;
+    final hasVideo = isCompleted && request.resultUrl.trim().isNotEmpty;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: ValueKey('profileVideo_${request.requestId}'),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: _profileSurface,
-            border: Border.all(color: const Color(0xFF343743), width: 0.6),
-            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFF40364C),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedVideoThumbnail(
-                      cacheKey: request.requestId,
-                      imageUrl: previewUrl,
-                      fallbackImageUrl: request.imageUrl,
-                      videoUrl: request.isCompleted ? request.resultUrl : '',
-                    ),
-                    if (request.isCompleted)
-                      const Center(
-                        child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xD90B101B),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Text(
-                          request.requestStatus.value.replaceAll('_', ' '),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              CachedVideoThumbnail(
+                cacheKey: request.requestId,
+                imageUrl: previewUrl,
+                fallbackImageUrl: request.imageUrl,
+                videoUrl: hasVideo ? request.resultUrl : '',
+                preferVideoFrame: hasVideo,
+                frameTimeMs: 0,
+                maxDecodeWidth: 360,
               ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+              if (isSelected) const ColoredBox(color: Color(0x66000000)),
+              if (isCompleted && !isSelecting)
+                const Positioned(
+                  left: 8,
+                  bottom: 8,
+                  child: Icon(
+                    Icons.play_arrow_rounded,
                     color: Colors.white,
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
+                    size: 19,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                   ),
                 ),
-              ),
+              if (isSelecting) ...[
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isSelected
+                              ? VideoFormStyle.accent
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(
+                    isSelected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    key: ValueKey('profileVideoSelection_${request.requestId}'),
+                    color: isSelected ? VideoFormStyle.accent : Colors.white,
+                    size: 25,
+                    shadows: const [
+                      Shadow(color: Colors.black87, blurRadius: 5),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _DeleteSelectedVideosDialog extends StatelessWidget {
+  const _DeleteSelectedVideosDialog({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    key: const Key('deleteSelectedProfileVideosDialog'),
+    backgroundColor: const Color(0xFF342D3E),
+    title: Text('Delete $count video${count == 1 ? '' : 's'}?'),
+    content: const Text(
+      'Selected videos will be permanently removed from your history.',
+      style: TextStyle(color: VideoFormStyle.secondary),
+    ),
+    actions: [
+      TextButton(
+        key: const Key('cancelDeleteSelectedProfileVideos'),
+        onPressed: () => Navigator.of(context).pop(false),
+        child: const Text('Cancel'),
+      ),
+      TextButton(
+        key: const Key('confirmDeleteSelectedProfileVideos'),
+        onPressed: () => Navigator.of(context).pop(true),
+        child: const Text('Delete', style: TextStyle(color: Color(0xFFE49AAA))),
+      ),
+    ],
+  );
 }
 
 String _formatCredits(int value) {
@@ -905,25 +1084,4 @@ String _formatCredits(int value) {
   }
 
   return buffer.toString();
-}
-
-class _ProIcon extends StatelessWidget {
-  const _ProIcon({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: _profileIconGradient.createShader,
-      blendMode: BlendMode.srcIn,
-      child: SvgPicture.asset(
-        'assets/svgs/pro.svg',
-        width: size,
-        height: size,
-        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-        excludeFromSemantics: true,
-      ),
-    );
-  }
 }

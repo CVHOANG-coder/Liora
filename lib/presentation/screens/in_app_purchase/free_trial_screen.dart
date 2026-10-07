@@ -46,9 +46,56 @@ class FreeTrialScreen extends ConsumerStatefulWidget {
   ConsumerState<FreeTrialScreen> createState() => _FreeTrialScreenState();
 }
 
-class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
+class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen>
+    with SingleTickerProviderStateMixin {
   AppPackage? _lastAttemptedPackage;
   bool _purchaseStarted = false;
+  late final AnimationController _entrance;
+  late final Animation<double> _heroReveal;
+  late final Animation<double> _titleReveal;
+  late final List<Animation<double>> _stepReveals;
+  late final List<Animation<double>> _connectorProgress;
+  late final Animation<double> _offerReveal;
+  late final Animation<double> _claimReveal;
+  late final Animation<double> _plansReveal;
+  late final Animation<double> _legalReveal;
+
+  Animation<double> _stage(double begin, double end) => _entrance.drive(
+    CurveTween(curve: Interval(begin, end, curve: Curves.easeOutCubic)),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4200),
+    );
+    _heroReveal = _stage(0, 0.12);
+    _titleReveal = _stage(0.12, 0.25);
+    _stepReveals = [_stage(0.25, 0.37), _stage(0.49, 0.61), _stage(0.73, 0.85)];
+    _connectorProgress = [_stage(0.37, 0.49), _stage(0.61, 0.73)];
+    _offerReveal = _stage(0.85, 0.92);
+    _claimReveal = _stage(0.92, 0.97);
+    _plansReveal = _stage(0.95, 1);
+    _legalReveal = _stage(0.97, 1);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _entrance.value = 1;
+    } else if (_entrance.isDismissed) {
+      _entrance.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,50 +140,67 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
                       sliver: SliverList.list(
                         children: [
                           SizedBox(height: 24 * scale),
-                          const _Hero(),
-                          const _Title(),
-                          SizedBox(height: 7 * scale),
-                          Text(
-                            'Try premium video tools free for 3 days,\n'
-                            'then continue only if you love it.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: const Color(0xFFAAA6B6),
-                              fontSize: 14 * scale,
-                              height: 1.35,
-                              fontWeight: FontWeight.w400,
-                            ),
+                          _StageReveal(
+                            id: 'hero',
+                            progress: _heroReveal,
+                            child: const _Hero(),
+                          ),
+                          _StageReveal(
+                            id: 'title',
+                            progress: _titleReveal,
+                            child: const _Title(),
                           ),
                           SizedBox(height: 12 * scale),
                           Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: 10 * scale,
                             ),
-                            child: const _TrialTimeline(),
+                            child: _TrialTimeline(
+                              stepReveals: _stepReveals,
+                              connectorProgress: _connectorProgress,
+                            ),
                           ),
-                          SizedBox(height: 8 * scale),
-                          _PriceOffer(
-                            price: weeklyPrice,
-                            onTap: () => _openBuyCredits(context),
+                          SizedBox(height: 16 * scale),
+                          _StageReveal(
+                            id: 'offer',
+                            progress: _offerReveal,
+                            child: _PriceOffer(
+                              price: weeklyPrice,
+                              onTap: () => _openBuyCredits(context),
+                            ),
                           ),
-                          SizedBox(height: 8 * scale),
-                          _PrimaryButton(
-                            key: const Key('trialClaimButton'),
-                            busy: purchaseState.isBusy,
-                            onTap: purchaseState.isBusy
-                                ? null
-                                : () => _startWeeklyTrial(weeklyPackage),
+                          SizedBox(height: 16 * scale),
+                          _StageReveal(
+                            id: 'claim',
+                            progress: _claimReveal,
+                            child: _PrimaryButton(
+                              key: const Key('trialClaimButton'),
+                              busy: purchaseState.isBusy,
+                              onTap: purchaseState.isBusy
+                                  ? null
+                                  : () => _startWeeklyTrial(weeklyPackage),
+                            ),
                           ),
                           SizedBox(height: 7 * scale),
-                          _ViewPlansButton(onTap: () => _openAllPlans(context)),
+                          _StageReveal(
+                            id: 'plans',
+                            progress: _plansReveal,
+                            child: _ViewPlansButton(
+                              onTap: () => _openAllPlans(context),
+                            ),
+                          ),
                           SizedBox(height: 5 * scale),
-                          _LegalFooter(
-                            restoring:
-                                purchaseState.status ==
-                                PurchaseFlowStatus.restoring,
-                            onRestore: purchaseState.isBusy
-                                ? null
-                                : _restorePurchases,
+                          _StageReveal(
+                            id: 'legal',
+                            progress: _legalReveal,
+                            child: _LegalFooter(
+                              restoring:
+                                  purchaseState.status ==
+                                  PurchaseFlowStatus.restoring,
+                              onRestore: purchaseState.isBusy
+                                  ? null
+                                  : _restorePurchases,
+                            ),
                           ),
                         ],
                       ),
@@ -285,6 +349,41 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
   }
 }
 
+class _StageReveal extends StatelessWidget {
+  const _StageReveal({
+    required this.id,
+    required this.progress,
+    required this.child,
+  });
+
+  final String id;
+  final Animation<double> progress;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _trialScale(context);
+    return AnimatedBuilder(
+      animation: progress,
+      child: child,
+      builder: (context, child) {
+        final value = progress.value;
+        return IgnorePointer(
+          ignoring: value < 1,
+          child: Opacity(
+            key: ValueKey('trialStage-$id'),
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(0, (1 - value) * 12 * scale),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ScreenBackground extends StatelessWidget {
   const _ScreenBackground();
 
@@ -395,28 +494,24 @@ class _Title extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white,
-            fontFamily: 'Times New Roman',
+            fontFamily: 'Nunito',
             fontSize: 34 * scale,
             height: 1,
-            fontWeight: FontWeight.w400,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.7,
           ),
         ),
         SizedBox(height: 2 * scale),
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: _trialAccent.createShader,
-          child: Text(
-            'free trial works',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Times New Roman',
-              fontSize: 37 * scale,
-              height: 1,
-              fontWeight: FontWeight.w400,
-              letterSpacing: -0.75,
-            ),
+        Text(
+          'free trial works',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: const Color(0xFFF2DFF5),
+            fontFamily: 'Nunito',
+            fontSize: 37 * scale,
+            height: 1,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.75,
           ),
         ),
       ],
@@ -425,14 +520,20 @@ class _Title extends StatelessWidget {
 }
 
 class _TrialTimeline extends StatelessWidget {
-  const _TrialTimeline();
+  const _TrialTimeline({
+    required this.stepReveals,
+    required this.connectorProgress,
+  });
+
+  final List<Animation<double>> stepReveals;
+  final List<Animation<double>> connectorProgress;
 
   static const _steps = [
     _StepData(
       number: 1,
       asset: 'assets/images/in_app_purchase/today_free_trailer.png',
       title: 'Today',
-      description: 'Unlock premium video tools\nand start creating instantly.',
+      description: 'Unlock premium video tools',
     ),
     _StepData(
       number: 2,
@@ -450,10 +551,27 @@ class _TrialTimeline extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) => Column(
-    key: const Key('trialTimeline'),
-    children: [for (final step in _steps) _TimelineStep(data: step)],
-  );
+  Widget build(BuildContext context) {
+    final scale = _trialScale(context);
+    return Column(
+      key: const Key('trialTimeline'),
+      children: [
+        for (var index = 0; index < _steps.length; index++) ...[
+          if (index > 0) SizedBox(height: 18 * scale),
+          _StageReveal(
+            id: 'step-${index + 1}',
+            progress: stepReveals[index],
+            child: _TimelineStep(
+              data: _steps[index],
+              connector: index < connectorProgress.length
+                  ? connectorProgress[index]
+                  : null,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _StepData {
@@ -471,9 +589,10 @@ class _StepData {
 }
 
 class _TimelineStep extends StatelessWidget {
-  const _TimelineStep({required this.data});
+  const _TimelineStep({required this.data, required this.connector});
 
   final _StepData data;
+  final Animation<double>? connector;
 
   @override
   Widget build(BuildContext context) {
@@ -489,17 +608,31 @@ class _TimelineStep extends StatelessWidget {
               clipBehavior: Clip.none,
               alignment: Alignment.topCenter,
               children: [
-                if (!last)
+                if (connector != null)
                   Positioned(
                     top: 20 * scale,
-                    bottom: -20 * scale,
-                    width: scale,
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF9960DC), Color(0xFFEB4F9B)],
+                    bottom: -28 * scale,
+                    width: scale * 1.5,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => AnimatedBuilder(
+                        animation: connector!,
+                        builder: (context, child) => Align(
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            key: ValueKey('trialConnector-${data.number}'),
+                            width: scale * 1.5,
+                            height: constraints.maxHeight * connector!.value,
+                            child: child,
+                          ),
+                        ),
+                        child: const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFF9960DC), Color(0xFFEB4F9B)],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -537,7 +670,7 @@ class _TimelineStep extends StatelessWidget {
                             color: const Color(0xFFF4F2FA),
                             fontSize: 16 * scale,
                             height: 1,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
@@ -549,60 +682,54 @@ class _TimelineStep extends StatelessWidget {
           ),
           SizedBox(width: 14 * scale),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: last ? 0 : 5 * scale),
-              child: Container(
-                key: ValueKey('trialStepCard-${data.number}'),
-                constraints: BoxConstraints(minHeight: 65 * scale),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12 * scale,
-                  vertical: 7 * scale,
-                ),
-                decoration: BoxDecoration(
-                  gradient: _trialSurface,
-                  borderRadius: BorderRadius.circular(11 * scale),
-                  border: Border.all(
-                    color: const Color(0xFF3C3D4E),
-                    width: 0.6,
+            child: Container(
+              key: ValueKey('trialStepCard-${data.number}'),
+              constraints: BoxConstraints(minHeight: 65 * scale),
+              padding: EdgeInsets.symmetric(
+                horizontal: 12 * scale,
+                vertical: 7 * scale,
+              ),
+              decoration: BoxDecoration(
+                gradient: _trialSurface,
+                borderRadius: BorderRadius.circular(11 * scale),
+                border: Border.all(color: const Color(0xFF3C3D4E), width: 0.6),
+              ),
+              child: Row(
+                children: [
+                  Image.asset(
+                    data.asset,
+                    width: 50 * scale,
+                    height: 50 * scale,
+                    excludeFromSemantics: true,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      data.asset,
-                      width: 50 * scale,
-                      height: 50 * scale,
-                      excludeFromSemantics: true,
-                    ),
-                    SizedBox(width: 14 * scale),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data.title,
-                            style: TextStyle(
-                              color: const Color(0xFFF3F1F9),
-                              fontSize: 16 * scale,
-                              height: 1.15,
-                              fontWeight: FontWeight.w600,
-                            ),
+                  SizedBox(width: 14 * scale),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.title,
+                          style: TextStyle(
+                            color: const Color(0xFFF3F1F9),
+                            fontSize: 16 * scale,
+                            height: 1.15,
+                            fontWeight: FontWeight.w600,
                           ),
-                          SizedBox(height: 4 * scale),
-                          Text(
-                            data.description,
-                            style: TextStyle(
-                              color: const Color(0xFFAAA6B7),
-                              fontSize: 11.5 * scale,
-                              height: 1.35,
-                            ),
+                        ),
+                        SizedBox(height: 4 * scale),
+                        Text(
+                          data.description,
+                          style: TextStyle(
+                            color: const Color(0xFFAAA6B7),
+                            fontSize: 11.5 * scale,
+                            height: 1.35,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -691,15 +818,13 @@ class _PriceCopy extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _GradientTint(
-          child: Text(
-            'Free trial for 3 days then',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12 * scale,
-              height: 1.25,
-              fontWeight: FontWeight.w600,
-            ),
+        Text(
+          'Free trial for 3 days then',
+          style: TextStyle(
+            color: const Color(0xFFF2DFF5),
+            fontSize: 12 * scale,
+            height: 1.25,
+            fontWeight: FontWeight.w800,
           ),
         ),
         SizedBox(height: 4 * scale),
@@ -746,30 +871,28 @@ class _PriceCopy extends StatelessWidget {
               borderRadius: BorderRadius.circular(12 * scale - 0.5),
               color: const Color(0xFF0E1120),
             ),
-            child: _GradientTint(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.local_offer_rounded,
-                      color: Colors.white,
-                      size: 11 * scale,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.local_offer_rounded,
+                    color: const Color(0xFFF2DFF5),
+                    size: 11 * scale,
+                  ),
+                  SizedBox(width: 5 * scale),
+                  Text(
+                    'Buy Credits',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: const Color(0xFFF2DFF5),
+                      fontSize: 12 * scale,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
                     ),
-                    SizedBox(width: 5 * scale),
-                    Text(
-                      'Buy Credits',
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12 * scale,
-                        height: 1.2,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -777,19 +900,6 @@ class _PriceCopy extends StatelessWidget {
       ],
     );
   }
-}
-
-class _GradientTint extends StatelessWidget {
-  const _GradientTint({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => ShaderMask(
-    blendMode: BlendMode.srcIn,
-    shaderCallback: _trialAccent.createShader,
-    child: child,
-  );
 }
 
 class _PrimaryButton extends StatelessWidget {
@@ -806,10 +916,7 @@ class _PrimaryButton extends StatelessWidget {
       constraints: BoxConstraints(minHeight: (52 * scale).clamp(50, 64)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12 * scale),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFDF458D), Color(0xFF9044AD), Color(0xFF3553D2)],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x26C83C93), blurRadius: 14)],
+        color: const Color(0xFFA45CF4),
       ),
       child: Material(
         color: Colors.transparent,
@@ -848,9 +955,9 @@ class _PrimaryButton extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16 * scale,
+                      fontSize: 18 * scale,
                       height: 1.2,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -891,16 +998,14 @@ class _ViewPlansButton extends StatelessWidget {
               vertical: 11 * scale,
             ),
             child: Center(
-              child: _GradientTint(
-                child: Text(
-                  'View all plans',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16 * scale,
-                    height: 1.2,
-                    fontWeight: FontWeight.w600,
-                  ),
+              child: Text(
+                'View all plans',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: const Color(0xFFF2DFF5),
+                  fontSize: 16 * scale,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

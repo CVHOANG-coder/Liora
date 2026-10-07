@@ -71,6 +71,16 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final thumbnail = find.byKey(const Key('videoThumbnail_preview-post'));
+    await tester.scrollUntilVisible(
+      thumbnail,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('homeScroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(thumbnail, findsOneWidget);
 
     await tester.ensureVisible(thumbnail);

@@ -18,7 +18,6 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 
 const _previewPath = String.fromEnvironment('TRIAL_PREVIEW_PATH');
 const _sansPath = String.fromEnvironment('TRIAL_PREVIEW_SANS');
-const _serifPath = String.fromEnvironment('TRIAL_PREVIEW_SERIF');
 
 void main() {
   setUpAll(() async {
@@ -33,11 +32,12 @@ void main() {
         await loader.load();
       }
     }
-    if (_serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(_serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -70,13 +70,17 @@ void main() {
           for (final title in ['How your', 'free trial works']) {
             expect(
               tester.widget<Text>(find.text(title)).style!.fontFamily,
-              'Times New Roman',
+              'Nunito',
             );
             expect(
               tester.widget<Text>(find.text(title)).style!.fontWeight,
-              FontWeight.w400,
+              FontWeight.w600,
             );
           }
+          expect(
+            tester.widget<Text>(find.text('free trial works')).style!.color,
+            const Color(0xFFF2DFF5),
+          );
           expect(_asset('free_trailer_icon_banner'), findsOneWidget);
 
           if (_previewPath.isNotEmpty &&
@@ -141,6 +145,14 @@ void main() {
             );
             expect(number.center.dx, lessThan(tester.getRect(card).left));
             expect(number.top, greaterThanOrEqualTo(tester.getRect(card).top));
+            if (step > 1) {
+              final previousCard = tester.getRect(
+                find.byKey(ValueKey('trialStepCard-${step - 1}')),
+              );
+              final gap = tester.getRect(card).top - previousCard.bottom;
+              final scale = (size.width / 393).clamp(0.8, 1.3);
+              expect(gap, closeTo(18 * scale, 0.01));
+            }
             expect(tester.takeException(), isNull);
           }
 
@@ -150,6 +162,18 @@ void main() {
             scrollable: _scrollable(),
           );
           await tester.pumpAndSettle();
+          expect(
+            tester.widget<Text>(find.text('View all plans')).style!.color,
+            const Color(0xFFF2DFF5),
+          );
+          final creditBadge = tester.widget<Container>(
+            find.byKey(const Key('trialDiscountBadge')),
+          );
+          expect(
+            ((creditBadge.child! as Container).decoration! as BoxDecoration)
+                .color,
+            const Color(0xFF0E1120),
+          );
           expect(find.text('Restore Purchase').hitTestable(), findsOneWidget);
           expect(
             find.byKey(const Key('trialClaimButton')).hitTestable(),
@@ -174,11 +198,7 @@ void main() {
                       )
                       .decoration!
                   as BoxDecoration;
-          expect((primary.gradient! as LinearGradient).colors, const [
-            Color(0xFFDF458D),
-            Color(0xFF9044AD),
-            Color(0xFF3553D2),
-          ]);
+          expect(primary.color, const Color(0xFFA45CF4));
           expect(
             tester.getRect(find.byKey(const Key('trialLaterButton'))),
             close,
@@ -194,6 +214,49 @@ void main() {
       });
     }
   }
+
+  testWidgets('timeline reveals each step after its connector grows', (
+    tester,
+  ) async {
+    _configureView(tester, const Size(393, 852));
+    final container = _container();
+    addTearDown(container.dispose);
+    await _pumpScreen(tester, container, settle: false);
+
+    double opacity(String id) =>
+        tester.widget<Opacity>(find.byKey(ValueKey('trialStage-$id'))).opacity;
+    double connectorHeight(int number) =>
+        tester.getSize(find.byKey(ValueKey('trialConnector-$number'))).height;
+
+    await tester.pump(const Duration(milliseconds: 1350));
+    expect(opacity('step-1'), greaterThan(0));
+    expect(opacity('step-2'), 0);
+    expect(connectorHeight(1), 0);
+
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(connectorHeight(1), greaterThan(0));
+    expect(opacity('step-2'), 0);
+
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(opacity('step-2'), greaterThan(0));
+    expect(connectorHeight(2), 0);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(connectorHeight(2), greaterThan(0));
+    expect(opacity('step-3'), 0);
+
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(opacity('step-3'), greaterThan(0));
+    await tester.pumpAndSettle();
+    expect(opacity('step-3'), 1);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('trialLegalFooter')),
+      100,
+      scrollable: _scrollable(),
+    );
+    await tester.pumpAndSettle();
+    expect(opacity('legal'), 1);
+  });
 
   testWidgets(
     'trial shows the localized store price and blocks duplicate checkout',
@@ -318,6 +381,7 @@ Future<void> _pumpScreen(
   WidgetTester tester,
   ProviderContainer container, {
   double textScale = 1,
+  bool settle = true,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -330,7 +394,7 @@ Future<void> _pumpScreen(
               ? AppTheme.dark
               : AppTheme.dark.copyWith(
                   textTheme: AppTheme.dark.textTheme.apply(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Nunito Sans',
                   ),
                 ),
           builder: (context, child) => MediaQuery(
@@ -344,7 +408,7 @@ Future<void> _pumpScreen(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 class _TrialPurchases extends PurchaseController {

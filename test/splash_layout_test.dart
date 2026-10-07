@@ -14,9 +14,8 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 void main() {
   const previewPath = String.fromEnvironment('SPLASH_PREVIEW_PATH');
   const sansPath = String.fromEnvironment('SPLASH_PREVIEW_SANS');
-  const serifPath = String.fromEnvironment('SPLASH_PREVIEW_SERIF');
 
-  // The optional preview uses host fonts, without adding a dependency for CI.
+  // The optional preview loads the bundled app fonts.
   setUpAll(() async {
     if (previewPath.isEmpty) return;
     for (final family in ['Roboto', '.SF Pro Text', '.SF Pro Display']) {
@@ -25,11 +24,12 @@ void main() {
         ..addFont(File(sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
-    if (serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -64,7 +64,12 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
         expect(tester.takeException(), isNull);
-        expect(find.text('Liora'), findsOneWidget);
+        expect(
+          (tester.widget<Image>(find.byKey(const Key('splashTitle'))).image
+                  as AssetImage)
+              .assetName,
+          'assets/images/home/liora_header_title.png',
+        );
         expect(find.text('Create cinematic AI videos'), findsOneWidget);
         final artwork = tester.widget<Image>(
           find.byKey(const Key('splashArtwork')),

@@ -41,7 +41,7 @@ class ImageUploadProgressOverlay extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Color(0x6602050C), Color(0xF202050C)],
+            colors: [Colors.transparent, Color(0x66252335), Color(0xF2252335)],
             stops: [0.25, 0.5, 1],
           ),
         ),

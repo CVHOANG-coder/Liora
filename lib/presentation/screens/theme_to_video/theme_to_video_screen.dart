@@ -84,7 +84,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      barrierColor: const Color(0xB802050C),
+      barrierColor: const Color(0xB8252335),
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (_) => const VideoImageSourceSheet(isFrame: true),
     );
@@ -162,7 +162,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [Color(0xFFEC5FB6), Color(0xFFA850CF)],
+              colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
             ),
           ),
           child: Icon(
@@ -465,7 +465,7 @@ class _ThemeBadge extends StatelessWidget {
                 style: TextStyle(color: VideoFormStyle.secondary, fontSize: 11),
               ),
               const SizedBox(height: 4),
-              Text(theme.description, style: VideoFormStyle.serif(18)),
+              Text(theme.description, style: VideoFormStyle.heading(18)),
             ],
           ),
         ),

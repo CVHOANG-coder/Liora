@@ -12,7 +12,6 @@ import 'package:video_gen/shared/themes/app_theme.dart';
 void main() {
   const previewPath = String.fromEnvironment('SETTINGS_PREVIEW_PATH');
   const sansPath = String.fromEnvironment('SETTINGS_PREVIEW_SANS');
-  const serifPath = String.fromEnvironment('SETTINGS_PREVIEW_SERIF');
 
   setUpAll(() async {
     if (previewPath.isEmpty) return;
@@ -25,11 +24,12 @@ void main() {
         ..addFont(File(sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
-    if (serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [
@@ -68,10 +68,10 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(
           tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
-          const Color(0xFF02050C),
+          const Color(0xFF292431),
         );
         final title = tester.widget<Text>(find.text('Settings'));
-        expect(title.style!.fontFamily, 'Times New Roman');
+        expect(title.style!.fontFamily, 'Nunito');
         expect(title.style!.fontWeight, FontWeight.w400);
         final header = tester.getRect(find.byKey(const Key('settingsHeader')));
         final back = tester.getRect(
@@ -147,8 +147,8 @@ void main() {
                       .decoration!
                   as BoxDecoration;
           expect((decoration.gradient! as LinearGradient).colors, const [
-            Color(0xFF0B101D),
-            Color(0xFF070C17),
+            Color(0xFF40364C),
+            Color(0xFF342D3E),
           ]);
           expect(
             (decoration.border! as Border).top.color,
@@ -181,7 +181,7 @@ void main() {
             matching: find.byType(Switch),
           ),
         );
-        expect(autoplay.activeTrackColor, const Color(0xFFA850CF));
+        expect(autoplay.activeTrackColor, const Color(0xFFA45CF4));
         expect(autoplay.inactiveTrackColor, const Color(0xFF242638));
         expect(autoplay.onChanged, isNotNull);
         expect(tester.takeException(), isNull);

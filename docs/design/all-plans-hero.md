@@ -4,7 +4,7 @@ Generated using the built-in ImageGen tool from the user-provided desired All Pl
 
 - Asset: `assets/images/in_app_purchase/all_plans_hero_v2.png`
 - Consumer: `lib/presentation/screens/in_app_purchase/all_plans_screen.dart`
-- Existing `all_plans_hero.png` and shared `lola_logo.png` were preserved.
+- The unused `all_plans_hero.png` was removed after `all_plans_hero_v2.png` replaced it. The shared `lola_logo.png` remains in use.
 
 ## Final prompt
 

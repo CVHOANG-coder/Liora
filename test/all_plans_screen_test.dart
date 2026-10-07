@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:video_gen/data/models/package_catalog.dart';
 import 'package:video_gen/data/models/user_profile.dart';
+import 'package:video_gen/presentation/providers/package_provider.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
+import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 
@@ -60,19 +64,108 @@ void main() {
 
     expect(find.text('Liora '), findsNothing);
     expect(find.byKey(const Key('allPlansHeadline')), findsOneWidget);
-    expect(find.text('Annually Pro'), findsOneWidget);
+    expect(find.text('Annually'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Pro'), findsOneWidget);
+    expect(find.text('Weekly'), findsOneWidget);
     expect(find.text('3 days free trailer'), findsNothing);
-    await tester.tap(find.text('Weekly Pro'));
+    await tester.tap(find.text('Weekly'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Weekly Pro'), findsOneWidget);
+    expect(find.text('Weekly'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'shows the store annual total with weekly equivalent below title',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer(
+        overrides: [
+          iapCatalogPlatformProvider.overrideWith((ref) => 'ANDROID'),
+          purchaseControllerProvider.overrideWith(_PricedPurchases.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      container
+          .read(profileProvider.notifier)
+          .setProfile(_profile(isSubscribed: false));
+      container
+          .read(packageCatalogProvider.notifier)
+          .setCatalog(
+            PackageCatalog.fromJson({
+              'ANDROID': {
+                'SUBSCRIPTION': [
+                  {
+                    'product_id': 'weekly.pro',
+                    'pack_duration_day': 7,
+                    'price': 210000,
+                  },
+                  {
+                    'product_id': 'annually.pro',
+                    'pack_duration_day': 365,
+                    'price': 1300000,
+                  },
+                ],
+              },
+            }),
+          );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: AllPlans()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final yearlyCard = find.byKey(const Key('allPlansYearlyCard'));
+      final annualPrice = find.byKey(const Key('allPlansYearlyAnnualPrice'));
+      final weeklyEquivalent = find.byKey(
+        const Key('allPlansYearlyWeeklyPrice'),
+      );
+      expect(tester.widget<Text>(annualPrice).data, '₫1.300.000/year');
+      expect(tester.widget<Text>(weeklyEquivalent).data, 'only 25000 ₫/week');
+      expect(
+        tester.getRect(weeklyEquivalent).top,
+        greaterThan(
+          tester
+              .getRect(
+                find.descendant(
+                  of: yearlyCard,
+                  matching: find.text('Annually'),
+                ),
+              )
+              .bottom,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+
+      container
+          .read(profileProvider.notifier)
+          .setProfile(
+            _profile(
+              isSubscribed: true,
+              startedAt: '2026-08-01T00:00:00Z',
+              endsAt: '2026-08-08T00:00:00Z',
+            ),
+          );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('yearlyUpgradePlanCard')),
+          matching: find.text('₫1.300.000/year'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final width in [320.0, 393.0]) {
     testWidgets('weekly plan follows isVIP at width $width', (tester) async {
@@ -91,13 +184,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('Weekly Pro'),
+        find.text('Weekly'),
         250,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Weekly Pro'), findsOneWidget);
+      expect(find.text('Weekly'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       container
@@ -108,7 +201,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('3 days free trailer'), findsNothing);
-      expect(find.text('Weekly Pro'), findsNothing);
+      expect(find.text('Weekly'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -157,12 +250,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text("You're on PRO"), findsOneWidget);
-    expect(find.text('Weekly plan active until 08/08/2026'), findsOneWidget);
-    expect(find.byKey(const Key('weeklyProBenefits')), findsOneWidget);
-    expect(find.text('Your PRO benefits'), findsOneWidget);
-    expect(find.text('Unlimited AI videos'), findsOneWidget);
-    expect(find.text('Premium styles'), findsOneWidget);
+    expect(find.text('Weekly PRO'), findsOneWidget);
+    expect(find.text('Active until 08/08/2026'), findsOneWidget);
+    expect(find.byKey(const Key('weeklyProBenefits')), findsNothing);
+    expect(find.text('Your PRO benefits'), findsNothing);
+    expect(find.textContaining('Enjoy every PRO feature'), findsNothing);
     expect(
       tester.getSize(find.byKey(const Key('weeklyProSummary'))).height,
       lessThanOrEqualTo(tester.view.physicalSize.height * .5),
@@ -173,7 +265,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('yearlyUpgradePlanCard')),
-        matching: find.byIcon(Icons.check_rounded),
+        matching: find.byKey(const Key('allPlansSelectedDot')),
       ),
       findsOneWidget,
     );
@@ -184,7 +276,7 @@ void main() {
     await tester.tap(find.text('Upgrade to Annually Pro'));
     await tester.pumpAndSettle();
 
-    expect(find.text("You're on PRO"), findsOneWidget);
+    expect(find.text('Weekly PRO'), findsOneWidget);
     expect(find.text('Subscription plans are unavailable.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -242,9 +334,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text("You're on PRO"), findsOneWidget);
-    expect(find.text('Weekly plan active until 08/08/2026'), findsOneWidget);
-    expect(find.byKey(const Key('weeklyProBenefits')), findsOneWidget);
+    expect(find.text('Weekly PRO'), findsOneWidget);
+    expect(find.text('Active until 08/08/2026'), findsOneWidget);
+    expect(find.byKey(const Key('weeklyProBenefits')), findsNothing);
     expect(
       tester.getSize(find.byKey(const Key('weeklyProSummary'))).height,
       lessThanOrEqualTo(tester.view.physicalSize.height * .5),
@@ -318,4 +410,29 @@ UserProfile _profile({
     'total_credit': 2350,
     'i2v_credit_base': 35,
   });
+}
+
+class _PricedPurchases extends PurchaseController {
+  @override
+  PurchaseState build() => PurchaseState(
+    status: PurchaseFlowStatus.ready,
+    products: {
+      'weekly.pro': ProductDetails(
+        id: 'weekly.pro',
+        title: 'Weekly Pro',
+        description: '',
+        price: '₫210.000',
+        rawPrice: 210000,
+        currencyCode: 'VND',
+      ),
+      'annually.pro': ProductDetails(
+        id: 'annually.pro',
+        title: 'Annually Pro',
+        description: '',
+        price: '₫1.300.000',
+        rawPrice: 1300000,
+        currencyCode: 'VND',
+      ),
+    },
+  );
 }

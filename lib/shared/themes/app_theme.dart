@@ -12,6 +12,7 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Nunito Sans',
       brightness: Brightness.dark,
       colorScheme: colorScheme.copyWith(
         primary: AppColors.primary,
@@ -46,7 +47,7 @@ abstract final class AppTheme {
           height: 1.5,
         ),
         labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-      ),
+      ).apply(fontFamily: 'Nunito Sans'),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         modalBackgroundColor: AppColors.surface,

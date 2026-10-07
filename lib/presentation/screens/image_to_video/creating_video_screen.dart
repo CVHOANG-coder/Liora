@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../../core/constants/app_features.dart';
@@ -81,8 +82,6 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
   String? _failureMessage;
   GenerationProgress? _generationProgress;
   double _displayProgress = 0.02;
-  int _currentStepIndex = 0;
-  Future<void> _pendingStepPersistence = Future<void>.value();
   bool _leaveDialogOpen = false;
   bool _allowPop = false;
   bool _leavingForHistory = false;
@@ -183,7 +182,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
   void _activateProgress(GenerationProgress progress) {
     if (!mounted || _resolved) return;
     _generationProgress = progress;
-    _refreshFakeProgress(persistStep: false);
+    _refreshFakeProgress();
     _fakeProgressTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) => _refreshFakeProgress(),
@@ -191,33 +190,10 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
     _schedulePolling(progress.startedAt);
   }
 
-  void _refreshFakeProgress({bool persistStep = true}) {
+  void _refreshFakeProgress() {
     final progress = _generationProgress;
     if (!mounted || progress == null || _resolved) return;
-    final calculatedStep = progress.stepIndexAt(DateTime.now());
-    final nextStep = calculatedStep > progress.savedStepIndex
-        ? calculatedStep
-        : progress.savedStepIndex.clamp(0, progress.totalSteps - 1);
-    final stepProgress = nextStep * 15 / progress.fakeDurationSeconds;
-    final nextProgress = progress.progressAt(DateTime.now()) > stepProgress
-        ? progress.progressAt(DateTime.now())
-        : stepProgress.clamp(0.02, 0.95);
-    final changedStep = nextStep != _currentStepIndex;
-    setState(() {
-      _currentStepIndex = nextStep;
-      _displayProgress = nextProgress;
-    });
-    if (persistStep && changedStep) {
-      _generationProgress = progress.copyWith(savedStepIndex: nextStep);
-      _pendingStepPersistence = _pendingStepPersistence.then((_) async {
-        if (_resolved) return;
-        try {
-          await _progressRepository.updateStep(progress.requestId, nextStep);
-        } catch (_) {
-          // Persisting fake progress is best-effort.
-        }
-      });
-    }
+    setState(() => _displayProgress = progress.progressAt(DateTime.now()));
   }
 
   void _schedulePolling(DateTime startedAt) {
@@ -317,7 +293,6 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
 
   Future<void> _clearStoredProgress() async {
     try {
-      await _pendingStepPersistence;
       await _progressRepository.remove(widget.generation.requestId);
     } catch (_) {
       // Terminal navigation must still continue if local cleanup fails.
@@ -388,10 +363,9 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
         if (!didPop) unawaited(_confirmLeaveForHistory());
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF02050C),
+        backgroundColor: const Color(0xFF292431),
         body: Stack(
           children: [
-            const Positioned.fill(child: _LoadingGlow()),
             SafeArea(
               bottom: false,
               child: Column(
@@ -424,7 +398,6 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
                               const _GeneratingTitle(),
                               const SizedBox(height: 8),
                               const Text(
-                                "We're turning your idea into a cinematic result.\n"
                                 'This may take a few moments.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
@@ -436,13 +409,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
                               const SizedBox(height: 16),
                               _ProgressPercent(progress: _displayProgress),
                               const SizedBox(height: 8),
-                              _NeonProgressBar(progress: _displayProgress),
-                              const SizedBox(height: 18),
-                              _GenerationSteps(
-                                currentStepIndex: _currentStepIndex,
-                                totalSteps:
-                                    _generationProgress?.totalSteps ?? 10,
-                              ),
+                              _ProgressBar(progress: _displayProgress),
                               const SizedBox(height: 18),
                               const _BackgroundTip(),
                               if (!_notificationsEnabled) ...[
@@ -463,17 +430,6 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
                                     color: Color(0xFFC68AED),
                                     fontSize: 16,
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Request ${widget.generation.requestId}',
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF85818F),
-                                  fontSize: 10,
                                 ),
                               ),
                             ],
@@ -564,7 +520,7 @@ class _LeaveCreatingVideoDialog extends StatelessWidget {
               Text(
                 'Leave this screen?',
                 textAlign: TextAlign.center,
-                style: VideoFormStyle.serif(25),
+                style: VideoFormStyle.heading(25),
               ),
               const SizedBox(height: 10),
               const Text(
@@ -631,23 +587,6 @@ class _LeaveCreatingVideoDialog extends StatelessWidget {
   );
 }
 
-class _LoadingGlow extends StatelessWidget {
-  const _LoadingGlow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0, -0.35),
-          radius: 0.8,
-          colors: [Color(0x332A1749), Color(0xFF02050C)],
-        ),
-      ),
-    );
-  }
-}
-
 class _Header extends StatelessWidget {
   const _Header({required this.onBack});
   final VoidCallback onBack;
@@ -662,7 +601,10 @@ class _Header extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 48),
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text('Creating Video', style: VideoFormStyle.serif(23)),
+            child: Text(
+              'Creating Video',
+              style: VideoFormStyle.heading(23, fontWeight: FontWeight.w700),
+            ),
           ),
         ),
         Align(
@@ -723,7 +665,6 @@ class _ArtworkState extends State<_Artwork>
       child: AnimatedBuilder(
         animation: _effectController,
         builder: (context, _) {
-          final pulse = 0.08 + (_effectController.value * 0.10);
           return Container(
             key: const Key('creatingArtworkFrame'),
             width: 250,
@@ -733,19 +674,8 @@ class _ArtworkState extends State<_Artwork>
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFEC5FB6), Color(0xFF5366DE)],
+                colors: [Color(0xFFA45CF4), Color(0xFF8993D1)],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFB76ADD).withValues(alpha: pulse),
-                  blurRadius: 22 + (_effectController.value * 10),
-                  spreadRadius: 0,
-                ),
-                BoxShadow(
-                  color: const Color(0xFF4664DF).withValues(alpha: pulse * 0.7),
-                  blurRadius: 18 + (_effectController.value * 8),
-                ),
-              ],
             ),
             padding: const EdgeInsets.all(0.8),
             child: _ProcessingArtwork(
@@ -776,7 +706,7 @@ class _ProcessingArtwork extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(19),
       child: ColoredBox(
-        color: const Color(0xFF0B101D),
+        color: const Color(0xFF40364C),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -785,7 +715,7 @@ class _ProcessingArtwork extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   radius: 0.85,
-                  colors: [Color(0x11000000), Color(0x8A02050C)],
+                  colors: [Color(0x11000000), Color(0x8A252335)],
                   stops: [0.42, 1],
                 ),
               ),
@@ -794,43 +724,16 @@ class _ProcessingArtwork extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(19),
                 child: RepaintBoundary(
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      VideoFormStyle.accent,
-                      BlendMode.srcIn,
-                    ),
-                    child: Lottie.asset(
-                      'assets/lotties/loadingImage.lottie',
-                      key: const Key('creatingImageLottie'),
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      repeat: true,
-                      frameRate: FrameRate.max,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    ),
+                  child: Lottie.asset(
+                    'assets/lotties/loadingImage.lottie',
+                    key: const Key('creatingImageLottie'),
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    repeat: true,
+                    frameRate: FrameRate.max,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment(0, -0.92 + (scanPosition * 1.84)),
-              child: Container(
-                key: const Key('creatingImageScanLine'),
-                height: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 13),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Color(0xFFEC5FB6),
-                      Color(0xFF5366DE),
-                      Colors.transparent,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(color: Color(0x66A850CF), blurRadius: 12),
-                  ],
                 ),
               ),
             ),
@@ -863,7 +766,7 @@ class _ProcessingArtwork extends StatelessWidget {
         if (loadingProgress == null) return child;
         return const ColoredBox(
           key: Key('creatingNetworkImageLoading'),
-          color: Color(0xFF0B101D),
+          color: Color(0xFF40364C),
         );
       },
       errorBuilder: (_, _, _) => _defaultArtwork(),
@@ -901,7 +804,7 @@ class _GeneratingTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
-      style: VideoFormStyle.serif(27),
+      style: VideoFormStyle.heading(27),
       children: const [
         TextSpan(text: 'Generating '),
         TextSpan(
@@ -927,13 +830,13 @@ class _ProgressPercent extends StatelessWidget {
     child: Text(
       '${(progress * 100).round()}%',
       textAlign: TextAlign.center,
-      style: VideoFormStyle.serif(32),
+      style: VideoFormStyle.heading(32),
     ),
   );
 }
 
-class _NeonProgressBar extends StatelessWidget {
-  const _NeonProgressBar({required this.progress});
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.progress});
   final double progress;
 
   @override
@@ -956,193 +859,12 @@ class _NeonProgressBar extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               gradient: VideoFormStyle.gradient,
-              boxShadow: const [
-                BoxShadow(color: Color(0x33935ACF), blurRadius: 8),
-              ],
             ),
           ),
         ),
       ),
     ),
   );
-}
-
-class _GenerationSteps extends StatelessWidget {
-  const _GenerationSteps({
-    required this.currentStepIndex,
-    required this.totalSteps,
-  });
-
-  final int currentStepIndex;
-  final int totalSteps;
-
-  @override
-  Widget build(BuildContext context) {
-    final safeTotal = totalSteps.clamp(1, _fakeStepLabels.length);
-    final safeCurrent = currentStepIndex.clamp(0, safeTotal - 1);
-    final maxStart = (safeTotal - 4).clamp(0, safeTotal);
-    final startIndex = (safeCurrent - 2).clamp(0, maxStart);
-    final endIndex = (startIndex + 4).clamp(0, safeTotal);
-    return Column(
-      children: [
-        for (var index = startIndex; index < endIndex; index++) ...[
-          _StepTile(
-            index: index,
-            totalSteps: safeTotal,
-            label: index == safeTotal - 1
-                ? 'Finalizing output'
-                : _fakeStepLabels[index],
-            state: index < safeCurrent
-                ? _StepState.completed
-                : index == safeCurrent
-                ? _StepState.active
-                : _StepState.pending,
-          ),
-          if (index != endIndex - 1) const SizedBox(height: 7),
-        ],
-      ],
-    );
-  }
-}
-
-const _fakeStepLabels = <String>[
-  'Uploading source image',
-  'Validating input quality',
-  'Analyzing composition',
-  'Preparing visual assets',
-  'Understanding your prompt',
-  'Planning camera movement',
-  'Building the motion path',
-  'Generating key frames',
-  'Creating scene depth',
-  'Animating the subject',
-  'Blending frame transitions',
-  'Stabilizing movement',
-  'Rendering background details',
-  'Rendering foreground details',
-  'Enhancing facial details',
-  'Improving textures',
-  'Refining lighting',
-  'Balancing colors',
-  'Reducing visual artifacts',
-  'Upscaling frame quality',
-  'Synchronizing motion',
-  'Applying cinematic effects',
-  'Composing final frames',
-  'Encoding video stream',
-  'Optimizing playback',
-  'Preparing video preview',
-  'Running final quality check',
-  'Finalizing output',
-];
-
-enum _StepState { completed, active, pending }
-
-class _StepTile extends StatelessWidget {
-  const _StepTile({
-    required this.index,
-    required this.totalSteps,
-    required this.label,
-    required this.state,
-  });
-  final int index;
-  final int totalSteps;
-  final String label;
-  final _StepState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = state == _StepState.active;
-    final completed = state == _StepState.completed;
-    final status = completed
-        ? 'Completed'
-        : active
-        ? 'In progress'
-        : 'Pending';
-    final statusColor = completed || active
-        ? VideoFormStyle.accent
-        : VideoFormStyle.muted;
-    final statusText = Text(
-      status,
-      style: TextStyle(color: statusColor, fontSize: 11, height: 1.3),
-    );
-    final title = Text(
-      '${index + 1}/$totalSteps  $label',
-      style: TextStyle(
-        color: active || completed ? Colors.white : VideoFormStyle.secondary,
-        fontSize: 13,
-        height: 1.4,
-      ),
-    );
-    return Container(
-      key: ValueKey('creatingStep-$index'),
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: VideoFormStyle.surface,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: active ? const Color(0xFF8D68AE) : const Color(0xFF343743),
-          width: 0.6,
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final stackStatus =
-              constraints.maxWidth < 290 ||
-              MediaQuery.textScalerOf(context).scale(13) > 17;
-          return Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: active || completed
-                      ? const Color(0xFF211E36)
-                      : const Color(0xFF121725),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: completed
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: VideoFormStyle.accent,
-                        size: 20,
-                      )
-                    : active
-                    ? const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: VideoFormStyle.accent,
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: VideoFormStyle.muted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    title,
-                    if (stackStatus) ...[const SizedBox(height: 3), statusText],
-                  ],
-                ),
-              ),
-              if (!stackStatus) ...[const SizedBox(width: 10), statusText],
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _BackgroundTip extends StatelessWidget {
@@ -1156,21 +878,22 @@ class _BackgroundTip extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: const Color(0xFF343743), width: 0.6),
     ),
-    child: const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(
-          Icons.notifications_none_rounded,
-          color: VideoFormStyle.accent,
-          size: 24,
+        SvgPicture.asset(
+          'assets/svgs/bell.svg',
+          width: 36,
+          height: 36,
+          excludeFromSemantics: true,
         ),
-        SizedBox(width: 12),
-        Expanded(
+        const SizedBox(width: 6),
+        const Expanded(
           child: Text.rich(
             TextSpan(
               style: TextStyle(
                 color: VideoFormStyle.secondary,
-                fontSize: 12,
+                fontSize: 13,
                 height: 1.5,
               ),
               children: [
@@ -1178,7 +901,8 @@ class _BackgroundTip extends StatelessWidget {
                   text: 'Keep creating while you wait\n',
                   style: TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
                   ),
                 ),
                 TextSpan(
@@ -1357,7 +1081,7 @@ class _GenerationFailureScreen extends StatelessWidget {
                           tooltip: 'Back',
                           onPressed: onBackToCreate,
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF0B101D),
+                            backgroundColor: const Color(0xFF40364C),
                             side: const BorderSide(
                               color: VideoFormStyle.border,
                               width: 0.6,
@@ -1393,7 +1117,7 @@ class _GenerationFailureScreen extends StatelessWidget {
                       Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: VideoFormStyle.serif(29),
+                        style: VideoFormStyle.heading(29),
                       ),
                       const SizedBox(height: 13),
                       Text(

@@ -47,16 +47,17 @@ void main() {
         headerKey: 'homeHeader',
         scrollKey: 'homeScroll',
         actionKey: 'homeCreditButton',
+        allowContentBehindHeader: true,
       );
       expect(
         find.byKey(const Key('homeProButton')),
         AppFeatures.commerceEnabled ? findsOneWidget : findsNothing,
       );
-      final avatar = tester.getRect(find.byKey(const Key('homeAvatar')));
+      expect(find.byKey(const Key('homeAvatar')), findsNothing);
       final brand = tester.getRect(find.byKey(const Key('homeBrand')));
       final credit = tester.getRect(find.byKey(const Key('homeCreditButton')));
       final pro = tester.getRect(find.byKey(const Key('homeProButton')));
-      expect(avatar.right, lessThan(brand.left));
+      expect(brand.left, greaterThanOrEqualTo(12));
       expect(brand.right, lessThan(credit.left));
       expect(credit.right, lessThan(pro.left));
       expect(pro.height, greaterThanOrEqualTo(38));
@@ -181,6 +182,7 @@ Future<void> _checkFixedHeader(
   required String headerKey,
   required String scrollKey,
   required String actionKey,
+  bool allowContentBehindHeader = false,
 }) async {
   final header = find.byKey(Key(headerKey));
   final scroll = find.byKey(PageStorageKey<String>(scrollKey));
@@ -196,7 +198,12 @@ Future<void> _checkFixedHeader(
     findsNothing,
   );
   expect(actionRect.top, greaterThanOrEqualTo(44));
-  expect(tester.getTopLeft(scroll).dy, greaterThanOrEqualTo(headerRect.bottom));
+  if (!allowContentBehindHeader) {
+    expect(
+      tester.getTopLeft(scroll).dy,
+      greaterThanOrEqualTo(headerRect.bottom),
+    );
+  }
 
   await tester.drag(scroll, const Offset(0, -350));
   await tester.pump(const Duration(milliseconds: 600));

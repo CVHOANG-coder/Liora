@@ -1,21 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'video_form_style.dart';
+
+class VideoLibraryTrashIcon extends StatelessWidget {
+  const VideoLibraryTrashIcon({
+    super.key,
+    required this.color,
+    required this.size,
+  });
+
+  static const assetPath = 'assets/svgs/trash.svg';
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.asset(
+    assetPath,
+    width: size,
+    height: size,
+    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+    excludeFromSemantics: true,
+  );
+}
 
 /// Shared visual primitives for the library and the finished-video workspace.
 class VideoLibraryAction extends StatelessWidget {
   const VideoLibraryAction({
     super.key,
     required this.label,
-    required this.icon,
+    this.icon,
+    this.iconAsset,
     required this.onTap,
     this.primary = false,
     this.destructive = false,
     this.busy = false,
-  });
+  }) : assert(icon != null || iconAsset != null);
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final VoidCallback? onTap;
   final bool primary;
   final bool destructive;
@@ -56,6 +80,17 @@ class VideoLibraryAction extends StatelessWidget {
                         strokeWidth: 2,
                       ),
                     )
+                  else if (iconAsset != null)
+                    SvgPicture.asset(
+                      iconAsset!,
+                      width: 19,
+                      height: 19,
+                      colorFilter: ColorFilter.mode(
+                        foreground,
+                        BlendMode.srcIn,
+                      ),
+                      excludeFromSemantics: true,
+                    )
                   else
                     Icon(icon, color: foreground, size: 19),
                   const SizedBox(width: 8),
@@ -65,8 +100,8 @@ class VideoLibraryAction extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: foreground,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
                         height: 1.3,
                       ),
                     ),
@@ -147,14 +182,13 @@ class VideoLibraryDeleteDialog extends StatelessWidget {
                   color: const Color(0xFF271C2B),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
+                child: const VideoLibraryTrashIcon(
                   color: Color(0xFFE49AAA),
                   size: 26,
                 ),
               ),
               const SizedBox(height: 18),
-              Text('Delete video?', style: VideoFormStyle.serif(27)),
+              Text('Delete video?', style: VideoFormStyle.heading(27)),
               const SizedBox(height: 10),
               const Text(
                 'This video will be permanently removed from your history.',
@@ -189,7 +223,7 @@ class VideoLibraryDeleteDialog extends StatelessWidget {
                   final confirm = VideoLibraryAction(
                     key: confirmKey,
                     label: 'Delete',
-                    icon: Icons.delete_outline_rounded,
+                    iconAsset: VideoLibraryTrashIcon.assetPath,
                     destructive: true,
                     onTap: () => Navigator.pop(context, true),
                   );

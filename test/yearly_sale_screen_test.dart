@@ -27,25 +27,66 @@ void main() {
     expect(find.text('Lola '), findsNothing);
     expect(find.text('Annually'), findsOneWidget);
     expect(find.text('Sale Pro'), findsOneWidget);
+    expect(find.byKey(const Key('yearlySaleProBannerVideo')), findsOneWidget);
     expect(find.text(r'$29.99'), findsOneWidget);
     expect(find.text(r'$99.99/year'), findsOneWidget);
     expect(find.text('SAVE 70%'), findsOneWidget);
-    expect(find.textContaining(r'Pay $29.99 for one year'), findsOneWidget);
-    expect(find.textContaining(r'Auto-renews at $29.99/year'), findsOneWidget);
-    expect(
-      find.textContaining('Offer applies to the Annually Sale Pro plan'),
-      findsOneWidget,
-    );
     expect(find.textContaining('/week'), findsNothing);
     expect(find.textContaining('Billed annually'), findsNothing);
     expect(find.text('7-day free trial'), findsNothing);
     expect(find.text('Upgrade to Annual'), findsOneWidget);
     expect(find.text('Buy more credits'), findsOneWidget);
+    final close = tester.getRect(
+      find.byKey(const Key('yearlySaleCloseButton')),
+    );
+    final content = tester.getRect(
+      find.byKey(const Key('yearlySaleBottomContent')),
+    );
+    expect(content.top - close.bottom, greaterThan(40));
+    expect(content.bottom, closeTo(tester.view.physicalSize.height, 1));
     expect(
       tester
           .getBottomRight(find.byKey(const Key('yearlySaleBuyCreditsButton')))
           .dy,
       lessThanOrEqualTo(tester.view.physicalSize.height),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps the bottom actions reachable on a compact screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    final container = _container();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: YearlySaleScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.text('Restore Purchase'),
+      250,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('yearlySaleScrollView')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Restore Purchase'), findsOneWidget);
+    expect(
+      tester.getRect(find.text('Restore Purchase')).bottom,
+      lessThanOrEqualTo(568 - 34),
     );
     expect(tester.takeException(), isNull);
   });

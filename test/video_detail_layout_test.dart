@@ -15,7 +15,6 @@ const _thumbnailUrl = 'https://preview.invalid/detail-layout.jpg';
 void main() {
   const previewPath = String.fromEnvironment('DETAIL_PREVIEW_PATH');
   const sansPath = String.fromEnvironment('DETAIL_PREVIEW_SANS');
-  const serifPath = String.fromEnvironment('DETAIL_PREVIEW_SERIF');
 
   setUpAll(() async {
     if (previewPath.isEmpty) return;
@@ -28,11 +27,12 @@ void main() {
         ..addFont(File(sansPath).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
-    if (serifPath.isNotEmpty) {
-      final loader = FontLoader('Times New Roman')
-        ..addFont(File(serifPath).readAsBytes().then(ByteData.sublistView));
-      await loader.load();
-    }
+    await (FontLoader(
+      'Nunito',
+    )..addFont(rootBundle.load('assets/fonts/Nunito-VF.ttf'))).load();
+    await (FontLoader(
+      'Nunito Sans',
+    )..addFont(rootBundle.load('assets/fonts/NunitoSans-VF.ttf'))).load();
   });
 
   for (final size in [

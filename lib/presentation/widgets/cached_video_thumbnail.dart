@@ -20,6 +20,8 @@ class CachedVideoThumbnail extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.thumbnailCache,
+    this.preferVideoFrame = false,
+    this.frameTimeMs = 300,
     this.maxDecodeWidth = 512,
     this.fadeInDuration = const Duration(milliseconds: 500),
     this.fadeOutDuration = const Duration(milliseconds: 1000),
@@ -34,12 +36,29 @@ class CachedVideoThumbnail extends StatelessWidget {
   final Widget? placeholder;
   final Widget? errorWidget;
   final VideoThumbnailCache? thumbnailCache;
+  final bool preferVideoFrame;
+  final int frameTimeMs;
   final int maxDecodeWidth;
   final Duration fadeInDuration;
   final Duration fadeOutDuration;
 
   @override
   Widget build(BuildContext context) {
+    if (preferVideoFrame && videoUrl.trim().isNotEmpty) {
+      return _GeneratedVideoThumbnail(
+        cacheKey: cacheKey,
+        videoUrl: videoUrl,
+        fit: fit,
+        filterQuality: filterQuality,
+        placeholder: _placeholder,
+        errorWidget: fallbackImageUrl.trim().isNotEmpty
+            ? _networkImage(fallbackImageUrl.trim())
+            : _error,
+        thumbnailCache: thumbnailCache,
+        maxDecodeWidth: maxDecodeWidth,
+        frameTimeMs: frameTimeMs,
+      );
+    }
     final networkThumbnail = imageUrl.trim();
     final fallback = fallbackImageUrl.trim();
     if (networkThumbnail.isNotEmpty) {
@@ -80,16 +99,17 @@ class CachedVideoThumbnail extends StatelessWidget {
       errorWidget: _error,
       thumbnailCache: thumbnailCache,
       maxDecodeWidth: maxDecodeWidth,
+      frameTimeMs: frameTimeMs,
     );
   }
 
   Widget get _placeholder =>
-      placeholder ?? const ColoredBox(color: Color(0xFF171016));
+      placeholder ?? const ColoredBox(color: Color(0xFF40364C));
 
   Widget get _error =>
       errorWidget ??
       const ColoredBox(
-        color: Color(0xFF171016),
+        color: Color(0xFF40364C),
         child: Center(
           child: Icon(
             Icons.movie_creation_outlined,
@@ -110,6 +130,7 @@ class _GeneratedVideoThumbnail extends StatefulWidget {
     required this.errorWidget,
     required this.thumbnailCache,
     required this.maxDecodeWidth,
+    required this.frameTimeMs,
   });
 
   final String cacheKey;
@@ -120,6 +141,7 @@ class _GeneratedVideoThumbnail extends StatefulWidget {
   final Widget errorWidget;
   final VideoThumbnailCache? thumbnailCache;
   final int maxDecodeWidth;
+  final int frameTimeMs;
 
   @override
   State<_GeneratedVideoThumbnail> createState() =>
@@ -140,7 +162,8 @@ class _GeneratedVideoThumbnailState extends State<_GeneratedVideoThumbnail> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.cacheKey != widget.cacheKey ||
         oldWidget.videoUrl != widget.videoUrl ||
-        oldWidget.maxDecodeWidth != widget.maxDecodeWidth) {
+        oldWidget.maxDecodeWidth != widget.maxDecodeWidth ||
+        oldWidget.frameTimeMs != widget.frameTimeMs) {
       _load();
     }
   }
@@ -163,6 +186,7 @@ class _GeneratedVideoThumbnailState extends State<_GeneratedVideoThumbnail> {
       videoUrl: source,
       cacheKey: widget.cacheKey,
       maxWidth: widget.maxDecodeWidth,
+      timeMs: widget.frameTimeMs,
     );
   }
 

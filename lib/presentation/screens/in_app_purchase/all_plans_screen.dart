@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/package_catalog.dart';
 import '../../../data/models/user_profile.dart';
@@ -10,12 +13,35 @@ import '../../providers/package_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../../widgets/generation_failure_dialog.dart';
+import '../../widgets/pro_banner_video.dart';
 import '../../widgets/video_form_widgets.dart';
 import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
 import 'in_app_purchase_screen.dart';
 
 enum ProPlanStatus { none, weekly, yearly }
+
+// Keep the original All Plans palette independent of the app-wide form theme.
+abstract final class _AllPlansStyle {
+  static const background = Color(0xFF02050C);
+  static const border = Color(0xFF474253);
+  static const secondary = Color(0xFFB4B1BD);
+  static const accent = Color(0xFFC68AED);
+  static const pink = Color(0xFFEC5FB6);
+  static const surface = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0E1020), Color(0xFF070C17)],
+  );
+  static const gradient = LinearGradient(
+    colors: [Color(0xFFCF559F), Color(0xFF8643B5), Color(0xFF294CD7)],
+  );
+
+  static TextStyle heading(
+    double size, {
+    FontWeight fontWeight = FontWeight.w400,
+  }) => VideoFormStyle.heading(size, fontWeight: fontWeight);
+}
 
 ProPlanStatus resolveProPlanStatus(UserProfile? profile) {
   if (profile == null || !profile.isSubscribed) return ProPlanStatus.none;
@@ -41,6 +67,7 @@ class _PlanPrices {
   const _PlanPrices({
     required this.weekly,
     required this.yearly,
+    required this.yearlyPerWeek,
     required this.savingsPercent,
     required this.weeklySavings,
   });
@@ -54,7 +81,8 @@ class _PlanPrices {
     if (weeklyPackage == null || yearlyPackage == null) {
       return const _PlanPrices(
         weekly: 'VND 210,000/week',
-        yearly: 'VND 25,000/week',
+        yearly: 'VND 1,300,000/year',
+        yearlyPerWeek: 'VND 25,000/week',
         savingsPercent: 88,
         weeklySavings: 'VND 185,000',
       );
@@ -73,10 +101,16 @@ class _PlanPrices {
       storeProducts[weeklyPackage.productId],
     );
     final yearlyProduct = storeProducts[yearlyPackage.productId];
+    final storeYearly = recurringSubscriptionPrice(yearlyProduct);
     return _PlanPrices(
       weekly:
           '${storeWeekly ?? '\$${weeklyPackage.price.toStringAsFixed(2)}'}/week',
-      yearly: _formatAnnualPricePerWeek(yearlyProduct, yearlyPackage.price),
+      yearly:
+          '${storeYearly ?? '\$${yearlyPackage.price.toStringAsFixed(2)}'}/year',
+      yearlyPerWeek: _formatAnnualPricePerWeek(
+        yearlyProduct,
+        yearlyPackage.price,
+      ),
       savingsPercent: savingsPercent,
       weeklySavings: '\$${savings.toStringAsFixed(2)}',
     );
@@ -84,6 +118,7 @@ class _PlanPrices {
 
   final String weekly;
   final String yearly;
+  final String yearlyPerWeek;
   final int savingsPercent;
   final String weeklySavings;
 }
@@ -127,17 +162,23 @@ class _AllPlansState extends ConsumerState<AllPlans> {
       platformPackages,
       purchaseState.products,
     );
+    final heroHeight = activePlan == ProPlanStatus.none
+        ? math.max(
+            (MediaQuery.sizeOf(context).width * .82).clamp(0.0, 420.0),
+            MediaQuery.textScalerOf(context).scale(44) * 2 + 160,
+          )
+        : MediaQuery.sizeOf(context).width * 1.15;
 
     return Scaffold(
-      backgroundColor: VideoFormStyle.background,
+      backgroundColor: _AllPlansStyle.background,
       body: Stack(
         children: [
           Positioned(
             left: 0,
             right: 0,
             top: 12,
-            height: MediaQuery.sizeOf(context).width * 1.15,
-            child: const _HeroBackground(),
+            height: heroHeight,
+            child: const _HeroBackground(key: Key('allPlansHeroBanner')),
           ),
           SafeArea(
             bottom: false,
@@ -146,9 +187,9 @@ class _AllPlansState extends ConsumerState<AllPlans> {
               slivers: [
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
-                    activePlan == ProPlanStatus.none ? 12 : 12,
+                    12,
                     2,
-                    activePlan == ProPlanStatus.none ? 12 : 12,
+                    12,
                     12 + MediaQuery.paddingOf(context).bottom,
                   ),
                   sliver: SliverToBoxAdapter(
@@ -159,6 +200,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
                         activeUntil,
                         prices,
                         purchaseState,
+                        heroHeight: heroHeight,
                         isVIP: profile?.isVIP == true,
                       ),
                     ),
@@ -177,17 +219,75 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     String activeUntil,
     _PlanPrices prices,
     PurchaseState purchaseState, {
+    required double heroHeight,
     required bool isVIP,
   }) {
     return [
-      _TopActions(
-        leadingIcon: activePlan == ProPlanStatus.yearly
-            ? Icons.arrow_back_rounded
-            : Icons.close_rounded,
-        onClose: () => Navigator.maybePop(context),
-      ),
-      const SizedBox(height: 12),
-      const SizedBox(height: 8),
+      if (activePlan == ProPlanStatus.none)
+        SizedBox(
+          key: const Key('allPlansHeroArea'),
+          height: (heroHeight + 100 - MediaQuery.paddingOf(context).top).clamp(
+            32.0,
+            double.infinity,
+          ),
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.topLeft,
+                child: _TopActions(
+                  leadingIcon: Icons.close_rounded,
+                  onClose: () => Navigator.maybePop(context),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 5,
+                child: Column(
+                  key: const Key('allPlansHeaderActions'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ProHeadline(),
+                    const SizedBox(height: 12),
+                    _BuyCreditsButton(onTap: _openBuyCredits),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        )
+      else if (activePlan == ProPlanStatus.weekly)
+        SizedBox(
+          key: const Key('allPlansWeeklyHeroArea'),
+          height: heroHeight + 12 - MediaQuery.paddingOf(context).top,
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.topLeft,
+                child: _TopActions(
+                  leadingIcon: Icons.close_rounded,
+                  onClose: () => Navigator.maybePop(context),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _WeeklyProSummary(
+                  activeUntil: activeUntil,
+                  onBuyCredits: _openBuyCredits,
+                ),
+              ),
+            ],
+          ),
+        )
+      else ...[
+        _TopActions(
+          leadingIcon: Icons.arrow_back_rounded,
+          onClose: () => Navigator.maybePop(context),
+        ),
+        const SizedBox(height: 20),
+      ],
       if (activePlan == ProPlanStatus.none)
         ..._availablePlanContent(prices, purchaseState, isVIP: isVIP),
       if (activePlan == ProPlanStatus.weekly)
@@ -202,53 +302,50 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     PurchaseState purchaseState, {
     required bool isVIP,
   }) {
-    // Distribute spare height on tall phones, while compact screens can scroll.
-    final media = MediaQuery.of(context);
-    final extraSpace = (media.size.height - media.padding.vertical - 665).clamp(
-      0.0,
-      240.0,
-    );
     return [
-      const _ProHeadline(),
-      SizedBox(height: 9 + extraSpace * .25),
-      // const Text(
-      //   'Create unlimited AI videos.\nCancel anytime.',
-      //   style: TextStyle(
-      //     color: VideoFormStyle.secondary,
-      //     fontSize: 12,
-      //     fontWeight: FontWeight.w400,
-      //     height: 1.45,
-      //   ),
-      // ),
-      // SizedBox(height: 10 + extraSpace * .1),
-      _BenefitsWithBuyCredits(onBuyCredits: _openBuyCredits),
-      SizedBox(height: 11 + extraSpace * .15),
-      const _CreatorBanner(),
-      SizedBox(height: 8 + extraSpace * .1),
-      _PlanCard(
-        title: 'Annually Pro',
-        price: prices.yearly,
-        selected: _selectedPlan == 0,
-        popular: true,
-        onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(0),
+      const SizedBox(height: 12),
+      Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 52),
+            child: _PlanCard(
+              title: 'Annually',
+              price: prices.yearly,
+              weeklyEquivalent: prices.yearlyPerWeek,
+              selected: _selectedPlan == 0,
+              popular: true,
+              onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(0),
+            ),
+          ),
+          const Positioned(
+            top: 0,
+            left: 8,
+            right: 8,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _CreatorTooltip(),
+            ),
+          ),
+        ],
       ),
       if (!isVIP) ...[
-        SizedBox(height: 8 + extraSpace * .1),
+        const SizedBox(height: 10),
         _PlanCard(
-          title: 'Weekly Pro',
+          title: 'Weekly',
           price: prices.weekly,
           selected: _selectedPlan == 1,
           onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(1),
         ),
       ],
-      SizedBox(height: 15 + extraSpace * .15),
+      const SizedBox(height: 20),
       _SubscribeButton(
         busy: purchaseState.isBusy,
         onTap: purchaseState.isBusy
             ? null
             : () => _selectAndSubscribe(_selectedPlan),
       ),
-      SizedBox(height: 12 + extraSpace * .15),
+      const SizedBox(height: 18),
       _LegalFooter(onRestore: purchaseState.isBusy ? null : _restore),
     ];
   }
@@ -258,25 +355,43 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     _PlanPrices prices,
     PurchaseState purchaseState,
   ) {
+    final media = MediaQuery.of(context);
+    final extraSpace = (media.size.height - media.padding.vertical - 538).clamp(
+      0.0,
+      400.0,
+    );
     return [
-      _WeeklyProSummary(
-        activeUntil: activeUntil,
-        onBuyCredits: _openBuyCredits,
-      ),
       const SizedBox(height: 12),
-      const _WeeklyMemberBanner(),
-      const SizedBox(height: 14),
-      _OwnedPlanCard(
-        key: const Key('yearlyUpgradePlanCard'),
-        title: 'Annually Pro',
-        price: prices.yearly,
-        label: 'SAVE MORE',
-        selected: true,
-        bestValue: true,
+      Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 52),
+            child: _OwnedPlanCard(
+              key: const Key('yearlyUpgradePlanCard'),
+              title: 'Annually Pro',
+              price: prices.yearly,
+              label: 'SAVE MORE',
+              selected: true,
+              bestValue: true,
+            ),
+          ),
+          const Positioned(
+            top: 0,
+            left: 8,
+            right: 8,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _CreatorTooltip(
+                message: "You're among 12,541 creators using PRO!",
+              ),
+            ),
+          ),
+        ],
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 8),
       _SavingsBanner(prices: prices),
-      const SizedBox(height: 20),
+      SizedBox(height: 8),
       _WideGradientButton(
         label: purchaseState.isBusy
             ? 'Processing...'
@@ -284,7 +399,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         busy: purchaseState.isBusy,
         onTap: purchaseState.isBusy ? null : _upgradeToYearly,
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 8),
       _LegalFooter(onRestore: purchaseState.isBusy ? null : _restore),
     ];
   }
@@ -447,20 +562,15 @@ class _AllPlansState extends ConsumerState<AllPlans> {
 }
 
 class _HeroBackground extends StatelessWidget {
-  const _HeroBackground();
+  const _HeroBackground({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          'assets/images/in_app_purchase/all_plans_hero_v2.png',
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          color: const Color(0x2602050C),
-          colorBlendMode: BlendMode.srcATop,
-        ),
+        const ProBannerVideo(key: Key('allPlansProBannerVideo')),
+        const DecoratedBox(decoration: BoxDecoration(color: Color(0x2602050C))),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -561,135 +671,41 @@ class _ProHeadline extends StatelessWidget {
     label: 'Ready to go PRO?',
     header: true,
     child: ExcludeSemantics(
-      child: Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'Ready to\ngo '),
-            WidgetSpan(
-              alignment: PlaceholderAlignment.baseline,
-              baseline: TextBaseline.alphabetic,
-              child: ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFDE639D), Color(0xFF8A79DD)],
-                ).createShader(bounds),
-                child: Text(
-                  'PRO?',
-                  style: VideoFormStyle.serif(44).copyWith(height: .97),
-                ),
-              ),
-            ),
-          ],
-        ),
-        key: const Key('allPlansHeadline'),
-        style: VideoFormStyle.serif(44).copyWith(height: .97),
-      ),
-    ),
-  );
-}
-
-class _BenefitsList extends StatelessWidget {
-  const _BenefitsList();
-
-  static const _items = [
-    ('plan_infinity', 'Unlimited AI video generation'),
-    ('plan_rocket', 'Faster generation & priority queue'),
-    ('plan_shield', 'Watermark-free exports'),
-    ('plan_gift', 'Bonus credits every month'),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      for (var index = 0; index < _items.length; index++)
-        Padding(
-          padding: EdgeInsets.only(bottom: index == _items.length - 1 ? 0 : 5),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: VideoFormStyle.surface,
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: const Color(0xFF2C303E), width: .5),
-                ),
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [VideoFormStyle.pink, Color(0xFF9970D8)],
-                  ).createShader(bounds),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: SvgPicture.asset(
-                      'assets/svgs/${_items[index].$1}.svg',
+      child: SizedBox(
+        width: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'Ready to\ngo '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFFDE639D), Color(0xFF8A79DD)],
+                    ).createShader(bounds),
+                    child: Text(
+                      'PRO?',
+                      style: _AllPlansStyle.heading(
+                        44,
+                      ).copyWith(height: .97, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 9),
-              Flexible(
-                child: Text(
-                  _items[index].$2,
-                  style: const TextStyle(
-                    color: Color(0xFFCECAD4),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
+            key: const Key('allPlansHeadline'),
+            style: _AllPlansStyle.heading(
+              44,
+            ).copyWith(height: .97, fontWeight: FontWeight.w800),
           ),
         ),
-    ],
-  );
-}
-
-class _BenefitsWithBuyCredits extends StatelessWidget {
-  const _BenefitsWithBuyCredits({required this.onBuyCredits});
-
-  final VoidCallback onBuyCredits;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      // Reserve a separate row when text scaling would collide with the CTA.
-      final stacked =
-          constraints.maxWidth < 330 ||
-          MediaQuery.textScalerOf(context).scale(10) > 12;
-      if (stacked) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _BenefitsList(),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _BuyCreditsButton(onTap: onBuyCredits),
-            ),
-          ],
-        );
-      }
-      return Column(
-        crossAxisAlignment: .end,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(right: 0),
-            child: _BenefitsList(),
-          ),
-          _BuyCreditsButton(onTap: onBuyCredits),
-          // Positioned(
-          //   right: 0,
-          //   bottom: 5,
-          //   child:
-          // ),
-        ],
-      );
-    },
+      ),
+    ),
   );
 }
 
@@ -701,12 +717,23 @@ class _BuyCreditsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('allPlansBuyCredits'),
-    width: 160,
-    constraints: const BoxConstraints(minHeight: 40),
+    width: 180,
+    constraints: const BoxConstraints(minHeight: 48),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(12),
-      gradient: VideoFormStyle.surface,
-      border: Border.all(color: const Color(0xFF765B9A), width: .5),
+      gradient: const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0xFFC184EE), Color(0xFF9294E9)],
+      ),
+      border: Border.all(color: const Color(0xFFE2CCFF), width: 1.2),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x663C1C63),
+          blurRadius: 12,
+          offset: Offset(0, 4),
+        ),
+      ],
     ),
     child: Material(
       color: Colors.transparent,
@@ -715,16 +742,16 @@ class _BuyCreditsButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           child: Row(
             children: [
               Image.asset(
                 'assets/images/in_app_purchase/credit.png',
-                width: 40,
-                height: 34.5,
+                width: 42,
+                height: 36,
                 fit: BoxFit.contain,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 7),
               const Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -733,16 +760,16 @@ class _BuyCreditsButton extends StatelessWidget {
                     'Buy Credits',
                     maxLines: 1,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1D102D),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white,
+                color: Color(0xFF1D102D),
                 size: 17,
               ),
             ],
@@ -753,76 +780,100 @@ class _BuyCreditsButton extends StatelessWidget {
   );
 }
 
-class _CreatorBanner extends StatelessWidget {
-  const _CreatorBanner();
+class _CreatorTooltip extends StatelessWidget {
+  const _CreatorTooltip({this.message = '12,541 creators chose Annually Pro'});
+
+  final String message;
 
   @override
-  Widget build(BuildContext context) => Container(
-    key: const Key('allPlansCreatorBanner'),
-    constraints: const BoxConstraints(minHeight: 52),
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(11),
-      gradient: VideoFormStyle.surface,
-      border: Border.all(color: VideoFormStyle.border, width: .5),
-    ),
-    child: Row(
-      children: [
-        SvgPicture.asset(
-          'assets/svgs/plan_creators.svg',
-          width: 48,
-          height: 34,
-        ),
-        const SizedBox(width: 15),
-        const Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: 'Over ', style: TextStyle(fontSize: 12)),
-                TextSpan(
-                  text: '12,541',
-                  style: TextStyle(
-                    color: VideoFormStyle.pink,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-                TextSpan(
-                  text: ' creators joined the\n',
-                  style: TextStyle(fontSize: 12),
-                ),
-                TextSpan(
-                  text: 'Annually Pro',
-                  style: TextStyle(
-                    color: Color(0xFFAA69D5),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-                TextSpan(
-                  text: ' plan ',
-                  style: TextStyle(color: VideoFormStyle.pink, fontSize: 12),
-                ),
-                TextSpan(text: 'today!'),
-              ],
-            ),
-            style: TextStyle(
-              color: Color(0xFFCECAD4),
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.45,
-            ),
+  Widget build(BuildContext context) => Column(
+    key: const Key('allPlansCreatorTooltip'),
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFF7845B2), Color(0xFF965EC7)],
           ),
         ),
-      ],
-    ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/svgs/plan_creators.svg',
+              width: 27,
+              height: 23,
+              colorFilter: const ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Flexible(
+              fit: FlexFit.loose,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  message,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(left: 41),
+        child: CustomPaint(
+          key: const Key('allPlansTooltipPointer'),
+          size: const Size(14, 12),
+          painter: _TooltipPointerPainter(),
+        ),
+      ),
+    ],
   );
+}
+
+class _TooltipPointerPainter extends CustomPainter {
+  const _TooltipPointerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2 + 1.2, size.height - 2)
+      ..quadraticBezierTo(
+        size.width / 2,
+        size.height + 2,
+        size.width / 2 - 1.2,
+        size.height - 2,
+      )
+      ..close();
+    canvas.drawPath(path, Paint()..color = const Color(0xFF804AB8));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.title,
     required this.price,
+    this.weeklyEquivalent,
     required this.selected,
     required this.onTap,
     this.popular = false,
@@ -830,6 +881,7 @@ class _PlanCard extends StatelessWidget {
 
   final String title;
   final String price;
+  final String? weeklyEquivalent;
   final bool selected;
   final bool popular;
   final VoidCallback? onTap;
@@ -839,124 +891,197 @@ class _PlanCard extends StatelessWidget {
     selected: selected,
     button: true,
     enabled: onTap != null,
-    child: Container(
-      key: Key(popular ? 'allPlansYearlyCard' : 'allPlansWeeklyCard'),
-      padding: const EdgeInsets.all(.5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(11),
-        color: selected ? null : VideoFormStyle.border,
-        gradient: selected
-            ? const LinearGradient(
-                colors: [VideoFormStyle.pink, Color(0xFF5266D8)],
-              )
-            : null,
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          DecoratedBox(
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CustomPaint(
+          foregroundPainter: selected ? _SelectedPlanBorderPainter() : null,
+          child: Container(
+            key: Key(popular ? 'allPlansYearlyCard' : 'allPlansWeeklyCard'),
+            padding: const EdgeInsets.all(.5),
             decoration: BoxDecoration(
-              gradient: VideoFormStyle.surface,
-              borderRadius: BorderRadius.circular(10.5),
+              borderRadius: BorderRadius.circular(11),
+              color: selected ? null : _AllPlansStyle.border,
+              gradient: selected
+                  ? const LinearGradient(
+                      colors: [_AllPlansStyle.pink, Color(0xFF5266D8)],
+                    )
+                  : null,
             ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(10.5),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onTap,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final largeText =
-                        MediaQuery.textScalerOf(context).scale(14) > 18;
-                    final priceLabel = Text(
-                      price,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                      ),
-                    );
-                    final pricing = selected
-                        ? ShaderMask(
-                            blendMode: BlendMode.srcIn,
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [VideoFormStyle.pink, Color(0xFF9B76DD)],
-                            ).createShader(bounds),
-                            child: priceLabel,
-                          )
-                        : priceLabel;
-                    final identity = Row(
-                      children: [
-                        _PlanRadio(selected: selected),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            title,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: _AllPlansStyle.surface,
+                    borderRadius: BorderRadius.circular(10.5),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10.5),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: onTap,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final largeText =
+                              MediaQuery.textScalerOf(context).scale(14) > 18;
+                          final priceLabel = Text(
+                            price,
+                            key: popular
+                                ? const Key('allPlansYearlyAnnualPrice')
+                                : null,
+                            maxLines: 1,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
                               height: 1.2,
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                    return ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: popular ? 91 : 54),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          popular ? 35 : 13,
-                          16,
-                          13,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (largeText || constraints.maxWidth < 310) ...[
-                              identity,
-                              const SizedBox(height: 10),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: pricing,
+                          );
+                          final fittedPrice = FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: priceLabel,
+                          );
+                          final pricing = selected
+                              ? ShaderMask(
+                                  blendMode: BlendMode.srcIn,
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        colors: [
+                                          _AllPlansStyle.pink,
+                                          Color(0xFF9B76DD),
+                                        ],
+                                      ).createShader(bounds),
+                                  child: fittedPrice,
+                                )
+                              : fittedPrice;
+                          final identity = Row(
+                            children: [
+                              _PlanRadio(selected: selected),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      title,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                    if (weeklyEquivalent != null) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'only $weeklyEquivalent',
+                                        key: const Key(
+                                          'allPlansYearlyWeeklyPrice',
+                                        ),
+                                        style: const TextStyle(
+                                          color: _AllPlansStyle.secondary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                            ] else
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            ],
+                          );
+                          return ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: popular ? 91 : 54,
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                popular ? 16 : 13,
+                                16,
+                                popular ? 16 : 13,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Expanded(flex: 11, child: identity),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 10,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 4),
+                                  if (largeText ||
+                                      constraints.maxWidth < 310) ...[
+                                    identity,
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
                                       child: pricing,
                                     ),
-                                  ),
+                                  ] else
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(flex: 11, child: identity),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 10,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            child: pricing,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
-                          ],
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-          if (popular)
-            const Positioned(
-              top: -10,
-              right: -5,
-              child: IgnorePointer(child: _PopularBadge()),
-            ),
-        ],
-      ),
+        ),
+        if (popular)
+          const Positioned(
+            top: -10,
+            right: -4.5,
+            child: IgnorePointer(child: _PopularBadge()),
+          ),
+      ],
     ),
   );
+}
+
+class _SelectedPlanBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const borderWidth = 2.0;
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        colors: [_AllPlansStyle.pink, Color(0xFF5266D8)],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        rect.deflate(borderWidth / 2),
+        const Radius.circular(10),
+      ),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _PlanRadio extends StatelessWidget {
@@ -971,14 +1096,7 @@ class _PlanRadio extends StatelessWidget {
     padding: const EdgeInsets.all(.8),
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      gradient: selected
-          ? const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [VideoFormStyle.pink, Color(0xFFAA6BD5)],
-            )
-          : null,
-      color: selected ? null : const Color(0xFF737784),
+      color: selected ? AppColors.primary : const Color(0xFF737784),
     ),
     child: DecoratedBox(
       decoration: const BoxDecoration(
@@ -986,7 +1104,16 @@ class _PlanRadio extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: selected
-          ? const Icon(Icons.check_rounded, color: Colors.white, size: 19)
+          ? const Center(
+              child: DecoratedBox(
+                key: Key('allPlansSelectedDot'),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(width: 12, height: 12),
+              ),
+            )
           : null,
     ),
   );
@@ -998,20 +1125,25 @@ class _PopularBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('allPlansPopularBadge'),
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(8),
-      gradient: const LinearGradient(
-        colors: [Color(0xFFBE589F), Color(0xFF424BBA)],
-      ),
-      border: Border.all(color: const Color(0xFF9671BD), width: .4),
+      color: const Color(0xFFFFC857),
+      border: Border.all(color: const Color(0xFFFFE7A1), width: 1),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x66FFC857),
+          blurRadius: 12,
+          offset: Offset(0, 3),
+        ),
+      ],
     ),
     child: const Text(
       'MOST POPULAR',
       style: TextStyle(
-        color: Colors.white,
+        color: Color(0xFF29133A),
         fontSize: 11,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w800,
         letterSpacing: .9,
         height: 1.2,
       ),
@@ -1034,10 +1166,8 @@ class _SubscribeButton extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 46),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFD34E8C), Color(0xFF703AA7), Color(0xFF2B40A2)],
-        ),
-        border: Border.all(color: const Color(0xFF8D79C3), width: .4),
+        color: const Color(0xFF8246B8),
+        border: Border.all(color: const Color(0xFFAF78D5), width: .8),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1057,7 +1187,7 @@ class _SubscribeButton extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -1065,7 +1195,7 @@ class _SubscribeButton extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: const Color(0x3E9AAAF3),
                     shape: BoxShape.circle,
@@ -1081,8 +1211,12 @@ class _SubscribeButton extends StatelessWidget {
                         )
                       : SvgPicture.asset(
                           'assets/svgs/plan_send.svg',
-                          width: 28,
-                          height: 28,
+                          width: 20,
+                          height: 20,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
                         ),
                 ),
               ],
@@ -1104,35 +1238,11 @@ class _WeeklyProSummary extends StatelessWidget {
   final VoidCallback onBuyCredits;
 
   @override
-  Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.sizeOf(context).height * .5;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return ConstrainedBox(
-          key: const Key('weeklyProSummary'),
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: constraints.maxWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _WeeklyIntro(
-                    activeUntil: activeUntil,
-                    onBuyCredits: onBuyCredits,
-                  ),
-                  const SizedBox(height: 10),
-                  const _WeeklyBenefitsCard(),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    key: const Key('weeklyProSummary'),
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: _WeeklyIntro(activeUntil: activeUntil, onBuyCredits: onBuyCredits),
+  );
 }
 
 class _WeeklyIntro extends StatelessWidget {
@@ -1143,278 +1253,57 @@ class _WeeklyIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Column(
       key: const Key('weeklyProIntro'),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Colors.white,
-                        Color(0xFFFF7DC9),
-                        VideoFormStyle.accent,
-                      ],
-                    ).createShader(bounds),
-                    child: Text(
-                      "You're on PRO",
-                      maxLines: 1,
-                      style: VideoFormStyle.serif(
-                        38,
-                      ).copyWith(height: 1, letterSpacing: -.7),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: VideoFormStyle.gradient,
-                  border: Border.all(color: const Color(0x99FFFFFF)),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x55EC5FB6), blurRadius: 12),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: Colors.white,
-                  size: 23,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.calendar_month_rounded,
-                color: VideoFormStyle.pink,
-                size: 17,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Weekly plan active until $activeUntil',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFCAC3D0),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stackActions = constraints.maxWidth < 330;
-              const description = Text(
-                'Enjoy every PRO feature now, or switch to Annually Pro '
-                'to save more.',
-                style: TextStyle(
-                  color: Color(0xFFC9C3CB),
-                  fontSize: 12,
-                  height: 1.35,
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-              if (stackActions) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    description,
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _BuyCreditsButton(onTap: onBuyCredits),
-                    ),
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Expanded(child: description),
-                  const SizedBox(width: 10),
-                  _BuyCreditsButton(onTap: onBuyCredits),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeeklyBenefitsCard extends StatelessWidget {
-  const _WeeklyBenefitsCard();
-
-  static const _items = [
-    (Icons.all_inclusive_rounded, 'Unlimited AI videos'),
-    (Icons.bolt_rounded, 'Priority generation'),
-    (Icons.water_drop_outlined, 'No watermark'),
-    (Icons.workspace_premium_rounded, 'Monthly bonus coins'),
-    (Icons.auto_awesome_rounded, 'Premium styles'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('weeklyProBenefits'),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                color: VideoFormStyle.pink,
-                size: 19,
-              ),
-              SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Your PRO benefits',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const spacing = 10.0;
-              final itemWidth = (constraints.maxWidth - spacing) / 2;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 7,
-                children: [
-                  for (final item in _items)
-                    SizedBox(
-                      width: itemWidth,
-                      child: _WeeklyBenefitItem(icon: item.$1, text: item.$2),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeeklyBenefitItem extends StatelessWidget {
-  const _WeeklyBenefitItem({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: VideoFormStyle.pink, size: 18),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFCECAD4),
-              fontSize: 11,
-              height: 1.2,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _WeeklyMemberBanner extends StatelessWidget {
-  const _WeeklyMemberBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return _OutlinedDarkCard(
-      height: 48,
-      radius: 24,
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF16091A),
-              border: Border.all(color: const Color(0xFFFF29B3)),
-              boxShadow: const [
-                BoxShadow(color: Color(0x77FF22AD), blurRadius: 10),
-              ],
-            ),
-            child: const Icon(
-              Icons.groups_rounded,
-              color: Color(0xFFFF45B5),
-              size: 27,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: RichText(
-                maxLines: 1,
-                text: const TextSpan(
-                  style: TextStyle(color: Color(0xFFD2CCD5), fontSize: 13.5),
-                  children: [
-                    TextSpan(text: "You're among "),
-                    TextSpan(
-                      text: '12,541',
-                      style: TextStyle(
-                        color: Color(0xFFFF22B8),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    TextSpan(text: ' creators using '),
-                    TextSpan(
-                      text: 'PRO',
-                      style: TextStyle(
-                        color: Color(0xFFFFA825),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    TextSpan(text: '!'),
-                  ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [
+                      Colors.white,
+                      Color(0xFFFF7DC9),
+                      _AllPlansStyle.accent,
+                    ],
+                  ).createShader(bounds),
+                  child: Text(
+                    'Weekly PRO',
+                    maxLines: 1,
+                    style: _AllPlansStyle.heading(
+                      38,
+                      fontWeight: FontWeight.w700,
+                    ).copyWith(height: 1, letterSpacing: -.7),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 10),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: _AllPlansStyle.gradient,
+                border: Border.all(color: const Color(0x99FFFFFF)),
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Colors.white,
+                size: 23,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _BuyCreditsButton(onTap: onBuyCredits),
+      ],
     );
   }
 }
@@ -1442,7 +1331,7 @@ class _OwnedPlanCard extends StatelessWidget {
         _OutlinedDarkCard(
           height: 91,
           radius: 17,
-          strongGlow: true,
+          highlighted: true,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Row(
@@ -1615,19 +1504,19 @@ class _YearlyIntro extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
       decoration: BoxDecoration(
-        gradient: VideoFormStyle.surface,
+        gradient: _AllPlansStyle.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: VideoFormStyle.border, width: .7),
+        border: Border.all(color: _AllPlansStyle.border, width: .7),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("You're PRO! 👑", style: VideoFormStyle.serif(35)),
+          Text("You're PRO! 👑", style: _AllPlansStyle.heading(35)),
           const SizedBox(height: 8),
           const Text(
             'Enjoy unlimited AI videos and all premium features.',
             style: TextStyle(
-              color: VideoFormStyle.secondary,
+              color: _AllPlansStyle.secondary,
               fontSize: 13,
               height: 1.45,
             ),
@@ -1719,7 +1608,7 @@ class _YearlyArtwork extends StatelessWidget {
         'Active until $activeUntil',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: VideoFormStyle.secondary, fontSize: 10.5),
+        style: const TextStyle(color: _AllPlansStyle.secondary, fontSize: 10.5),
       ),
     ],
   );
@@ -1741,9 +1630,9 @@ class _ProBenefit extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             color: const Color(0xFF14152B),
-            border: Border.all(color: VideoFormStyle.accent),
+            border: Border.all(color: _AllPlansStyle.accent),
           ),
-          child: Icon(icon, color: VideoFormStyle.pink, size: 19),
+          child: Icon(icon, color: _AllPlansStyle.pink, size: 19),
         ),
         const SizedBox(width: 9),
         Expanded(
@@ -1846,7 +1735,7 @@ class _BalanceDetails extends StatelessWidget {
               TextSpan(
                 text: '2,350',
                 style: TextStyle(
-                  color: VideoFormStyle.pink,
+                  color: _AllPlansStyle.pink,
                   fontSize: 25,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1884,7 +1773,7 @@ class _GiftProCard extends StatelessWidget {
           const Expanded(child: _GiftProDetails()),
           const Icon(
             Icons.chevron_right_rounded,
-            color: VideoFormStyle.pink,
+            color: _AllPlansStyle.pink,
             size: 29,
           ),
         ],
@@ -1927,26 +1816,26 @@ class _OutlinedDarkCard extends StatelessWidget {
     required this.height,
     required this.radius,
     required this.child,
-    this.strongGlow = false,
+    this.highlighted = false,
   });
 
   final double height;
   final double radius;
   final Widget child;
-  final bool strongGlow;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: height,
-      padding: const EdgeInsets.all(.8),
+      padding: EdgeInsets.all(highlighted ? 2 : .8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
-        gradient: strongGlow
+        gradient: highlighted
             ? const LinearGradient(
                 colors: [
-                  VideoFormStyle.pink,
-                  VideoFormStyle.accent,
+                  _AllPlansStyle.pink,
+                  _AllPlansStyle.accent,
                   Color(0xFF294CD7),
                 ],
               )
@@ -1957,8 +1846,8 @@ class _OutlinedDarkCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11),
         decoration: BoxDecoration(
-          gradient: VideoFormStyle.surface,
-          borderRadius: BorderRadius.circular(radius - 1),
+          gradient: _AllPlansStyle.surface,
+          borderRadius: BorderRadius.circular(radius - (highlighted ? 2 : 1)),
         ),
         child: child,
       ),
@@ -1981,7 +1870,7 @@ class _CornerBadge extends StatelessWidget {
           bottomLeft: Radius.circular(16),
         ),
         gradient: LinearGradient(
-          colors: [VideoFormStyle.pink, VideoFormStyle.accent],
+          colors: [_AllPlansStyle.pink, _AllPlansStyle.accent],
         ),
       ),
       child: Text(
@@ -2013,7 +1902,7 @@ class _WideGradientButton extends StatelessWidget {
       height: 66,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(23),
-        gradient: VideoFormStyle.gradient,
+        gradient: _AllPlansStyle.gradient,
       ),
       child: Material(
         color: Colors.transparent,
@@ -2070,7 +1959,7 @@ class _LegalFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodySmall!.copyWith(
-      color: VideoFormStyle.secondary,
+      color: _AllPlansStyle.secondary,
       fontSize: 9,
       fontWeight: FontWeight.w400,
     );
@@ -2150,7 +2039,7 @@ class _LegalDivider extends StatelessWidget {
       width: .5,
       height: 11,
       margin: const EdgeInsets.symmetric(horizontal: 18),
-      color: VideoFormStyle.secondary,
+      color: _AllPlansStyle.secondary,
     );
   }
 }

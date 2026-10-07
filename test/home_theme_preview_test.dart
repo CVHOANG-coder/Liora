@@ -1,18 +1,82 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
-import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
 import 'package:video_gen/presentation/widgets/cached_video_thumbnail.dart';
 
 const _preview = 'https://example.test/preview.webp';
 const _thumbnail = 'https://example.test/thumbnail.jpg';
 
 void main() {
-  testWidgets('Home avatar and See all open their destinations', (
+  for (final size in [const Size(320, 568), const Size(393, 852)]) {
+    for (final textScale in [1.0, 1.6, 2.0]) {
+      testWidgets('Home creation labels fit at $size, text $textScale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              themeCategoriesProvider.overrideWith(
+                (_) async => const <VideoCategory>[],
+              ),
+            ],
+            child: MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
+              home: const HomeScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        for (final (key, title) in [
+          ('homeImageToVideoCard', 'Image to Video'),
+          ('homeTextToVideoCard', 'Text to Video'),
+        ]) {
+          final card = find.byKey(Key(key));
+          final text = find.descendant(
+            of: card,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Text && widget.data?.replaceAll('\n', ' ') == title,
+            ),
+          );
+          final cardRect = tester.getRect(card);
+          final textRect = tester.getRect(text);
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          if (textScale == 1.0) {
+            expect(cardRect.height, inInclusiveRange(143.9, 160.1));
+          }
+          expect(
+            paragraph.didExceedMaxLines,
+            isFalse,
+            reason:
+                '$title at $size x$textScale: '
+                '${tester.widget<Text>(text).data}, card=$cardRect, text=$textRect',
+          );
+          expect(textRect.left, greaterThan(cardRect.left));
+          expect(textRect.right, lessThan(cardRect.right));
+          expect(textRect.bottom, lessThan(cardRect.bottom));
+          expect(textRect.top, greaterThan(cardRect.top + 65));
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('Home shows the brand and See all opens the category', (
     tester,
   ) async {
     final post = VideoPost.fromJson({
@@ -34,6 +98,31 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('homeAvatar')), findsNothing);
+    expect(find.byKey(const Key('homeBrand')), findsOneWidget);
+    expect(find.byKey(const Key('homeVideoBanner')), findsOneWidget);
+    expect(find.byKey(const Key('homeBannerCreateButton')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/home/home_banner_poster.jpg',
+      ),
+      findsOneWidget,
+    );
+    final brandImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const Key('homeBrand')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(
+      (brandImage.image as AssetImage).assetName,
+      'assets/images/home/liora_header_title.png',
+    );
+
     expect(
       tester.getCenter(find.byKey(const Key('homeImageToVideoCard'))).dx,
       lessThan(
@@ -41,10 +130,20 @@ void main() {
       ),
     );
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('videoThumbnail_theme-1')),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('homeScroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     final thumbnail = find.byKey(const Key('videoThumbnail_theme-1'));
     final thumbnailSize = tester.getSize(thumbnail);
-    expect(thumbnailSize.width, greaterThan(120));
-    expect(thumbnailSize.width / thumbnailSize.height, closeTo(9 / 16, 0.01));
+    expect(thumbnailSize.width, greaterThan(100));
+    expect(thumbnailSize.width / thumbnailSize.height, closeTo(2 / 3, 0.01));
     expect(
       find.descendant(
         of: thumbnail,
@@ -65,16 +164,9 @@ void main() {
             ),
           )
           .fit,
-      BoxFit.contain,
+      BoxFit.cover,
     );
 
-    await tester.tap(find.byKey(const Key('homeAvatarButton')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(ProfileScreen), findsOneWidget);
-
-    Navigator.of(tester.element(find.byType(ProfileScreen))).pop();
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('seeAllThemes_featured')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('categoryThemesScreen')), findsOneWidget);
@@ -110,7 +202,16 @@ void main() {
         );
         await tester.pumpAndSettle();
         final tile = find.byKey(const Key('videoThumbnail_preview-test'));
-        await tester.ensureVisible(tile);
+        await tester.scrollUntilVisible(
+          tile,
+          180,
+          scrollable: find
+              .descendant(
+                of: find.byKey(const PageStorageKey('homeScroll')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         await tester.pumpAndSettle();
         final image = tester.widget<CachedVideoThumbnail>(
           find.descendant(

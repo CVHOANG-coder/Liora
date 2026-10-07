@@ -8,8 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/storage/onboarding_preferences.dart';
 import '../main/main_screen.dart';
 
-const _onboardingBackground = Color(0xFF02050C);
-const _onboardingSurface = Color(0xFF0B101D);
+const _onboardingBackground = Color(0xFF292431);
+const _onboardingSurface = Color(0xFF40364C);
 const _onboardingAccentGradient = LinearGradient(
   colors: [AppColors.primaryDark, AppColors.primary, AppColors.accent],
   stops: [0, 0.54, 1],
@@ -262,9 +262,9 @@ class _OnboardingVideoState extends State<_OnboardingVideo>
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) return const ColoredBox(color: Colors.black);
+    if (!_isInitialized) return const ColoredBox(color: _onboardingBackground);
     final size = _controller.value.size;
-    if (size.isEmpty) return const ColoredBox(color: Colors.black);
+    if (size.isEmpty) return const ColoredBox(color: _onboardingBackground);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -320,7 +320,7 @@ class _VideoBottomTransition extends StatelessWidget {
             child: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: const ColoredBox(color: Color(0x2402050C)),
+                child: const ColoredBox(color: Color(0x24252335)),
               ),
             ),
           ),
@@ -354,7 +354,7 @@ class _ArtworkShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.05),
               Colors.transparent,
-              const Color(0xD902050C),
+              const Color(0xD9252335),
               _onboardingBackground,
             ],
             stops: const [0.0, 0.38, 0.70, 0.91],
@@ -486,14 +486,6 @@ class _GradientActionButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(40),
         gradient: _onboardingAccentGradient,
-        boxShadow: const [
-          BoxShadow(color: Color(0x99B982FF), blurRadius: 24, spreadRadius: 2),
-          BoxShadow(
-            color: Color(0x55FF87C8),
-            blurRadius: 28,
-            offset: Offset(8, 5),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -656,8 +648,8 @@ class _ImageToVideoShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.03),
               Colors.transparent,
-              const Color(0xB302050C),
-              const Color(0xF2070C17),
+              const Color(0xB3252335),
+              const Color(0xF2252335),
               _onboardingBackground,
             ],
             stops: const [0.0, 0.40, 0.64, 0.86, 1.0],
@@ -783,8 +775,8 @@ class _FusionVideoShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.03),
               Colors.transparent,
-              const Color(0xB302050C),
-              const Color(0xF2070C17),
+              const Color(0xB3252335),
+              const Color(0xF2252335),
               _onboardingBackground,
             ],
             stops: const [0.0, 0.42, 0.65, 0.86, 1.0],
@@ -864,8 +856,8 @@ class _CreativeShade extends StatelessWidget {
             colors: [
               Colors.black.withValues(alpha: 0.02),
               Colors.transparent,
-              const Color(0xB302050C),
-              const Color(0xF2070C17),
+              const Color(0xB3252335),
+              const Color(0xF2252335),
               _onboardingBackground,
             ],
             stops: const [0.0, 0.34, 0.63, 0.86, 1.0],
@@ -1090,9 +1082,6 @@ class _IndicatorDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: active ? AppColors.primary : AppColors.divider,
         shape: BoxShape.circle,
-        boxShadow: active
-            ? const [BoxShadow(color: Color(0xAAB982FF), blurRadius: 10)]
-            : null,
       ),
     );
   }

@@ -77,7 +77,7 @@ class _VideoNotificationRequestScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('videoNotificationRequestScreen'),
-      backgroundColor: const Color(0xFF030208),
+      backgroundColor: const Color(0xFF292431),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
@@ -87,7 +87,7 @@ class _VideoNotificationRequestScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: Color(0xFFFF3CAE)),
+            const CircularProgressIndicator(color: Color(0xFFD179AD)),
             const SizedBox(height: 18),
             const Text(
               'Opening your video…',

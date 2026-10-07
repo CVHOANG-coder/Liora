@@ -18,6 +18,102 @@ import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/providers/purchase_provider.dart';
 
 void main() {
+  test('charges full price when replacing weekly with either annual plan', () {
+    final oldPurchase = _weeklyGooglePlayPurchase();
+    for (final productId in <String>[
+      'com.lioraai.videogenerator.annually',
+      'com.lioraai.videogenerator.annuallysale',
+    ]) {
+      final product = ProductDetails(
+        id: productId,
+        title: 'Annual Pro',
+        description: '',
+        price: r'$29.99',
+        rawPrice: 29.99,
+        currencyCode: 'USD',
+      );
+      final param = subscriptionPurchaseParam(
+        GooglePlayPurchaseParam(
+          productDetails: product,
+          offerToken: 'annual-offer-token',
+        ),
+        oldPurchase: oldPurchase,
+      );
+
+      expect(param, isA<GooglePlayPurchaseParam>());
+      final googleParam = param as GooglePlayPurchaseParam;
+      expect(googleParam.offerToken, 'annual-offer-token');
+      expect(
+        googleParam.changeSubscriptionParam?.oldPurchaseDetails,
+        oldPurchase,
+      );
+      expect(
+        googleParam.changeSubscriptionParam?.replacementMode,
+        ReplacementMode.chargeFullPrice,
+      );
+    }
+  });
+
+  test(
+    'does not launch an annual upgrade without an active weekly purchase',
+    () async {
+      final gateway = _FakePurchaseGateway(
+        products: <ProductDetails>[_annualProduct()],
+      );
+      addTearDown(gateway.dispose);
+      final container = _upgradeContainer(gateway);
+      addTearDown(container.dispose);
+
+      await _waitFor(
+        () => container
+            .read(purchaseControllerProvider)
+            .products
+            .containsKey('com.lioraai.videogenerator.annually'),
+      );
+      await container
+          .read(purchaseControllerProvider.notifier)
+          .buy(
+            productId: 'com.lioraai.videogenerator.annually',
+            consumable: false,
+            replaceExistingSubscription: true,
+          );
+
+      expect(
+        container.read(purchaseControllerProvider).status,
+        PurchaseFlowStatus.error,
+      );
+      expect(gateway.lastSubscriptionParam, isNull);
+    },
+  );
+
+  test('passes the active weekly purchase to an annual upgrade', () async {
+    final oldPurchase = _weeklyGooglePlayPurchase();
+    final gateway = _FakePurchaseGateway(
+      products: <ProductDetails>[_annualProduct()],
+      pastPurchases: <PurchaseDetails>[oldPurchase],
+    );
+    addTearDown(gateway.dispose);
+    final container = _upgradeContainer(gateway);
+    addTearDown(container.dispose);
+
+    await _waitFor(
+      () => container
+          .read(purchaseControllerProvider)
+          .products
+          .containsKey('com.lioraai.videogenerator.annually'),
+    );
+    await container
+        .read(purchaseControllerProvider.notifier)
+        .buy(
+          productId: 'com.lioraai.videogenerator.annually',
+          consumable: false,
+          replaceExistingSubscription: true,
+        );
+
+    expect(gateway.lastOldPurchase, oldPurchase);
+    expect(gateway.lastSubscriptionParam, isNotNull);
+  });
+
   test('refreshes profile into Riverpod after a verified purchase', () async {
     final gateway = _FakePurchaseGateway();
     final apiClient = _FakeApiClient();
@@ -327,6 +423,61 @@ void main() {
   );
 }
 
+ProviderContainer _upgradeContainer(_FakePurchaseGateway gateway) {
+  final container = ProviderContainer(
+    overrides: [
+      googlePlayPlatformProvider.overrideWithValue(true),
+      purchaseGatewayProvider.overrideWithValue(gateway),
+      apiClientProvider.overrideWithValue(_FakeApiClient()),
+    ],
+  );
+  container.read(purchaseControllerProvider);
+  container
+      .read(packageCatalogProvider.notifier)
+      .setCatalog(
+        PackageCatalog.fromJson(<String, dynamic>{
+          'ANDROID': <String, dynamic>{
+            'SUBSCRIPTION': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'product_id': 'com.lioraai.videogenerator.weekly',
+                'pack_duration_day': 7,
+              },
+              <String, dynamic>{
+                'product_id': 'com.lioraai.videogenerator.annually',
+                'pack_duration_day': 365,
+              },
+            ],
+          },
+        }),
+      );
+  return container;
+}
+
+ProductDetails _annualProduct() => ProductDetails(
+  id: 'com.lioraai.videogenerator.annually',
+  title: 'Annual Pro',
+  description: '',
+  price: r'$29.99',
+  rawPrice: 29.99,
+  currencyCode: 'USD',
+);
+
+GooglePlayPurchaseDetails _weeklyGooglePlayPurchase() =>
+    GooglePlayPurchaseDetails.fromPurchase(
+      const PurchaseWrapper(
+        orderId: 'GPA.weekly',
+        packageName: 'com.lioraai.videogenerator',
+        purchaseTime: 1787558400000,
+        purchaseToken: 'weekly-purchase-token',
+        signature: '',
+        products: <String>['com.lioraai.videogenerator.weekly'],
+        isAutoRenewing: true,
+        originalJson: '{}',
+        isAcknowledged: true,
+        purchaseState: PurchaseStateWrapper.purchased,
+      ),
+    ).single;
+
 Future<void> _waitFor(bool Function() condition) async {
   for (var attempt = 0; attempt < 100; attempt++) {
     if (condition()) return;
@@ -410,6 +561,7 @@ class _FakePurchaseGateway implements PurchaseGateway {
   int completedPurchases = 0;
   int consumedPurchases = 0;
   PurchaseParam? lastSubscriptionParam;
+  PurchaseDetails? lastOldPurchase;
 
   @override
   Stream<List<PurchaseDetails>> get purchaseStream => _updates.stream;
@@ -440,6 +592,7 @@ class _FakePurchaseGateway implements PurchaseGateway {
     PurchaseDetails? oldPurchase,
   }) async {
     lastSubscriptionParam = purchaseParam;
+    lastOldPurchase = oldPurchase;
     return true;
   }
 

@@ -85,7 +85,7 @@ void main() {
     expect(await repository.load(progress.requestId), isNull);
   });
 
-  testWidgets('restores the current fake step when loading screen reopens', (
+  testWidgets('restores progress without showing simulated steps', (
     tester,
   ) async {
     final repository = _MemoryProgressRepository();
@@ -109,8 +109,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.textContaining('Preparing visual assets'), findsOneWidget);
-    expect(find.textContaining('4/10'), findsOneWidget);
+    expect(find.byKey(const ValueKey('creatingStep-3')), findsNothing);
+    expect(find.textContaining('Preparing visual assets'), findsNothing);
     expect(find.text('31%'), findsOneWidget);
     expect(tester.takeException(), isNull);
 

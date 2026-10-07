@@ -3,13 +3,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 enum CreateVideoMode { textToVideo, imageToVideo }
 
-const _sheetBackground = Color(0xFF02050C);
+const _sheetBackground = Color(0xFF292431);
 const _sheetBorder = Color(0xFF343743);
 const _sheetSecondary = Color(0xFFB4B1BD);
 const _cardSurface = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF0B101D), Color(0xFF070C17)],
+  colors: [Color(0xFF40364C), Color(0xFF342D3E)],
 );
 
 class CreateBottomSheet extends StatelessWidget {
@@ -33,13 +33,7 @@ class CreateBottomSheet extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(-0.8, -1),
-              radius: 1.1,
-              colors: [Color(0xFF171226), _sheetBackground],
-            ),
-          ),
+          decoration: const BoxDecoration(color: _sheetBackground),
           child: SafeArea(
             top: false,
             child: Column(
@@ -73,7 +67,7 @@ class CreateBottomSheet extends StatelessWidget {
                           subtitle:
                               'Turn your description into a vivid AI video',
                           badge: 'PROMPT',
-                          accent: const Color(0xFFEC5FB6),
+                          accent: const Color(0xFFA45CF4),
                           onTap: () => Navigator.pop(
                             context,
                             CreateVideoMode.textToVideo,
@@ -136,8 +130,8 @@ class _SheetHeader extends StatelessWidget {
                   maxLines: 1,
                   style: TextStyle(
                     color: Color(0xFFF5F2F8),
-                    fontFamily: 'Times New Roman',
-                    fontFamilyFallback: ['Times', 'serif'],
+                    fontFamily: 'Nunito',
+                    fontFamilyFallback: ['Nunito Sans'],
                     fontSize: 30,
                     height: 1.1,
                     fontWeight: FontWeight.w400,
@@ -152,7 +146,7 @@ class _SheetHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(3),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFEC5FB6), Color(0xFF6657FF)],
+                    colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
                   ),
                 ),
               ),

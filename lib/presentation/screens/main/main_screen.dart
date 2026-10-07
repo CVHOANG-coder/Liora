@@ -42,10 +42,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _screens = [
-      HomeScreen(onProfilePressed: () => _selectTab(1)),
-      const ProfileScreen(),
-    ];
+    _screens = [const HomeScreen(), const ProfileScreen()];
     _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _showInitialOfferIfNeeded();
@@ -284,7 +281,7 @@ class _CurvedBottomBarPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFA161B2C), Color(0xFA090E1D)],
+        colors: [Color(0xFA343146), Color(0xFA292639)],
       ).createShader(Offset.zero & size);
     canvas.drawPath(path, fill);
     canvas.drawPath(
@@ -292,7 +289,7 @@ class _CurvedBottomBarPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0xFF343B51),
+        ..color = const Color(0xFF514B62),
     );
   }
 
@@ -319,7 +316,7 @@ class _NavItem extends StatelessWidget {
     const activeGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFEC5FB6), Color(0xFFA850CF)],
+      colors: [Color(0xFFA45CF4), Color(0xFFA45CF4)],
     );
     final color = selected ? null : const Color(0xFF9295A3);
 
@@ -384,21 +381,9 @@ class _CreateButton extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFF4FB8), Color(0xFFB249E8), Color(0xFF347DFF)],
+            colors: [Color(0xFFA45CF4), Color(0xFFA45CF4), Color(0xFFA45CF4)],
           ),
-          border: Border.all(color: const Color(0xFFF4C4FF), width: 2.5),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF38B4).withValues(alpha: 0.48),
-              blurRadius: 20,
-              spreadRadius: 1,
-            ),
-            BoxShadow(
-              color: const Color(0xFF337BFF).withValues(alpha: 0.38),
-              blurRadius: 18,
-              offset: const Offset(3, 5),
-            ),
-          ],
+          border: Border.all(color: const Color(0xFFBCA9C7), width: 1.5),
         ),
         child: Material(
           color: Colors.transparent,

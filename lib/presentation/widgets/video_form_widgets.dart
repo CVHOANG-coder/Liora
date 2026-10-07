@@ -43,7 +43,13 @@ class VideoFormLayout extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 48),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text(title, style: VideoFormStyle.serif(22)),
+                        child: Text(
+                          title,
+                          style: VideoFormStyle.heading(
+                            22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
                     Align(
@@ -131,7 +137,10 @@ class VideoPromptHeader extends StatelessWidget {
     runSpacing: 4,
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
-      Text(title, style: VideoFormStyle.serif(18)),
+      Text(
+        title,
+        style: VideoFormStyle.heading(18, fontWeight: FontWeight.w700),
+      ),
       Text(
         requirement,
         style: const TextStyle(
@@ -294,13 +303,24 @@ class VideoFormSettingRow extends StatelessWidget {
                   child: Icon(icon, color: VideoFormStyle.accent, size: 21),
                 ),
               const SizedBox(width: 14),
-              Expanded(child: Text(title, style: VideoFormStyle.serif(17))),
+              Expanded(
+                child: Text(
+                  title,
+                  style: VideoFormStyle.heading(
+                    17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   value,
                   textAlign: TextAlign.right,
-                  style: VideoFormStyle.serif(16, color: VideoFormStyle.accent),
+                  style: VideoFormStyle.heading(
+                    16,
+                    color: VideoFormStyle.accent,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -351,7 +371,13 @@ class VideoGenerateButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Flexible(
-                child: Text('Generate', style: VideoFormStyle.serif(22)),
+                child: Text(
+                  'Generate',
+                  style: VideoFormStyle.heading(
+                    22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               if (isLoading)
@@ -425,7 +451,7 @@ class VideoImageCard extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF151022), Color(0xFF070B17)],
+                  colors: [Color(0xFF40364C), Color(0xFF342D3E)],
                 ),
               ),
               child: InkWell(
@@ -454,28 +480,31 @@ class VideoImageCard extends StatelessWidget {
                                 Text(
                                   compact ? 'Add image' : 'Select image',
                                   textAlign: TextAlign.center,
-                                  style: VideoFormStyle.serif(21),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  compact
-                                      ? 'Library or camera'
-                                      : 'Choose from library or take a photo',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: VideoFormStyle.secondary,
-                                    fontSize: 12,
-                                    height: 1.4,
+                                  style: VideoFormStyle.heading(
+                                    21,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
+                                // const SizedBox(height: 8),
+                                // Text(
+                                //   compact
+                                //       ? 'Library or camera'
+                                //       : 'Choose from library or take a photo',
+                                //   textAlign: TextAlign.center,
+                                //   style: const TextStyle(
+                                //     color: VideoFormStyle.secondary,
+                                //     fontSize: 13,
+                                //     height: 1.4,
+                                //   ),
+                                // ),
                                 if (!compact) ...[
-                                  const SizedBox(height: 18),
+                                  const SizedBox(height: 8),
                                   const Text(
                                     'JPEG, PNG, WebP • up to 20 MB',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: VideoFormStyle.muted,
-                                      fontSize: 10.5,
+                                      fontSize: 12,
                                       height: 1.4,
                                     ),
                                   ),
@@ -505,7 +534,7 @@ class VideoImageCard extends StatelessWidget {
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Color(0xE602050C)],
+                                colors: [Colors.transparent, Color(0xE6252335)],
                                 stops: [0.4, 1],
                               ),
                             ),
@@ -532,10 +561,10 @@ class VideoImageCard extends StatelessWidget {
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 14,
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    SizedBox(height: 3),
+                                    SizedBox(height: 1),
                                     Text(
                                       'Tap image to replace',
                                       style: TextStyle(
@@ -551,7 +580,7 @@ class VideoImageCard extends StatelessWidget {
                                 tooltip: 'Remove image',
                                 onPressed: onRemove,
                                 style: IconButton.styleFrom(
-                                  backgroundColor: const Color(0xCC151725),
+                                  backgroundColor: const Color(0xCC312E42),
                                   foregroundColor: Colors.white,
                                 ),
                                 icon: const Icon(Icons.close_rounded, size: 20),
@@ -571,7 +600,7 @@ class VideoImageCard extends StatelessWidget {
                     if (isLoading)
                       const Positioned.fill(
                         child: ColoredBox(
-                          color: Color(0x9902050C),
+                          color: Color(0x99252335),
                           child: Center(
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
@@ -628,7 +657,7 @@ Future<String?> showVideoFormOptions(
   useSafeArea: true,
   isScrollControlled: true,
   backgroundColor: Colors.transparent,
-  barrierColor: const Color(0xB802050C),
+  barrierColor: const Color(0xB8252335),
   constraints: const BoxConstraints(maxWidth: 560),
   builder: (context) => _FormSheet(
     title: title,
@@ -637,7 +666,7 @@ Future<String?> showVideoFormOptions(
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
-            color: const Color(0xFF0B101D),
+            color: const Color(0xFF40364C),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
@@ -650,7 +679,7 @@ Future<String?> showVideoFormOptions(
             clipBehavior: Clip.antiAlias,
             child: ListTile(
               selected: option == selected,
-              title: Text(option, style: VideoFormStyle.serif(18)),
+              title: Text(option, style: VideoFormStyle.heading(18)),
               trailing: option == selected
                   ? const Icon(
                       Icons.check_rounded,
@@ -687,7 +716,7 @@ class VideoImageSourceSheet extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Material(
-            color: const Color(0xFF0B101D),
+            color: const Color(0xFF40364C),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
               side: const BorderSide(color: VideoFormStyle.border, width: 0.6),
@@ -796,7 +825,7 @@ class _FormSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              Text(title, style: VideoFormStyle.serif(26)),
+              Text(title, style: VideoFormStyle.heading(26)),
               const SizedBox(height: 18),
               ...children,
             ],
