@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_onboarding_activity/video_onboarding_activity.dart';
 
 import '../events/video_generation_events.dart';
 
@@ -21,6 +22,19 @@ const _notificationChannel = AndroidNotificationChannel(
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  await _recordOnboardingVideoCompletion(message.data);
+}
+
+Future<void> _recordOnboardingVideoCompletion(Map<String, dynamic> data) async {
+  try {
+    final notification = VideoNotificationOpen.fromData(data);
+    if (notification.type == 'video_generated' &&
+        notification.status == 'COMPLETED') {
+      await VideoOnboardingActivity.recordCompleted([notification.requestId]);
+    }
+  } on FormatException {
+    // Unrelated pushes and failed requests do not advance onboarding.
+  }
 }
 
 enum NotificationPermissionFlowResult {
@@ -133,6 +147,22 @@ class FirebaseService {
 
   static Stream<VideoNotificationOpen> get notificationOpens =>
       _notificationOpenController.stream;
+
+  static void openImageToVideoFromOnboarding() {
+    final notification = VideoNotificationOpen(
+      type: 'create_image_to_video',
+      requestId: 'onboarding_image_to_video',
+      status: '',
+      resultUrl: '',
+      replaceCurrentRoute: !_notificationNavigationReady,
+    );
+    if (_notificationNavigationReady) {
+      _notificationOpenController.add(notification);
+    } else {
+      // Splash dispatches this after authentication, before its default route.
+      _pendingNotificationOpen = notification;
+    }
+  }
 
   static bool markNotificationNavigationReady() {
     _notificationNavigationReady = true;
@@ -369,15 +399,20 @@ class FirebaseService {
   }
 
   static Future<NotificationSettings> _requestSystemNotificationPermission() {
-    return messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
+    return messaging
+        .requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        )
+        .then((settings) async {
+          await VideoOnboardingActivity.refresh();
+          return settings;
+        });
   }
 
   static bool _isNotificationAuthorized(AuthorizationStatus status) {
@@ -418,6 +453,7 @@ class FirebaseService {
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) async {
+      await _recordOnboardingVideoCompletion(message.data);
       await _logNotificationOpen(message, 'background');
       _queueNotificationOpen(message.data);
     });
@@ -475,6 +511,7 @@ class FirebaseService {
 
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
+      await _recordOnboardingVideoCompletion(initialMessage.data);
       _queueNotificationOpen(initialMessage.data, replaceCurrentRoute: true);
       await _logNotificationOpen(initialMessage, 'terminated');
     }

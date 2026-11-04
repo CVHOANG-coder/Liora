@@ -10,6 +10,7 @@ import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/core/events/video_generation_events.dart';
 import 'package:video_gen/core/firebase/firebase_service.dart';
 import 'package:video_gen/data/models/generation_progress.dart';
+import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/i2v_generation.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/data/services/generation_progress_repository.dart';
@@ -418,14 +419,37 @@ void main() {
 
   testWidgets('confirms back and opens Profile alongside Home', (tester) async {
     final navigatorKey = GlobalKey<NavigatorState>();
+    var historyFetches = 0;
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          profileHistoryPageFetcherProvider.overrideWith(
+            (ref) => ({required page, required limit}) async {
+              historyFetches++;
+              return GenerationHistoryPage(
+                requests: historyFetches == 1 ? [] : [_status('IN_QUEUE')],
+                pagination: GenerationHistoryPagination(
+                  page: 1,
+                  limit: limit,
+                  total: historyFetches == 1 ? 0 : 1,
+                  totalPages: 1,
+                ),
+              );
+            },
+          ),
+        ],
         child: MaterialApp(
           navigatorKey: navigatorKey,
           home: const Scaffold(body: Text('Create origin')),
         ),
       ),
     );
+    // Profile's provider can already hold a cached list from before submission.
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('Create origin')),
+    );
+    await container.read(profileVideoHistoryProvider.future);
+    expect(historyFetches, 1);
     navigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         builder: (_) => CreatingVideoScreen(
@@ -463,6 +487,16 @@ void main() {
     expect(find.byType(CreatingVideoScreen), findsNothing);
     expect(find.byType(MainScreen), findsOneWidget);
     expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(historyFetches, 2);
+    expect(
+      container
+          .read(profileVideoHistoryProvider)
+          .requireValue
+          .requests
+          .single
+          .requestId,
+      'request-001',
+    );
     expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
     expect(navigatorKey.currentState!.canPop(), isFalse);
     await tester.tap(find.byKey(const Key('homeTab')));

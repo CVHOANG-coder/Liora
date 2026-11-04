@@ -2,7 +2,7 @@ name: video_gen
 description: "A lightweight AI content creation app starter."
 publish_to: "none"
 
-version: 1.0.0+8
+version: 1.0.1+9
 
 environment:
     sdk: ^3.12.2
@@ -36,6 +36,8 @@ dependencies:
     share_plus: ^13.3.0
     shared_preferences: ^2.5.5
     video_player: ^2.14.0
+    video_onboarding_activity:
+        path: packages/video_onboarding_activity
     webview_flutter: ^4.14.1
 
 dev_dependencies:

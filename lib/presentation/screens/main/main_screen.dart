@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_features.dart';
 import '../../../core/firebase/firebase_service.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/notifications/video_onboarding_service.dart';
 import '../../../data/models/user_profile.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -44,6 +46,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
     WidgetsBinding.instance.addObserver(this);
     _screens = [const HomeScreen(), const ProfileScreen()];
     _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1);
+    if (_selectedIndex == 1) {
+      // Returning from generation must fetch history beyond the cached list.
+      ref.invalidate(profileVideoHistoryProvider);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _showInitialOfferIfNeeded();
       if (!mounted || _selectedIndex != 0) return;
@@ -138,7 +144,12 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final requester =
         widget.notificationPermissionRequester ??
         FirebaseService.requestNotificationPermissionOnHome;
-    return requester().then<void>((_) {});
+    return requester().then<void>((_) async {
+      if (!mounted) return;
+      await VideoOnboardingService.refresh(
+        () => ApiClient.instance.generationHistoryService,
+      );
+    });
   }
 
   void _selectTab(int index) {

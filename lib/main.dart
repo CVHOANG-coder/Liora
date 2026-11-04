@@ -5,15 +5,20 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:video_onboarding_activity/video_onboarding_activity.dart';
 
 import 'core/analytics/meta_app_events_service.dart';
 import 'core/constants/app_features.dart';
+import 'core/network/api_client.dart';
+import 'core/notifications/video_onboarding_service.dart';
 import 'core/firebase/firebase_service.dart';
 import 'core/firebase/flutter_error_handler.dart';
 import 'shared/themes/app_theme.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/notifications/video_notification_request_screen.dart';
 import 'presentation/providers/purchase_provider.dart';
+import 'presentation/screens/image_to_video/image_to_video_screen.dart';
+import 'presentation/screens/main/main_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,12 +69,26 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
     _notificationOpenSubscription = FirebaseService.notificationOpens.listen(
       (notification) => unawaited(_openVideoNotification(notification)),
     );
+    unawaited(
+      VideoOnboardingActivity.listenForOpens(
+        FirebaseService.openImageToVideoFromOnboarding,
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_refreshVideoOnboarding());
+    });
   }
+
+  Future<void> _refreshVideoOnboarding() => VideoOnboardingService.refresh(
+    () => ApiClient.instance.generationHistoryService,
+  );
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(MetaAppEventsService.instance.refreshTrackingAuthorization());
+      unawaited(_refreshVideoOnboarding());
     }
   }
 
@@ -89,12 +108,24 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
       return;
     }
 
+    final opensImageToVideo = notification.type == 'create_image_to_video';
     final route = MaterialPageRoute<void>(
-      builder: (_) =>
-          VideoNotificationRequestScreen(notification: notification),
+      builder: (_) => opensImageToVideo
+          ? const ImageToVideoScreen()
+          : VideoNotificationRequestScreen(notification: notification),
     );
     try {
-      if (notification.replaceCurrentRoute) {
+      if (opensImageToVideo && notification.replaceCurrentRoute) {
+        // Replace Splash with Home underneath the form, so Back remains useful.
+        unawaited(
+          navigator.pushReplacement<void, void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const MainScreen(showTrialOffer: false),
+            ),
+          ),
+        );
+        await navigator.push(route);
+      } else if (notification.replaceCurrentRoute) {
         await navigator.pushReplacement(route);
       } else {
         await navigator.push(route);
@@ -108,6 +139,7 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _notificationOpenSubscription?.cancel();
+    VideoOnboardingActivity.stopListeningForOpens();
     super.dispose();
   }
 

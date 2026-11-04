@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:video_onboarding_activity/video_onboarding_activity.dart';
+
 class VideoGenerationEvents {
   VideoGenerationEvents._();
 
@@ -11,6 +13,7 @@ class VideoGenerationEvents {
   static void notifySuccess(String requestId) {
     final normalizedRequestId = requestId.trim();
     if (normalizedRequestId.isEmpty) return;
+    unawaited(VideoOnboardingActivity.recordCompleted([normalizedRequestId]));
     _successController.add(normalizedRequestId);
   }
 }

@@ -1,0 +1,10 @@
+<resources>
+    <string name="liora_activity_channel">Your first videos</string>
+    <string name="liora_activity_channel_description">Your progress towards creating your first three videos with Liora.</string>
+    <string name="liora_activity_brand">CREATE WITH LIORA AI</string>
+    <string name="liora_activity_title">Create your first videos: %1$d/3</string>
+    <string name="liora_activity_compact_title">Your first videos: %1$d/3</string>
+    <string name="liora_activity_progress">%1$d of 3 videos created</string>
+    <string name="liora_activity_subtitle">Turn your ideas into something beautiful.</string>
+    <string name="liora_activity_open">Open</string>
+</resources>
