@@ -35,7 +35,7 @@ void main() {
                   required imagePath,
                   required prompt,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                   onUploadProgress,
                 }) async {
                   submissions++;
@@ -102,7 +102,7 @@ void main() {
     String? submittedPath;
     String? submittedPrompt;
     bool? submittedHd;
-    bool? submittedLong;
+    int? submittedDuration;
     final progressRepository = _MemoryProgressRepository();
 
     await tester.pumpWidget(
@@ -120,12 +120,12 @@ void main() {
                   onUploadProgress,
                   required prompt,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                 }) async {
                   submittedPath = imagePath;
                   submittedPrompt = prompt;
                   submittedHd = isHd;
-                  submittedLong = isLongTime;
+                  submittedDuration = duration;
                   return _generation();
                 },
           ),
@@ -143,7 +143,7 @@ void main() {
     expect(find.text('3s'), findsNothing);
     expect(find.text('8s'), findsNothing);
     expect(find.widgetWithText(ListTile, '5s'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ListTile, '10s'));
+    await tester.tap(find.widgetWithText(ListTile, '15s'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Non-HD'));
@@ -189,10 +189,10 @@ void main() {
     expect(submittedPath, endsWith('assets/images/create_video.png'));
     expect(submittedPrompt, 'Gentle cinematic camera movement');
     expect(submittedHd, isFalse);
-    expect(submittedLong, isTrue);
+    expect(submittedDuration, 15);
     expect(container.read(profileProvider)!.totalCredit, 65);
     final savedProgress = progressRepository.values['request-001'];
-    expect(savedProgress?.videoDurationSeconds, 10);
+    expect(savedProgress?.videoDurationSeconds, 15);
     expect(savedProgress?.isHd, isFalse);
     expect(savedProgress?.fakeDurationSeconds, inInclusiveRange(180, 240));
     expect(tester.takeException(), isNull);
@@ -235,7 +235,7 @@ void main() {
                   onUploadProgress,
                   required prompt,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                 }) async => throw const ApiException(
                   message: 'The generation service is temporarily unavailable.',
                   statusCode: 500,
@@ -265,7 +265,7 @@ void main() {
       String? originalImagePath;
       String? originalPrompt;
       bool? originalIsHd;
-      bool? originalIsLongTime;
+      int? originalDuration;
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -280,14 +280,14 @@ void main() {
                     onUploadProgress,
                     required prompt,
                     required isHd,
-                    required isLongTime,
+                    required duration,
                   }) async {
                     submitCount += 1;
                     if (submitCount == 1) {
                       originalImagePath = imagePath;
                       originalPrompt = prompt;
                       originalIsHd = isHd;
-                      originalIsLongTime = isLongTime;
+                      originalDuration = duration;
                       throw const ApiException(
                         message: 'Insufficient credit balance',
                         statusCode: 402,
@@ -296,7 +296,7 @@ void main() {
                     expect(imagePath, originalImagePath);
                     expect(prompt, originalPrompt);
                     expect(isHd, originalIsHd);
-                    expect(isLongTime, originalIsLongTime);
+                    expect(duration, originalDuration);
                     return _generation();
                   },
             ),
@@ -355,7 +355,7 @@ void main() {
                     onUploadProgress,
                     required prompt,
                     required isHd,
-                    required isLongTime,
+                    required duration,
                   }) async => throw const ApiException(
                     message: 'Insufficient credit balance',
                     errorCode: ApiErrorCode.insufficientCredit,

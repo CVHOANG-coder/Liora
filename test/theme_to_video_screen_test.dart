@@ -47,7 +47,7 @@ void main() {
     String? submittedTheme;
     String? submittedFirstImage;
     bool? submittedHd;
-    bool? submittedLong;
+    int? submittedDuration;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -68,12 +68,12 @@ void main() {
                   required firstImagePath,
                   onUploadProgress,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                 }) async {
                   submittedTheme = themeId;
                   submittedFirstImage = firstImagePath;
                   submittedHd = isHd;
-                  submittedLong = isLongTime;
+                  submittedDuration = duration;
                   return _generation();
                 },
           ),
@@ -94,7 +94,7 @@ void main() {
     await tester.tap(find.text('10s'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(ListTile, '5s'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ListTile, '10s'));
+    await tester.tap(find.widgetWithText(ListTile, '15s'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Non-HD'));
     await tester.pumpAndSettle();
@@ -113,10 +113,10 @@ void main() {
     expect(submittedTheme, 'mad_dance');
     expect(submittedFirstImage, imagePath);
     expect(submittedHd, isFalse);
-    expect(submittedLong, isTrue);
+    expect(submittedDuration, 15);
     expect(container.read(profileProvider)!.totalCredit, 65);
     final savedProgress = progressRepository.values['request-theme-001'];
-    expect(savedProgress?.videoDurationSeconds, 10);
+    expect(savedProgress?.videoDurationSeconds, 15);
     expect(savedProgress?.isHd, isFalse);
     expect(tester.takeException(), isNull);
   });
@@ -142,7 +142,7 @@ void main() {
                   required firstImagePath,
                   onUploadProgress,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                 }) async {
                   return _generation();
                 },
@@ -173,7 +173,7 @@ void main() {
       String? originalThemeId;
       String? originalImagePath;
       bool? originalIsHd;
-      bool? originalIsLongTime;
+      int? originalDuration;
 
       await tester.pumpWidget(
         ProviderScope(
@@ -190,14 +190,14 @@ void main() {
                     required firstImagePath,
                     onUploadProgress,
                     required isHd,
-                    required isLongTime,
+                    required duration,
                   }) async {
                     submitCount += 1;
                     if (submitCount == 1) {
                       originalThemeId = themeId;
                       originalImagePath = firstImagePath;
                       originalIsHd = isHd;
-                      originalIsLongTime = isLongTime;
+                      originalDuration = duration;
                       throw const ApiException(
                         message: 'Not enough credits to generate this video.',
                         errorCode: ApiErrorCode.insufficientCredit,
@@ -207,7 +207,7 @@ void main() {
                     expect(themeId, originalThemeId);
                     expect(firstImagePath, originalImagePath);
                     expect(isHd, originalIsHd);
-                    expect(isLongTime, originalIsLongTime);
+                    expect(duration, originalDuration);
                     return _generation();
                   },
             ),

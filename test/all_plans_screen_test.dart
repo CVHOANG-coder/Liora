@@ -27,7 +27,7 @@ void main() {
         _profile(
           isSubscribed: true,
           startedAt: '2026-08-01T00:00:00Z',
-          endsAt: '2026-08-08T00:00:00Z',
+          endsAt: '2026-08-01T00:05:00Z',
         ),
       ),
       ProPlanStatus.weekly,
@@ -152,7 +152,7 @@ void main() {
             _profile(
               isSubscribed: true,
               startedAt: '2026-08-01T00:00:00Z',
-              endsAt: '2026-08-08T00:00:00Z',
+              endsAt: '2026-08-01T00:05:00Z',
             ),
           );
       await tester.pumpAndSettle();
@@ -239,7 +239,7 @@ void main() {
     final container = _profileContainer(
       isSubscribed: true,
       startedAt: '2026-08-01T00:00:00Z',
-      endsAt: '2026-08-08T00:00:00Z',
+      endsAt: '2026-08-01T00:05:00Z',
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -251,7 +251,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weekly PRO'), findsOneWidget);
-    expect(find.text('Active until 08/08/2026'), findsOneWidget);
+    expect(find.text('Active until 01/08/2026'), findsOneWidget);
     expect(find.byKey(const Key('weeklyProBenefits')), findsNothing);
     expect(find.text('Your PRO benefits'), findsNothing);
     expect(find.textContaining('Enjoy every PRO feature'), findsNothing);
@@ -281,33 +281,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows the yearly plan benefits and balance', (tester) async {
-    tester.view.physicalSize = const Size(393, 852);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'shows the yearly plan styled header and balance without benefits',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final container = _profileContainer(
-      isSubscribed: true,
-      startedAt: '2026-08-12T00:00:00Z',
-      endsAt: '2027-08-12T00:00:00Z',
-    );
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: AllPlans()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      final container = _profileContainer(
+        isSubscribed: true,
+        startedAt: '2026-08-12T00:00:00Z',
+        endsAt: '2027-08-12T00:00:00Z',
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: AllPlans()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text("You're PRO! 👑"), findsOneWidget);
-    expect(find.text('Active until 12/08/2027'), findsOneWidget);
-    expect(find.text('Unlimited AI video generation'), findsOneWidget);
-    expect(find.text('Your Balance'), findsOneWidget);
-    expect(find.text('Give PRO, Get More'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text("You're PRO!"), findsOneWidget);
+      expect(find.text('Active until 12/08/2027'), findsOneWidget);
+      expect(find.text('Unlimited AI video generation'), findsNothing);
+      expect(
+        find.text('Enjoy unlimited AI videos and all premium features.'),
+        findsNothing,
+      );
+      expect(find.text('Watermark-free export'), findsNothing);
+      expect(find.text('Your Balance'), findsOneWidget);
+      expect(find.text('Give PRO, Get More'), findsNothing);
+      expect(find.byKey(const Key('allPlansBuyCredits')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('weekly PRO header stays readable on compact screens', (
     tester,
@@ -320,7 +329,7 @@ void main() {
     final container = _profileContainer(
       isSubscribed: true,
       startedAt: '2026-08-01T00:00:00Z',
-      endsAt: '2026-08-08T00:00:00Z',
+      endsAt: '2026-08-01T00:05:00Z',
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -335,7 +344,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weekly PRO'), findsOneWidget);
-    expect(find.text('Active until 08/08/2026'), findsOneWidget);
+    expect(find.text('Active until 01/08/2026'), findsOneWidget);
     expect(find.byKey(const Key('weeklyProBenefits')), findsNothing);
     expect(
       tester.getSize(find.byKey(const Key('weeklyProSummary'))).height,

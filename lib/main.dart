@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'core/analytics/meta_app_events_service.dart';
 import 'core/constants/app_features.dart';
 import 'core/firebase/firebase_service.dart';
+import 'core/firebase/flutter_error_handler.dart';
 import 'shared/themes/app_theme.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/notifications/video_notification_request_screen.dart';
@@ -17,10 +18,9 @@ import 'presentation/providers/purchase_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.initialize();
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    unawaited(FirebaseCrashlytics.instance.recordFlutterFatalError(details));
-  };
+  FlutterError.onError = FlutterErrorHandler(
+    recordError: FirebaseCrashlytics.instance.recordFlutterError,
+  ).call;
   PlatformDispatcher.instance.onError = (error, stack) {
     unawaited(
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true),

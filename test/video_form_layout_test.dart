@@ -97,10 +97,10 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byKey(const Key('videoFormSheet')), findsOneWidget);
           expect(tester.takeException(), isNull);
-          await _scrollTo(tester, find.text('5s'), sheet: true);
-          await tester.tap(find.text('5s'));
+          await _scrollTo(tester, find.text('15s'), sheet: true);
+          await tester.tap(find.text('15s'));
           await tester.pumpAndSettle();
-          expect(find.text('5s'), findsOneWidget);
+          expect(find.text('15s'), findsOneWidget);
 
           await _scrollTo(
             tester,
@@ -151,8 +151,8 @@ void main() {
       await _scrollTo(tester, field);
       await tester.enterText(field, 'A cinematic scene');
       await tester.pump();
-      expect(find.text('17/2800'), findsOneWidget);
-      expect(tester.widget<TextField>(field).maxLength, 2800);
+      expect(find.text('17/5000'), findsOneWidget);
+      expect(tester.widget<TextField>(field).maxLength, 5000);
       final prompt = tester.widget<TextField>(field);
       tester.view.viewInsets = const FakeViewPadding(bottom: 230);
       addTearDown(tester.view.resetViewInsets);

@@ -478,8 +478,15 @@ ProviderContainer _profileContainer({
   String? googlePlayProductId,
   ApiClient? profileClient,
 }) {
+  final subscriptionDuration = subscriptionDays > 0 && subscriptionDays <= 7
+      ? const Duration(minutes: 5)
+      : Duration(days: subscriptionDays);
   final subscriptionStart = DateTime.now().toUtc().subtract(
-    Duration(days: expired ? subscriptionDays + 1 : 1),
+    expired
+        ? subscriptionDuration + const Duration(minutes: 1)
+        : subscriptionDays > 0 && subscriptionDays <= 7
+        ? const Duration(minutes: 1)
+        : const Duration(days: 1),
   );
   final container = ProviderContainer(
     overrides: [
@@ -518,9 +525,7 @@ ProviderContainer _profileContainer({
           'isSubscribed': isSubscribed,
           'sub_time': isSubscribed ? subscriptionStart.toIso8601String() : null,
           'sub_end_time': isSubscribed
-              ? subscriptionStart
-                    .add(Duration(days: subscriptionDays))
-                    .toIso8601String()
+              ? subscriptionStart.add(subscriptionDuration).toIso8601String()
               : null,
           'total_credit': 100,
           'i2v_credit_base': 35,

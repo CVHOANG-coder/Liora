@@ -40,6 +40,27 @@ void main() {
     expect(fiveSecondHd.fakeDurationSeconds, inInclusiveRange(180, 240));
     expect(tenSecondNonHd.fakeDurationSeconds, inInclusiveRange(180, 240));
     expect(tenSecondHd.fakeDurationSeconds, inInclusiveRange(300, 420));
+    for (final isHd in [false, true]) {
+      final fifteenSecondVideo = GenerationProgress.create(
+        requestId: 'fifteen-$isHd',
+        startedAt: startedAt,
+        videoDurationSeconds: 15,
+        isHd: isHd,
+      );
+      expect(fifteenSecondVideo.fakeDurationSeconds, 420);
+      expect(
+        fifteenSecondVideo.progressAt(
+          startedAt.add(const Duration(seconds: 210)),
+        ),
+        0.5,
+      );
+      expect(
+        fifteenSecondVideo.progressAt(
+          startedAt.add(const Duration(minutes: 7)),
+        ),
+        0.95,
+      );
+    }
   });
 
   test('advances one fake step every fifteen seconds and caps at 95%', () {

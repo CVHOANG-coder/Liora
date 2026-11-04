@@ -12,6 +12,7 @@ import '../../data/services/auth_session.dart';
 import '../../data/services/i2v_generation_service.dart';
 import '../../data/services/i2v_request_status_service.dart';
 import '../../data/services/t2v_generation_service.dart';
+import '../../data/services/extend_video_service.dart';
 import '../../data/services/generation_history_service.dart';
 import '../../data/services/profile_service.dart';
 import '../../data/services/package_service.dart';
@@ -70,6 +71,7 @@ class ApiClient {
     i2vGenerationService = I2VGenerationService(uploadDio);
     i2vRequestStatusService = I2VRequestStatusService(dio);
     t2vGenerationService = T2VGenerationService(dio);
+    extendVideoService = ExtendVideoService(dio);
     themeGenerationService = ThemeGenerationService(uploadDio);
     generationHistoryService = GenerationHistoryService(dio);
   }
@@ -86,6 +88,7 @@ class ApiClient {
   late final I2VGenerationService i2vGenerationService;
   late final I2VRequestStatusService i2vRequestStatusService;
   late final T2VGenerationService t2vGenerationService;
+  late final ExtendVideoService extendVideoService;
   late final ThemeGenerationService themeGenerationService;
   late final GenerationHistoryService generationHistoryService;
 
@@ -103,17 +106,33 @@ class ApiClient {
 
   Future<List<VideoCategory>> fetchThemes() => themeService.fetchThemes();
 
+  Future<I2VGeneration> extendVideo({
+    String? requestId,
+    String? videoUrl,
+    required String prompt,
+    bool isHd = false,
+    int duration = 5,
+    String? seed,
+  }) => extendVideoService.generate(
+    requestId: requestId,
+    videoUrl: videoUrl,
+    prompt: prompt,
+    isHd: isHd,
+    duration: duration,
+    seed: seed,
+  );
+
   Future<I2VGeneration> generateImageToVideo({
     required String imagePath,
     required String prompt,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     ProgressCallback? onUploadProgress,
   }) => i2vGenerationService.generate(
     imagePath: imagePath,
     prompt: prompt,
     isHd: isHd,
-    isLongTime: isLongTime,
+    duration: duration,
     onUploadProgress: onUploadProgress,
   );
 
@@ -123,12 +142,12 @@ class ApiClient {
   Future<I2VGeneration> generateTextToVideo({
     required String prompt,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     required String aspectRatio,
   }) => t2vGenerationService.generate(
     prompt: prompt,
     isHd: isHd,
-    isLongTime: isLongTime,
+    duration: duration,
     aspectRatio: aspectRatio,
   );
 
@@ -136,13 +155,13 @@ class ApiClient {
     required String themeId,
     required String firstImagePath,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     ProgressCallback? onUploadProgress,
   }) => themeGenerationService.generate(
     themeId: themeId,
     firstImagePath: firstImagePath,
     isHd: isHd,
-    isLongTime: isLongTime,
+    duration: duration,
     onUploadProgress: onUploadProgress,
   );
 

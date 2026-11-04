@@ -207,7 +207,7 @@ Future<void> _openForm(
             onUploadProgress,
             required prompt,
             required isHd,
-            required isLongTime,
+            required duration,
           }) => submit(),
     ),
     _Form.text => TextToVideoScreen(
@@ -216,7 +216,7 @@ Future<void> _openForm(
           ({
             required prompt,
             required isHd,
-            required isLongTime,
+            required duration,
             required aspectRatio,
           }) => submit(),
     ),
@@ -237,7 +237,7 @@ Future<void> _openForm(
             required firstImagePath,
             onUploadProgress,
             required isHd,
-            required isLongTime,
+            required duration,
           }) => submit(),
     ),
   };

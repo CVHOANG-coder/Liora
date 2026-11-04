@@ -4,6 +4,9 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_gen/core/network/api_exception.dart';
+import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +16,7 @@ import 'package:video_gen/data/models/generation_history.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/presentation/screens/generation_history/generation_history_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/generated_video_screen.dart';
+import 'package:video_gen/presentation/screens/extend_video/extend_video_screen.dart';
 import 'package:video_gen/presentation/widgets/video_library_widgets.dart';
 import 'package:video_gen/shared/themes/app_theme.dart';
 
@@ -231,6 +235,123 @@ void main() {
     }
   }
 
+  testWidgets(
+    'Extend opens the selected video and restores playback on return',
+    (tester) async {
+      _setView(tester, const Size(393, 852));
+      final controller = _FixtureVideoController();
+      await tester.pumpWidget(
+        _app(
+          GeneratedVideoScreen(
+            result: _request('extend-source'),
+            controllerFactory: (_) async => controller,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('extendGeneratedVideo')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ExtendVideoScreen), findsOneWidget);
+      expect(
+        tester
+            .widget<ExtendVideoScreen>(find.byType(ExtendVideoScreen))
+            .result
+            .requestId,
+        'extend-source',
+      );
+      expect(controller.value.isPlaying, isFalse);
+      expect(find.text('15s total'), findsNothing);
+      expect(find.byKey(const Key('extendDuration15')), findsOneWidget);
+      await _reveal(tester, find.byKey(const Key('extendDuration10')), 180);
+      await tester.tap(find.byKey(const Key('extendDuration10')));
+      await tester.pump();
+      expect(find.text('Extend video · 10s'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('extendVideoBack')));
+      await tester.pumpAndSettle();
+      expect(controller.value.isPlaying, isTrue);
+      expect(find.byKey(const Key('generatedVideoBottom')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  for (final size in [
+    const Size(320, 568),
+    const Size(393, 852),
+    const Size(568, 320),
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'Extend form at $size / $scale validates and retains settings',
+        (tester) async {
+          _setView(tester, size);
+          await _cacheFixture(tester);
+          await tester.pumpWidget(
+            _app(
+              ExtendVideoScreen(
+                result: _request('extend-layout'),
+                submit:
+                    ({
+                      requestId,
+                      videoUrl,
+                      required prompt,
+                      isHd = false,
+                      duration = 5,
+                      seed,
+                    }) async => throw const ApiException(
+                      message: 'Invalid duration',
+                      errorCode: ApiErrorCode.invalidDuration,
+                    ),
+              ),
+              scale,
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (size == const Size(393, 852) && scale == 1) {
+            await _capture(tester, 'extend');
+          }
+          final submit = find.byKey(const Key('submitExtendVideo'));
+          await _reveal(tester, submit, 180);
+          await tester.tap(submit);
+          await tester.pumpAndSettle();
+          expect(
+            find.text('Describe what happens next in your video.'),
+            findsOneWidget,
+          );
+          await tester.pump(const Duration(seconds: 4));
+          await tester.pumpAndSettle();
+          final prompt = find.byKey(const Key('extendVideoPrompt'));
+          await _reveal(tester, prompt, 180);
+          await tester.enterText(
+            prompt,
+            'The camera pulls back as the sun sets.',
+          );
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          await _reveal(tester, find.byKey(const Key('extendDuration10')), 180);
+          await tester.tap(find.byKey(const Key('extendDuration10')));
+          await tester.pump();
+          await _reveal(tester, submit, 180);
+          await tester.tap(submit);
+          await tester.pumpAndSettle();
+          expect(find.byType(GenerationFailureDialog), findsOneWidget);
+          await tester.ensureVisible(find.text('Review Settings'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Review Settings'));
+          await tester.pumpAndSettle();
+          expect(find.text('Extend video · 10s'), findsOneWidget);
+          await _reveal(tester, prompt, -180);
+          expect(
+            tester.widget<TextField>(prompt).controller!.text,
+            'The camera pulls back as the sun sets.',
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
   testWidgets('Play, pause, mute and seek remain interactive', (tester) async {
     _setView(tester, const Size(393, 852));
     final controller = _FixtureVideoController();
@@ -371,18 +492,20 @@ void _setView(WidgetTester tester, Size size) {
   addTearDown(tester.view.resetPadding);
 }
 
-Widget _app(Widget home, [double scale = 1]) => RepaintBoundary(
-  key: const Key('libraryPreview'),
-  child: MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.dark,
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: TextScaler.linear(scale)),
-      child: child!,
+Widget _app(Widget home, [double scale = 1]) => ProviderScope(
+  child: RepaintBoundary(
+    key: const Key('libraryPreview'),
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child!,
+      ),
+      home: home,
     ),
-    home: home,
   ),
 );
 
@@ -494,4 +617,21 @@ Future<void> _capture(WidgetTester tester, String name) async {
       image.dispose();
     }
   });
+}
+
+Future<void> _reveal(WidgetTester tester, Finder target, double delta) async {
+  final scrollable = find.byType(Scrollable).first;
+  // Drag in the form's padding so the prompt's inner scroll view cannot
+  // consume a gesture intended for the page.
+  for (var attempt = 0; target.evaluate().isEmpty && attempt < 50; attempt++) {
+    final bounds = tester.getRect(scrollable);
+    await tester.dragFrom(
+      Offset(bounds.left + 4, bounds.center.dy),
+      Offset(0, -delta),
+    );
+    await tester.pumpAndSettle();
+  }
+  await tester.pumpAndSettle();
+  await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+  await tester.pumpAndSettle();
 }

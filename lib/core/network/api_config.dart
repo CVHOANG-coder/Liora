@@ -5,6 +5,7 @@ abstract final class ApiConfig {
   static const packagesPath = '/get-all-package';
   static const verifyPurchasePath = '/users/verify-purchase';
   static const generateI2VPath = '/users/gen-i2v';
+  static const extendVideoPath = '/users/extend-video';
   static const generateT2VPath = '/users/gen-t2v';
   static const generateThemePath = '/users/gen-theme';
   static const requestStatusPath = '/users/request-status';

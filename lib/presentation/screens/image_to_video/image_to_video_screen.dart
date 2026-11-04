@@ -28,7 +28,7 @@ typedef ImageToVideoSubmit =
       required String imagePath,
       required String prompt,
       required bool isHd,
-      required bool isLongTime,
+      required int duration,
       void Function(int sent, int total)? onUploadProgress,
     });
 
@@ -37,13 +37,13 @@ class _ImageToVideoRequest {
     required this.imagePath,
     required this.prompt,
     required this.isHd,
-    required this.isLongTime,
+    required this.duration,
   });
 
   final String imagePath;
   final String prompt;
   final bool isHd;
-  final bool isLongTime;
+  final int duration;
 }
 
 class ImageToVideoScreen extends ConsumerStatefulWidget {
@@ -268,7 +268,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
         imagePath: imagePath,
         prompt: prompt,
         isHd: _quality == 'HD',
-        isLongTime: _duration == '10s',
+        duration: int.parse(_duration.replaceAll('s', '')),
       );
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -284,7 +284,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
         imagePath: request.imagePath,
         prompt: request.prompt,
         isHd: request.isHd,
-        isLongTime: request.isLongTime,
+        duration: request.duration,
         onUploadProgress: (sent, total) {
           if (!mounted ||
               _hasLeftForm ||
@@ -302,7 +302,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        videoDurationSeconds: request.duration,
         isHd: request.isHd,
       );
       final progressRepository =
@@ -394,6 +394,11 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
         child: VideoFormLayout(
           title: 'Image to video',
           backKey: const Key('imageToVideoBackButton'),
+          action: VideoGenerateButton(
+            buttonKey: const Key('generateImageVideo'),
+            onPressed: _generate,
+            isLoading: _isSubmitting,
+          ),
           children: [
             VideoImageCard(
               key: const Key('imageToVideoImageCard'),
@@ -431,7 +436,7 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
                   ? null
                   : () => _pickOption(
                       title: 'Duration',
-                      options: const ['5s', '10s'],
+                      options: const ['5s', '10s', '15s'],
                       selected: _duration,
                       onSelected: (value) => setState(() => _duration = value),
                     ),
@@ -451,11 +456,6 @@ class _ImageToVideoScreenState extends ConsumerState<ImageToVideoScreen> {
                     ),
             ),
           ],
-          action: VideoGenerateButton(
-            buttonKey: const Key('generateImageVideo'),
-            onPressed: _generate,
-            isLoading: _isSubmitting,
-          ),
         ),
       ),
     ),

@@ -64,6 +64,7 @@ class I2VRequestStatus {
     required this.status,
     required this.prompt,
     required this.imageUrl,
+    this.extendFrom = '',
     required this.thumbnailUrl,
     required this.resultUrl,
     required this.errorCode,
@@ -88,6 +89,7 @@ class I2VRequestStatus {
       status: json['request_status']?.toString().trim().toUpperCase() ?? '',
       prompt: json['prompt']?.toString() ?? '',
       imageUrl: json['image_url']?.toString() ?? '',
+      extendFrom: json['extend_from']?.toString() ?? '',
       thumbnailUrl: json['thumbnail_url']?.toString() ?? '',
       resultUrl: json['result_data']?.toString() ?? '',
       errorCode: json['error_code']?.toString().trim().toUpperCase() ?? '',
@@ -113,6 +115,7 @@ class I2VRequestStatus {
       status: status,
       prompt: prompt,
       imageUrl: imageUrl,
+      extendFrom: extendFrom,
       thumbnailUrl: thumbnailUrl,
       resultUrl: resultUrl ?? this.resultUrl,
       errorCode: errorCode,
@@ -136,6 +139,7 @@ class I2VRequestStatus {
   final String status;
   final String prompt;
   final String imageUrl;
+  final String extendFrom;
   final String thumbnailUrl;
   final String resultUrl;
   final String errorCode;

@@ -47,6 +47,13 @@ HomeSubscriptionPlan? _planFromProfile(UserProfile? profile) {
     return HomeSubscriptionPlan.none;
   }
 
+  final debugIsYearly = profile.debugSubscriptionIsYearly;
+  if (debugIsYearly != null) {
+    return debugIsYearly
+        ? HomeSubscriptionPlan.yearly
+        : HomeSubscriptionPlan.weekly;
+  }
+
   final startedAt = profile.subscriptionTime;
   final endsAt = profile.subscriptionEndTime;
   if (startedAt == null || endsAt == null) {

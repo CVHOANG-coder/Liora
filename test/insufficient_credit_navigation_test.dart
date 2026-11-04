@@ -184,7 +184,7 @@ Widget _buildForm(
             onUploadProgress,
             required prompt,
             required isHd,
-            required isLongTime,
+            required duration,
           }) => submit(),
     ),
     _GenerationForm.text => TextToVideoScreen(
@@ -192,7 +192,7 @@ Widget _buildForm(
           ({
             required prompt,
             required isHd,
-            required isLongTime,
+            required duration,
             required aspectRatio,
           }) => submit(),
     ),
@@ -212,7 +212,7 @@ Widget _buildForm(
             required firstImagePath,
             onUploadProgress,
             required isHd,
-            required isLongTime,
+            required duration,
           }) => submit(),
     ),
   };

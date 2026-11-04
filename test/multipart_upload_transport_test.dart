@@ -85,7 +85,7 @@ void main() {
         imagePath: file.path,
         prompt: prompt,
         isHd: false,
-        isLongTime: true,
+        duration: 10,
         onUploadProgress: (sent, total) => progress.add((sent, total)),
       );
       await received.future;
@@ -97,7 +97,7 @@ void main() {
       expect(receipt.fields, {
         'prompt': prompt,
         'is_hd': 'false',
-        'is_long_time': 'true',
+        'duration': '10',
       });
       expect(progress.last, (receipt.body.length, receipt.body.length));
     },
@@ -110,7 +110,7 @@ void main() {
         firstImagePath: file.path,
         themeId: 'test-theme',
         isHd: true,
-        isLongTime: false,
+        duration: 5,
       );
       final receipt = receipts.single;
       expect(receipt.path, '/users/gen-theme');
@@ -118,7 +118,7 @@ void main() {
       expect(receipt.fields, {
         'theme_id': 'test-theme',
         'is_hd': 'true',
-        'is_long_time': 'false',
+        'duration': '5',
       });
     },
   );
@@ -130,7 +130,7 @@ void main() {
         imagePath: file.path,
         prompt: 'test',
         isHd: false,
-        isLongTime: false,
+        duration: 5,
       );
     }
     expect(receipts, hasLength(2));
@@ -149,7 +149,7 @@ void main() {
           imagePath: file.path,
           prompt: 'test',
           isHd: false,
-          isLongTime: true,
+          duration: 10,
         ),
         throwsA(
           isA<ApiException>().having(

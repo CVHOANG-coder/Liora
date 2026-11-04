@@ -27,7 +27,7 @@ typedef ThemeVideoSubmit =
       required String themeId,
       required String firstImagePath,
       required bool isHd,
-      required bool isLongTime,
+      required int duration,
       void Function(int sent, int total)? onUploadProgress,
     });
 
@@ -36,13 +36,13 @@ class _ThemeToVideoRequest {
     required this.themeId,
     required this.firstImagePath,
     required this.isHd,
-    required this.isLongTime,
+    required this.duration,
   });
 
   final String themeId;
   final String firstImagePath;
   final bool isHd;
-  final bool isLongTime;
+  final int duration;
 }
 
 class ThemeToVideoScreen extends ConsumerStatefulWidget {
@@ -242,7 +242,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
         themeId: themeId,
         firstImagePath: firstImagePath,
         isHd: _quality == 'HD',
-        isLongTime: _duration == '10s',
+        duration: int.parse(_duration.replaceAll('s', '')),
       );
     }
 
@@ -258,7 +258,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
         themeId: request.themeId,
         firstImagePath: request.firstImagePath,
         isHd: request.isHd,
-        isLongTime: request.isLongTime,
+        duration: request.duration,
         onUploadProgress: (sent, total) {
           if (!mounted ||
               _hasLeftForm ||
@@ -277,7 +277,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        videoDurationSeconds: request.duration,
         isHd: request.isHd,
       );
       final progressRepository =
@@ -370,6 +370,11 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
         child: VideoFormLayout(
           title: 'Theme to video',
           backKey: const Key('themeToVideoBackButton'),
+          action: VideoGenerateButton(
+            buttonKey: const Key('generateThemeVideo'),
+            onPressed: _generate,
+            isLoading: _isSubmitting,
+          ),
           children: [
             _ThemeBadge(theme: widget.theme),
             const SizedBox(height: 18),
@@ -398,7 +403,7 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
                   ? null
                   : () => _pickOption(
                       title: 'Duration',
-                      options: const ['5s', '10s'],
+                      options: const ['5s', '10s', '15s'],
                       selected: _duration,
                       onSelected: (value) => setState(() => _duration = value),
                     ),
@@ -418,11 +423,6 @@ class _ThemeToVideoScreenState extends ConsumerState<ThemeToVideoScreen> {
                     ),
             ),
           ],
-          action: VideoGenerateButton(
-            buttonKey: const Key('generateThemeVideo'),
-            onPressed: _generate,
-            isLoading: _isSubmitting,
-          ),
         ),
       ),
     ),

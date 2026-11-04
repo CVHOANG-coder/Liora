@@ -65,7 +65,7 @@ void main() {
                               required themeId,
                               required firstImagePath,
                               required isHd,
-                              required isLongTime,
+                              required duration,
                               onUploadProgress,
                             }) async {
                               submittedPath = firstImagePath;
@@ -82,7 +82,7 @@ void main() {
                               required imagePath,
                               required prompt,
                               required isHd,
-                              required isLongTime,
+                              required duration,
                               onUploadProgress,
                             }) async {
                               submittedPath = imagePath;

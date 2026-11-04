@@ -13,6 +13,78 @@ import 'package:video_gen/core/storage/token_storage.dart';
 import 'package:video_gen/data/models/purchase_verification.dart';
 
 void main() {
+  for (final kind in ['image', 'text', 'theme']) {
+    for (final duration in [5, 10, 15]) {
+      test(
+        '$kind generation sends duration=$duration without the legacy flag',
+        () async {
+          final apiAdapter = _CallbackAdapter((options) {
+            expect(options.method, 'POST');
+            expect(options.headers['Authorization'], 'Bearer saved-token');
+            final data = options.data;
+            if (kind == 'text') {
+              expect(options.path, '/users/gen-t2v');
+              expect(data, {
+                'prompt': 'Continue the scene',
+                'is_hd': true,
+                'duration': duration,
+                'aspect_ratio': '9:16',
+              });
+            } else {
+              expect(
+                options.path,
+                kind == 'image' ? '/users/gen-i2v' : '/users/gen-theme',
+              );
+              expect(data, isA<FormData>());
+              expect(
+                Map<String, String>.fromEntries((data as FormData).fields),
+                {
+                  if (kind == 'image')
+                    'prompt': 'Continue the scene'
+                  else
+                    'theme_id': 'test-theme',
+                  'is_hd': 'true',
+                  'duration': duration.toString(),
+                },
+              );
+              expect(data.files.single.key, 'source_image');
+            }
+            return _jsonResponse(_i2vBody(), 200);
+          }, consumeRequestBody: kind != 'text');
+          final client = ApiClient(
+            authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
+            httpClient: _dioWithAdapter(apiAdapter),
+            uploadClient: _dioWithAdapter(apiAdapter),
+            deviceIdentity: const _FakeDeviceIdentity(),
+            tokenStorage: _MemoryTokenStorage('saved-token'),
+          );
+          final generation = switch (kind) {
+            'image' => await client.generateImageToVideo(
+              imagePath: 'assets/images/create_video.png',
+              prompt: 'Continue the scene',
+              isHd: true,
+              duration: duration,
+            ),
+            'theme' => await client.generateThemeVideo(
+              firstImagePath: 'assets/images/create_video.png',
+              themeId: 'test-theme',
+              isHd: true,
+              duration: duration,
+            ),
+            _ => await client.generateTextToVideo(
+              prompt: 'Continue the scene',
+              isHd: true,
+              duration: duration,
+              aspectRatio: '9:16',
+            ),
+          };
+          expect(generation.requestId, 'request-001');
+          expect(apiAdapter.requests, hasLength(1));
+        },
+      );
+    }
+  }
+
   test(
     'regular APIs remain independent while an upload waits and fails',
     () async {
@@ -36,7 +108,7 @@ void main() {
         expect(options.headers['Authorization'], 'Bearer refreshed-token');
         final body = switch (options.path) {
           '/users/user-status' => _profileBody(),
-          '/users/gen-t2v' => _i2vBody(),
+          '/users/gen-t2v' || '/users/extend-video' => _i2vBody(),
           '/users/request-status/request-001' => _requestStatusBody(),
           '/get-all-package' => {'success': true, 'data': <String, dynamic>{}},
           '/users/get-themes' => {
@@ -78,7 +150,7 @@ void main() {
           imagePath: 'assets/images/create_video.png',
           prompt: 'a calm seaside',
           isHd: false,
-          isLongTime: false,
+          duration: 5,
         ),
         throwsA(
           isA<ApiException>().having(
@@ -100,8 +172,13 @@ void main() {
           client.generateTextToVideo(
             prompt: 'a calm seaside',
             isHd: false,
-            isLongTime: false,
+            duration: 5,
             aspectRatio: '9:16',
+          ),
+          client.extendVideo(
+            requestId: 'source-001',
+            prompt: 'Continue walking',
+            duration: 15,
           ),
           client.verifyPurchase(
             const PurchaseReceipt(
@@ -112,7 +189,7 @@ void main() {
           ),
           client.deleteGenerationRequest('request-001'),
         ]);
-        expect(apiAdapter.requests, hasLength(8));
+        expect(apiAdapter.requests, hasLength(9));
         expect(authAdapter.requests, hasLength(1));
         expect(uploadAdapter.requests, hasLength(1));
       } finally {
@@ -120,7 +197,7 @@ void main() {
         await uploadFailure;
       }
       await client.fetchProfile();
-      expect(apiAdapter.requests, hasLength(9));
+      expect(apiAdapter.requests, hasLength(10));
     },
   );
 
@@ -215,7 +292,7 @@ void main() {
         imagePath: 'assets/images/create_video.png',
         prompt: 'a calm seaside',
         isHd: false,
-        isLongTime: false,
+        duration: 5,
         onUploadProgress: (sent, total) => progress.add((sent, total)),
       );
 
@@ -261,7 +338,7 @@ void main() {
             imagePath: 'assets/images/create_video.png',
             prompt: 'a calm seaside',
             isHd: false,
-            isLongTime: false,
+            duration: 5,
           ),
           throwsA(
             isA<ApiException>()
@@ -614,7 +691,7 @@ void main() {
       expect(Map<String, String>.fromEntries(formData.fields), <String, String>{
         'prompt': 'a calm seaside',
         'is_hd': 'false',
-        'is_long_time': 'false',
+        'duration': '5',
       });
       expect(formData.files.single.key, 'source_image');
       expect(formData.files.single.value.filename, 'create_video.png');
@@ -632,7 +709,7 @@ void main() {
       imagePath: 'assets/images/create_video.png',
       prompt: 'a calm seaside',
       isHd: false,
-      isLongTime: false,
+      duration: 5,
       onUploadProgress: (sent, total) => uploadProgress.add((sent, total)),
     );
 
@@ -660,7 +737,7 @@ void main() {
       expect(options.data, <String, dynamic>{
         'prompt': 'a calm seaside',
         'is_hd': true,
-        'is_long_time': true,
+        'duration': 10,
         'aspect_ratio': '16:9',
       });
       return _jsonResponse(_i2vBody(), 200);
@@ -675,7 +752,7 @@ void main() {
     final generation = await client.generateTextToVideo(
       prompt: 'a calm seaside',
       isHd: true,
-      isLongTime: true,
+      duration: 10,
       aspectRatio: '16:9',
     );
 
@@ -706,7 +783,7 @@ void main() {
         client.generateTextToVideo(
           prompt: 'a calm seaside',
           isHd: false,
-          isLongTime: false,
+          duration: 5,
           aspectRatio: '9:16',
         ),
         throwsA(
@@ -735,7 +812,7 @@ void main() {
           <String, String>{
             'theme_id': 'mad_dance',
             'is_hd': 'true',
-            'is_long_time': 'true',
+            'duration': '10',
           },
         );
         expect(formData.files.map((entry) => entry.key), <String>[
@@ -755,7 +832,7 @@ void main() {
         themeId: 'mad_dance',
         firstImagePath: 'assets/images/create_video.png',
         isHd: true,
-        isLongTime: true,
+        duration: 10,
         onUploadProgress: (sent, total) => uploadProgress.add((sent, total)),
       );
 
@@ -800,7 +877,7 @@ void main() {
           themeId: 'mad_dance',
           firstImagePath: 'assets/images/create_video.png',
           isHd: false,
-          isLongTime: false,
+          duration: 5,
         ),
         throwsA(
           isA<ApiException>().having(

@@ -16,12 +16,14 @@ class VideoFormLayout extends StatelessWidget {
     required this.backKey,
     required this.children,
     required this.action,
+    this.pinAction = false,
   });
 
   final String title;
   final Key backKey;
   final List<Widget> children;
   final Widget action;
+  final bool pinAction;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -94,26 +96,35 @@ class VideoFormLayout extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList.list(children: children),
                   ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        18,
-                        20,
-                        18 + MediaQuery.paddingOf(context).bottom,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(width: double.infinity, child: action),
-                        ],
+                  if (!pinAction)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          18,
+                          20,
+                          18 + MediaQuery.paddingOf(context).bottom,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            SizedBox(width: double.infinity, child: action),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
+            if (pinAction)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                  child: SizedBox(width: double.infinity, child: action),
+                ),
+              ),
           ],
         ),
       ),
@@ -199,7 +210,7 @@ class VideoPromptBox extends StatelessWidget {
               controller: controller,
               focusNode: focusNode,
               cursorColor: VideoFormStyle.accent,
-              maxLength: 2800,
+              maxLength: 5000,
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
@@ -230,7 +241,7 @@ class VideoPromptBox extends StatelessWidget {
             child: ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
               builder: (_, value, _) => Text(
-                '${value.text.characters.length}/2800',
+                '${value.text.characters.length}/5000',
                 key: const Key('videoPromptCounter'),
                 style: const TextStyle(
                   color: VideoFormStyle.muted,

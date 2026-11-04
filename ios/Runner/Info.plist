@@ -8,44 +8,6 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Liora</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Allow photo access so you can choose an image to create your AI video.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save your generated AI videos to the photo library.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Allow camera access so you can take a photo to create your AI video.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Allow Liora to use your advertising identifier to measure which ads lead to app installs and improve our advertising.</string>
-	<key>FacebookAppID</key>
-	<string>1439644054709273</string>
-	<key>FacebookClientToken</key>
-	<string>9ab9a0e603a807bf133f5eaa7d69ab4e</string>
-	<key>FacebookDisplayName</key>
-	<string>Liora</string>
-	<key>FacebookAutoLogAppEventsEnabled</key>
-	<false/>
-	<key>FacebookAdvertiserIDCollectionEnabled</key>
-	<false/>
-	<key>SKAdNetworkItems</key>
-	<array>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>v9wttpbfk9.skadnetwork</string>
-		</dict>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>n38lu8286q.skadnetwork</string>
-		</dict>
-	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>fb1439644054709273</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -60,10 +22,48 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb1439644054709273</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
+	<key>FacebookAppID</key>
+	<string>1439644054709273</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookClientToken</key>
+	<string>9ab9a0e603a807bf133f5eaa7d69ab4e</string>
+	<key>FacebookDisplayName</key>
+	<string>Liora</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow camera access so you can take a photo to create your AI video.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your generated AI videos to the photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow photo access so you can choose an image to create your AI video.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Allow Liora to use your advertising identifier to measure which ads lead to app installs and improve our advertising.</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

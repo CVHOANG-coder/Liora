@@ -14,7 +14,11 @@ class GenerationProgress {
     required int videoDurationSeconds,
     required bool isHd,
   }) {
-    final normalizedDuration = videoDurationSeconds > 5 ? 10 : 5;
+    final normalizedDuration = videoDurationSeconds > 10
+        ? 15
+        : videoDurationSeconds > 5
+        ? 10
+        : 5;
     return GenerationProgress(
       requestId: requestId,
       startedAt: startedAt,
@@ -96,6 +100,7 @@ int _estimateSeconds({
   required int videoDurationSeconds,
   required bool isHd,
 }) {
+  if (videoDurationSeconds == 15) return 420;
   if (videoDurationSeconds <= 5 && !isHd) return 150;
 
   final hash = requestId.codeUnits.fold<int>(

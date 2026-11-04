@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class UserProfileResponse {
   const UserProfileResponse({
     required this.success,
@@ -46,6 +48,7 @@ class UserProfile {
     required this.isSubscribed,
     required this.totalCredit,
     required this.imageToVideoBaseCredit,
+    this.durationOptions = const [],
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -72,6 +75,12 @@ class UserProfile {
       isSubscribed: json['isSubscribed'] == true,
       totalCredit: (json['total_credit'] as num?)?.toInt() ?? 0,
       imageToVideoBaseCredit: (json['i2v_credit_base'] as num?)?.toInt() ?? 0,
+      durationOptions: [
+        if (json['duration_options'] is List)
+          for (final option in json['duration_options'] as List)
+            if (option is Map)
+              VideoDurationOption.fromJson(Map<String, dynamic>.from(option)),
+      ],
     );
   }
 
@@ -96,6 +105,31 @@ class UserProfile {
   final bool isSubscribed;
   final int totalCredit;
   final int imageToVideoBaseCredit;
+  final List<VideoDurationOption> durationOptions;
+
+  int? extensionCreditCost({required int duration, required bool isHd}) {
+    for (final option in durationOptions) {
+      if (option.duration == duration) {
+        return isHd ? option.imageToVideoHdCredit : option.imageToVideoCredit;
+      }
+    }
+    return null;
+  }
+
+  /// Classifies accelerated subscriptions in debug builds only.
+  /// Null leaves the caller's normal plan resolution in place.
+  bool? get debugSubscriptionIsYearly {
+    if (!kDebugMode || !isSubscribed) return null;
+    final startedAt = subscriptionTime;
+    final endsAt = subscriptionEndTime;
+    if (startedAt == null || endsAt == null || !endsAt.isAfter(startedAt)) {
+      return null;
+    }
+    final duration = endsAt.difference(startedAt);
+    if (duration >= const Duration(minutes: 29)) return true;
+    if (duration <= const Duration(minutes: 5)) return false;
+    return null;
+  }
 
   UserProfile copyWith({int? totalCredit}) {
     return UserProfile(
@@ -120,8 +154,28 @@ class UserProfile {
       isSubscribed: isSubscribed,
       totalCredit: totalCredit ?? this.totalCredit,
       imageToVideoBaseCredit: imageToVideoBaseCredit,
+      durationOptions: durationOptions,
     );
   }
+}
+
+class VideoDurationOption {
+  const VideoDurationOption({
+    required this.duration,
+    required this.imageToVideoCredit,
+    required this.imageToVideoHdCredit,
+  });
+
+  factory VideoDurationOption.fromJson(Map<String, dynamic> json) =>
+      VideoDurationOption(
+        duration: (json['duration'] as num?)?.toInt() ?? 0,
+        imageToVideoCredit: (json['i2v_credit'] as num?)?.toInt(),
+        imageToVideoHdCredit: (json['i2v_credit_hd'] as num?)?.toInt(),
+      );
+
+  final int duration;
+  final int? imageToVideoCredit;
+  final int? imageToVideoHdCredit;
 }
 
 DateTime? _parseDate(Object? value) {

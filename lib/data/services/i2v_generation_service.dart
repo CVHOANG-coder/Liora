@@ -13,7 +13,7 @@ class I2VGenerationService {
     required String imagePath,
     required String prompt,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     ProgressCallback? onUploadProgress,
   }) async {
     try {
@@ -25,7 +25,7 @@ class I2VGenerationService {
         ),
         'prompt': prompt,
         'is_hd': isHd.toString(),
-        'is_long_time': isLongTime.toString(),
+        'duration': duration.toString(),
       });
       final response = await _dio.post<dynamic>(
         ApiConfig.generateI2VPath,

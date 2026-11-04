@@ -20,7 +20,7 @@ typedef TextToVideoSubmit =
     Future<I2VGeneration> Function({
       required String prompt,
       required bool isHd,
-      required bool isLongTime,
+      required int duration,
       required String aspectRatio,
     });
 
@@ -28,13 +28,13 @@ class _TextToVideoRequest {
   const _TextToVideoRequest({
     required this.prompt,
     required this.isHd,
-    required this.isLongTime,
+    required this.duration,
     required this.aspectRatio,
   });
 
   final String prompt;
   final bool isHd;
-  final bool isLongTime;
+  final int duration;
   final String aspectRatio;
 }
 
@@ -114,7 +114,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
       request = _TextToVideoRequest(
         prompt: prompt,
         isHd: _quality == 'HD',
-        isLongTime: _duration == '10s',
+        duration: int.parse(_duration.replaceAll('s', '')),
         aspectRatio: _aspectRatio,
       );
     }
@@ -126,7 +126,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
       final generation = await submit(
         prompt: request.prompt,
         isHd: request.isHd,
-        isLongTime: request.isLongTime,
+        duration: request.duration,
         aspectRatio: request.aspectRatio,
       );
       if (!mounted || _hasLeftForm) return;
@@ -134,7 +134,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
       final progress = GenerationProgress.create(
         requestId: generation.requestId,
         startedAt: generation.createTime ?? DateTime.now(),
-        videoDurationSeconds: request.isLongTime ? 10 : 5,
+        videoDurationSeconds: request.duration,
         isHd: request.isHd,
       );
       final progressRepository =
@@ -226,6 +226,11 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
         child: VideoFormLayout(
           title: 'Text to video',
           backKey: const Key('textToVideoBackButton'),
+          action: VideoGenerateButton(
+            buttonKey: const Key('generateTextToVideo'),
+            onPressed: _generate,
+            isLoading: _isSubmitting,
+          ),
           children: [
             const VideoPromptHeader(),
             const SizedBox(height: 9),
@@ -264,7 +269,7 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
                   ? null
                   : () => _pickOption(
                       title: 'Duration',
-                      options: const ['5s', '10s'],
+                      options: const ['5s', '10s', '15s'],
                       selected: _duration,
                       onSelected: (value) => setState(() => _duration = value),
                     ),
@@ -284,11 +289,6 @@ class _TextToVideoScreenState extends ConsumerState<TextToVideoScreen> {
                     ),
             ),
           ],
-          action: VideoGenerateButton(
-            buttonKey: const Key('generateTextToVideo'),
-            onPressed: _generate,
-            isLoading: _isSubmitting,
-          ),
         ),
       ),
     ),

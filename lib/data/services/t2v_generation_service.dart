@@ -12,7 +12,7 @@ class T2VGenerationService {
   Future<I2VGeneration> generate({
     required String prompt,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     required String aspectRatio,
   }) async {
     try {
@@ -21,7 +21,7 @@ class T2VGenerationService {
         data: <String, dynamic>{
           'prompt': prompt,
           'is_hd': isHd,
-          'is_long_time': isLongTime,
+          'duration': duration,
           'aspect_ratio': aspectRatio,
         },
       );

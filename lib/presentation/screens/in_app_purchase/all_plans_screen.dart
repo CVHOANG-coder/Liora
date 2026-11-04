@@ -46,6 +46,11 @@ abstract final class _AllPlansStyle {
 ProPlanStatus resolveProPlanStatus(UserProfile? profile) {
   if (profile == null || !profile.isSubscribed) return ProPlanStatus.none;
 
+  final debugIsYearly = profile.debugSubscriptionIsYearly;
+  if (debugIsYearly != null) {
+    return debugIsYearly ? ProPlanStatus.yearly : ProPlanStatus.weekly;
+  }
+
   final startedAt = profile.subscriptionTime;
   final endsAt = profile.subscriptionEndTime;
   if (startedAt == null || endsAt == null || !endsAt.isAfter(startedAt)) {
@@ -168,6 +173,17 @@ class _AllPlansState extends ConsumerState<AllPlans> {
             MediaQuery.textScalerOf(context).scale(44) * 2 + 160,
           )
         : MediaQuery.sizeOf(context).width * 1.15;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _buildContent(
+        activePlan,
+        activeUntil,
+        prices,
+        purchaseState,
+        heroHeight: heroHeight,
+        isVIP: profile?.isVIP == true,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: _AllPlansStyle.background,
@@ -192,19 +208,12 @@ class _AllPlansState extends ConsumerState<AllPlans> {
                     12,
                     12 + MediaQuery.paddingOf(context).bottom,
                   ),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildContent(
-                        activePlan,
-                        activeUntil,
-                        prices,
-                        purchaseState,
-                        heroHeight: heroHeight,
-                        isVIP: profile?.isVIP == true,
-                      ),
-                    ),
-                  ),
+                  sliver: activePlan == ProPlanStatus.yearly
+                      ? SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: content,
+                        )
+                      : SliverToBoxAdapter(child: content),
                 ),
               ],
             ),
@@ -286,6 +295,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
           leadingIcon: Icons.arrow_back_rounded,
           onClose: () => Navigator.maybePop(context),
         ),
+        const Spacer(),
         const SizedBox(height: 20),
       ],
       if (activePlan == ProPlanStatus.none)
@@ -411,9 +421,12 @@ class _AllPlansState extends ConsumerState<AllPlans> {
     return [
       _YearlyIntro(activeUntil: activeUntil),
       const SizedBox(height: 13),
-      _BalanceCard(onBuyCredits: _openBuyCredits),
+      const _BalanceCard(),
       const SizedBox(height: 13),
-      const _GiftProCard(),
+      SizedBox(
+        width: double.infinity,
+        child: _BuyCreditsButton(onTap: _openBuyCredits),
+      ),
       const SizedBox(height: 20),
       _WideGradientButton(label: 'Explore PRO Tools', onTap: _exploreProTools),
       const SizedBox(height: 15),
@@ -1257,55 +1270,62 @@ class _WeeklyIntro extends StatelessWidget {
       key: const Key('weeklyProIntro'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [
-                      Colors.white,
-                      Color(0xFFFF7DC9),
-                      _AllPlansStyle.accent,
-                    ],
-                  ).createShader(bounds),
-                  child: Text(
-                    'Weekly PRO',
-                    maxLines: 1,
-                    style: _AllPlansStyle.heading(
-                      38,
-                      fontWeight: FontWeight.w700,
-                    ).copyWith(height: 1, letterSpacing: -.7),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: _AllPlansStyle.gradient,
-                border: Border.all(color: const Color(0x99FFFFFF)),
-              ),
-              child: const Icon(
-                Icons.workspace_premium_rounded,
-                color: Colors.white,
-                size: 23,
-              ),
-            ),
-          ],
-        ),
+        const _OwnedProHeadline(title: 'Weekly PRO'),
         const SizedBox(height: 16),
         _BuyCreditsButton(onTap: onBuyCredits),
       ],
     );
   }
+}
+
+class _OwnedProHeadline extends StatelessWidget {
+  const _OwnedProHeadline({required this.title, this.showBadge = true});
+
+  final String title;
+  final bool showBadge;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: showBadge ? Alignment.centerLeft : Alignment.center,
+          child: ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFFF7DC9), _AllPlansStyle.accent],
+            ).createShader(bounds),
+            child: Text(
+              title,
+              maxLines: 1,
+              style: _AllPlansStyle.heading(
+                38,
+                fontWeight: FontWeight.w700,
+              ).copyWith(height: 1, letterSpacing: -.7),
+            ),
+          ),
+        ),
+      ),
+      if (showBadge) const SizedBox(width: 10),
+      if (showBadge)
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: _AllPlansStyle.gradient,
+            border: Border.all(color: const Color(0x99FFFFFF)),
+          ),
+          child: const Icon(
+            Icons.workspace_premium_rounded,
+            color: Colors.white,
+            size: 23,
+          ),
+        ),
+    ],
+  );
 }
 
 class _OwnedPlanCard extends StatelessWidget {
@@ -1501,52 +1521,27 @@ class _YearlyIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-      decoration: BoxDecoration(
-        gradient: _AllPlansStyle.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _AllPlansStyle.border, width: .7),
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text("You're PRO! 👑", style: _AllPlansStyle.heading(35)),
-          const SizedBox(height: 8),
-          const Text(
-            'Enjoy unlimited AI videos and all premium features.',
-            style: TextStyle(
-              color: _AllPlansStyle.secondary,
-              fontSize: 13,
-              height: 1.45,
-            ),
+          Image.asset(
+            'assets/images/in_app_purchase/yearly_pro.png',
+            height: 110,
+            fit: BoxFit.contain,
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final largeText = MediaQuery.textScalerOf(context).scale(12) > 16;
-              const benefits = _ProBenefits();
-              final artwork = _YearlyArtwork(activeUntil: activeUntil);
-              if (constraints.maxWidth < 330 || largeText) {
-                return Column(
-                  children: [
-                    SizedBox(height: 126, child: artwork),
-                    const SizedBox(height: 14),
-                    benefits,
-                  ],
-                );
-              }
-              return SizedBox(
-                height: 190,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: benefits),
-                    SizedBox(width: 124, child: artwork),
-                  ],
-                ),
-              );
-            },
+          const _OwnedProHeadline(title: "You're PRO!", showBadge: false),
+          const SizedBox(height: 8),
+          Text(
+            'Active until $activeUntil',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _AllPlansStyle.secondary,
+              fontSize: 10.5,
+            ),
           ),
         ],
       ),
@@ -1554,152 +1549,27 @@ class _YearlyIntro extends StatelessWidget {
   }
 }
 
-class _ProBenefits extends StatelessWidget {
-  const _ProBenefits();
-
-  @override
-  Widget build(BuildContext context) => const Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _ProBenefit(
-        icon: Icons.all_inclusive_rounded,
-        text: 'Unlimited AI video generation',
-      ),
-      SizedBox(height: 7),
-      _ProBenefit(
-        icon: Icons.bolt_rounded,
-        text: 'Faster generation & priority processing',
-      ),
-      SizedBox(height: 7),
-      _ProBenefit(
-        icon: Icons.water_drop_outlined,
-        text: 'Watermark-free export',
-      ),
-      SizedBox(height: 7),
-      _ProBenefit(
-        icon: Icons.workspace_premium_rounded,
-        text: 'Bonus crown coins every month',
-      ),
-      SizedBox(height: 7),
-      _ProBenefit(
-        icon: Icons.auto_awesome_rounded,
-        text: 'All premium styles & templates',
-      ),
-    ],
-  );
-}
-
-class _YearlyArtwork extends StatelessWidget {
-  const _YearlyArtwork({required this.activeUntil});
-
-  final String activeUntil;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Expanded(
-        child: Image.asset(
-          'assets/images/in_app_purchase/yearly_pro.png',
-          fit: BoxFit.contain,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        'Active until $activeUntil',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: _AllPlansStyle.secondary, fontSize: 10.5),
-      ),
-    ],
-  );
-}
-
-class _ProBenefit extends StatelessWidget {
-  const _ProBenefit({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: const Color(0xFF14152B),
-            border: Border.all(color: _AllPlansStyle.accent),
-          ),
-          child: Icon(icon, color: _AllPlansStyle.pink, size: 19),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            style: const TextStyle(
-              color: Color(0xFFE3DEE5),
-              fontSize: 11.5,
-              height: 1.18,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.onBuyCredits});
-
-  final VoidCallback onBuyCredits;
+  const _BalanceCard();
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.textScalerOf(context).scale(12) > 16;
     return _OutlinedDarkCard(
-      height: compact ? 166 : 82,
+      height: compact ? 100 : 82,
       radius: 17,
-      child: compact
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        'assets/images/in_app_purchase/balance_coin.png',
-                        width: 66,
-                        height: 62,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(child: _BalanceDetails()),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _BuyCreditsButton(onTap: onBuyCredits),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Image.asset(
-                  'assets/images/in_app_purchase/balance_coin.png',
-                  width: 71,
-                  height: 65,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 9),
-                const Expanded(child: _BalanceDetails()),
-                _BuyCreditsButton(onTap: onBuyCredits),
-              ],
-            ),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/images/in_app_purchase/balance_coin.png',
+            width: 71,
+            height: 65,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 9),
+          const Expanded(child: _BalanceDetails()),
+        ],
+      ),
     );
   }
 }
@@ -1747,65 +1617,6 @@ class _BalanceDetails extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    ],
-  );
-}
-
-class _GiftProCard extends StatelessWidget {
-  const _GiftProCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.textScalerOf(context).scale(12) > 16;
-    return _OutlinedDarkCard(
-      height: compact ? 170 : 88,
-      radius: 17,
-      child: Row(
-        children: [
-          Image.asset(
-            'assets/images/in_app_purchase/gift_vip.png',
-            width: compact ? 62 : 72,
-            height: compact ? 62 : 72,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(child: _GiftProDetails()),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: _AllPlansStyle.pink,
-            size: 29,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GiftProDetails extends StatelessWidget {
-  const _GiftProDetails();
-
-  @override
-  Widget build(BuildContext context) => const Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'Give PRO, Get More',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      SizedBox(height: 4),
-      Text(
-        'Share Liora Pro with your friends\nand get extra credits!',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: Color(0xFFBDB6C0), fontSize: 12.5, height: 1.3),
       ),
     ],
   );

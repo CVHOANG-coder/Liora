@@ -13,7 +13,7 @@ class ThemeGenerationService {
     required String themeId,
     required String firstImagePath,
     required bool isHd,
-    required bool isLongTime,
+    required int duration,
     ProgressCallback? onUploadProgress,
   }) async {
     try {
@@ -24,7 +24,7 @@ class ThemeGenerationService {
           filename: Uri.file(firstImagePath).pathSegments.last,
         ),
         'is_hd': isHd.toString(),
-        'is_long_time': isLongTime.toString(),
+        'duration': duration.toString(),
       };
 
       final response = await _dio.post<dynamic>(

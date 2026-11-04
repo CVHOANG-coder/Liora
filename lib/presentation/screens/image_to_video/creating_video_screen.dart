@@ -17,7 +17,7 @@ import '../../../data/models/i2v_request_status.dart';
 import '../../../data/services/generation_progress_repository.dart';
 import '../../widgets/generation_failure_dialog.dart';
 import '../../widgets/video_form_style.dart';
-import '../generation_history/generation_history_screen.dart';
+import '../main/main_screen.dart';
 import 'generated_video_screen.dart';
 
 typedef I2VStatusFetcher = Future<I2VRequestStatus> Function(String requestId);
@@ -37,6 +37,7 @@ class CreatingVideoScreen extends StatefulWidget {
     this.videoDurationSeconds,
     this.isHd,
     this.creatorLabel = 'Image to Video',
+    this.isExtension = false,
     this.sourceImagePath,
     this.notificationPermissionRequester,
     this.notificationPermissionChecker,
@@ -57,6 +58,7 @@ class CreatingVideoScreen extends StatefulWidget {
   final int? videoDurationSeconds;
   final bool? isHd;
   final String creatorLabel;
+  final bool isExtension;
   final String? sourceImagePath;
   final NotificationPermissionRequester? notificationPermissionRequester;
   final NotificationPermissionChecker? notificationPermissionChecker;
@@ -71,6 +73,12 @@ class CreatingVideoScreen extends StatefulWidget {
 
 class _CreatingVideoScreenState extends State<CreatingVideoScreen>
     with WidgetsBindingObserver {
+  bool get _isExtension =>
+      widget.isExtension || widget.generation.extendFrom.trim().isNotEmpty;
+
+  String get _creatorLabel =>
+      _isExtension ? 'Extend Video' : widget.creatorLabel;
+
   Timer? _initialPollTimer;
   Timer? _pollTimer;
   Timer? _fakeProgressTimer;
@@ -271,7 +279,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
         presentation.message,
         title: presentation.title,
         guidance: status.errorCode == ApiErrorCode.contentPolicy
-            ? 'Return to ${widget.creatorLabel} and edit the content before trying again.'
+            ? 'Return to $_creatorLabel and edit the content before trying again.'
             : null,
         creditsRefunded: status.creditRefunded,
       );
@@ -279,14 +287,14 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
       _showFailureUi(
         'This video request was cancelled.',
         title: 'Video Generation Cancelled',
-        guidance: 'Return to ${widget.creatorLabel} whenever you are ready.',
+        guidance: 'Return to $_creatorLabel whenever you are ready.',
         creditsRefunded: true,
       );
     } else if (status.isDeleted) {
       _showFailureUi(
         'This video request was deleted and is no longer available.',
         title: 'Video Request Deleted',
-        guidance: 'Return to ${widget.creatorLabel} to create a new video.',
+        guidance: 'Return to $_creatorLabel to create a new video.',
       );
     }
   }
@@ -352,7 +360,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
         message: failureMessage,
         guidance: _failureGuidance,
         creditsRefunded: _failureCreditsRefunded,
-        creatorLabel: widget.creatorLabel,
+        creatorLabel: _creatorLabel,
         onBackToCreate: () => Navigator.maybePop(context),
       );
     }
@@ -374,7 +382,10 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
                   Padding(
                     key: const Key('creatingVideoHeader'),
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                    child: _Header(onBack: _confirmLeaveForHistory),
+                    child: _Header(
+                      onBack: _confirmLeaveForHistory,
+                      isExtension: _isExtension,
+                    ),
                   ),
                   Expanded(
                     child: CustomScrollView(
@@ -391,11 +402,14 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
                           sliver: SliverList.list(
                             children: [
                               _Artwork(
-                                sourceImagePath: widget.sourceImagePath,
+                                sourceImagePath: _isExtension
+                                    ? null
+                                    : widget.sourceImagePath,
                                 sourceImageUrl: widget.generation.imageUrl,
+                                isExtension: _isExtension,
                               ),
                               const SizedBox(height: 20),
-                              const _GeneratingTitle(),
+                              _GeneratingTitle(isExtension: _isExtension),
                               const SizedBox(height: 8),
                               const Text(
                                 'This may take a few moments.',
@@ -479,13 +493,9 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
 
     final builder =
         widget.historyDestinationBuilder ??
-        (_) => const GenerationHistoryScreen();
+        (_) => const MainScreen(initialIndex: 1, showTrialOffer: false);
     final route = MaterialPageRoute<void>(builder: builder);
-    if (navigator.canPop()) {
-      navigator.pushAndRemoveUntil(route, (route) => route.isFirst);
-    } else {
-      navigator.pushReplacement(route);
-    }
+    navigator.pushAndRemoveUntil(route, (_) => false);
   }
 }
 
@@ -588,8 +598,9 @@ class _LeaveCreatingVideoDialog extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
+  const _Header({required this.onBack, required this.isExtension});
   final VoidCallback onBack;
+  final bool isExtension;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -602,7 +613,7 @@ class _Header extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              'Creating Video',
+              isExtension ? 'Extending Video' : 'Creating Video',
               style: VideoFormStyle.heading(23, fontWeight: FontWeight.w700),
             ),
           ),
@@ -637,10 +648,15 @@ class _Header extends StatelessWidget {
 }
 
 class _Artwork extends StatefulWidget {
-  const _Artwork({required this.sourceImagePath, required this.sourceImageUrl});
+  const _Artwork({
+    required this.sourceImagePath,
+    required this.sourceImageUrl,
+    required this.isExtension,
+  });
 
   final String? sourceImagePath;
   final String sourceImageUrl;
+  final bool isExtension;
 
   @override
   State<_Artwork> createState() => _ArtworkState();
@@ -681,6 +697,7 @@ class _ArtworkState extends State<_Artwork>
             child: _ProcessingArtwork(
               sourceImagePath: widget.sourceImagePath,
               sourceImageUrl: widget.sourceImageUrl,
+              isExtension: widget.isExtension,
               scanPosition: _effectController.value,
             ),
           );
@@ -695,11 +712,13 @@ class _ProcessingArtwork extends StatelessWidget {
     required this.sourceImagePath,
     required this.sourceImageUrl,
     required this.scanPosition,
+    required this.isExtension,
   });
 
   final String? sourceImagePath;
   final String sourceImageUrl;
   final double scanPosition;
+  final bool isExtension;
 
   @override
   Widget build(BuildContext context) {
@@ -774,6 +793,17 @@ class _ProcessingArtwork extends StatelessWidget {
   }
 
   Widget _defaultArtwork() {
+    if (isExtension) {
+      return const Center(
+        child: Icon(
+          Icons.movie_outlined,
+          key: Key('extendingFramePlaceholder'),
+          semanticLabel: 'Video end frame unavailable',
+          color: VideoFormStyle.muted,
+          size: 64,
+        ),
+      );
+    }
     final bounce = math.sin(scanPosition * math.pi);
     final sway = math.sin(scanPosition * math.pi * 2);
     return Transform.translate(
@@ -799,15 +829,16 @@ class _ProcessingArtwork extends StatelessWidget {
 }
 
 class _GeneratingTitle extends StatelessWidget {
-  const _GeneratingTitle();
+  const _GeneratingTitle({required this.isExtension});
+  final bool isExtension;
 
   @override
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
       style: VideoFormStyle.heading(27),
-      children: const [
-        TextSpan(text: 'Generating '),
-        TextSpan(
+      children: [
+        TextSpan(text: isExtension ? 'Extending ' : 'Generating '),
+        const TextSpan(
           text: 'your video...',
           style: TextStyle(color: VideoFormStyle.accent),
         ),

@@ -15,6 +15,7 @@ import '../../widgets/cached_video_thumbnail.dart';
 import '../../widgets/video_form_style.dart';
 import '../../widgets/video_library_widgets.dart';
 import '../main/main_screen.dart';
+import '../extend_video/extend_video_screen.dart';
 
 typedef GeneratedVideoDownloader =
     Future<void> Function(
@@ -163,6 +164,32 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
     final controller = _controller;
     if (!_isReady || controller == null) return;
     controller.value.isPlaying ? controller.pause() : controller.play();
+  }
+
+  Future<void> _extendVideo() async {
+    if (_isDownloading || _isSharing || _isDeleting) return;
+    _controlsHideTimer?.cancel();
+    final controller = _controller;
+    final wasPlaying = controller?.value.isPlaying == true;
+    await controller?.pause();
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ExtendVideoScreen(
+          result: widget.result,
+          previewController: _isReady ? controller : null,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (identical(controller, _controller)) {
+      if (wasPlaying) {
+        await controller?.play();
+      } else {
+        await controller?.pause();
+      }
+    }
+    _showControls();
   }
 
   Future<void> _toggleMuted() async {
@@ -422,6 +449,21 @@ class _GeneratedVideoScreenState extends State<GeneratedVideoScreen> {
                                     onTogglePlayback: _togglePlayback,
                                   ),
                                   const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: VideoLibraryAction(
+                                      key: const Key('extendGeneratedVideo'),
+                                      label: 'Extend video',
+                                      icon: Icons.more_time_rounded,
+                                      onTap:
+                                          _isDownloading ||
+                                              _isSharing ||
+                                              _isDeleting
+                                          ? null
+                                          : _extendVideo,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
                                   _ResultActions(
                                     isDownloading: _isDownloading,
                                     downloadProgress: _downloadProgress,

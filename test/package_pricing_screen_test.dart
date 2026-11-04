@@ -104,7 +104,7 @@ void main() {
       isSubscribed: true,
       recordPurchases: true,
       subscriptionStart: '2026-08-01T00:00:00Z',
-      subscriptionEnd: '2026-08-08T00:00:00Z',
+      subscriptionEnd: '2026-08-01T00:05:00Z',
     );
     addTearDown(container.dispose);
 

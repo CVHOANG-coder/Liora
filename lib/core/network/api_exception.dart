@@ -119,6 +119,10 @@ abstract final class ApiErrorCode {
   static const contentPolicy = 'CONTENT_POLICY';
   static const fileTooLarge = 'FILE_TOO_LARGE';
   static const unsupportedFormat = 'UNSUPPORTED_FORMAT';
+  static const videoUrlRequired = 'VIDEO_URL_REQUIRED';
+  static const sourceVideoNotFound = 'SOURCE_VIDEO_NOT_FOUND';
+  static const frameExtractFailed = 'FRAME_EXTRACT_FAILED';
+  static const invalidDuration = 'INVALID_DURATION';
   static const promptRequired = 'PROMPT_REQUIRED';
   static const imageRequired = 'IMAGE_REQUIRED';
   static const imageUrlRequired = 'IMAGE_URL_REQUIRED';

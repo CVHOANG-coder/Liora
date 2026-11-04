@@ -83,7 +83,7 @@ void main() {
                         required themeId,
                         required firstImagePath,
                         required isHd,
-                        required isLongTime,
+                        required duration,
                         onUploadProgress,
                       }) => submit(onUploadProgress),
                 )
@@ -97,7 +97,7 @@ void main() {
                         required imagePath,
                         required prompt,
                         required isHd,
-                        required isLongTime,
+                        required duration,
                         onUploadProgress,
                       }) => submit(onUploadProgress),
                 );

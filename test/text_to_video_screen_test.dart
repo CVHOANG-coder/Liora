@@ -31,7 +31,7 @@ void main() {
     final progressRepository = _MemoryProgressRepository();
     String? submittedPrompt;
     bool? submittedHd;
-    bool? submittedLong;
+    int? submittedDuration;
     String? submittedAspectRatio;
 
     await tester.pumpWidget(
@@ -44,12 +44,12 @@ void main() {
                 ({
                   required prompt,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                   required aspectRatio,
                 }) async {
                   submittedPrompt = prompt;
                   submittedHd = isHd;
-                  submittedLong = isLongTime;
+                  submittedDuration = duration;
                   submittedAspectRatio = aspectRatio;
                   return _generation();
                 },
@@ -75,7 +75,7 @@ void main() {
     expect(find.text('3s'), findsNothing);
     expect(find.text('8s'), findsNothing);
     expect(find.widgetWithText(ListTile, '5s'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ListTile, '10s'));
+    await tester.tap(find.widgetWithText(ListTile, '15s'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Non-HD'));
@@ -116,11 +116,11 @@ void main() {
     expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
     expect(submittedPrompt, 'A calm seaside at golden hour');
     expect(submittedHd, isFalse);
-    expect(submittedLong, isTrue);
+    expect(submittedDuration, 15);
     expect(submittedAspectRatio, '16:9');
     expect(container.read(profileProvider)!.totalCredit, 65);
     final savedProgress = progressRepository.values['request-t2v-001'];
-    expect(savedProgress?.videoDurationSeconds, 10);
+    expect(savedProgress?.videoDurationSeconds, 15);
     expect(savedProgress?.isHd, isFalse);
     expect(tester.takeException(), isNull);
   });
@@ -135,7 +135,7 @@ void main() {
                 ({
                   required prompt,
                   required isHd,
-                  required isLongTime,
+                  required duration,
                   required aspectRatio,
                 }) async {
                   submitCalled = true;
@@ -159,7 +159,7 @@ void main() {
       var submitCount = 0;
       String? originalPrompt;
       bool? originalIsHd;
-      bool? originalIsLongTime;
+      int? originalDuration;
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -169,14 +169,14 @@ void main() {
                   ({
                     required prompt,
                     required isHd,
-                    required isLongTime,
+                    required duration,
                     required aspectRatio,
                   }) async {
                     submitCount += 1;
                     if (submitCount == 1) {
                       originalPrompt = prompt;
                       originalIsHd = isHd;
-                      originalIsLongTime = isLongTime;
+                      originalDuration = duration;
                       throw const ApiException(
                         message: 'You need 35 credits, current balance is 0.',
                         statusCode: 400,
@@ -184,7 +184,7 @@ void main() {
                     }
                     expect(prompt, originalPrompt);
                     expect(isHd, originalIsHd);
-                    expect(isLongTime, originalIsLongTime);
+                    expect(duration, originalDuration);
                     expect(aspectRatio, '9:16');
                     return _generation();
                   },

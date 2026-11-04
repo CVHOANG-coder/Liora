@@ -34,6 +34,7 @@ class I2VGeneration {
     required this.prompt,
     required this.imageUrl,
     this.image2Url = '',
+    this.extendFrom = '',
     this.theme,
     required this.status,
     required this.createTime,
@@ -51,6 +52,7 @@ class I2VGeneration {
       prompt: json['prompt']?.toString() ?? '',
       imageUrl: json['image_url']?.toString() ?? '',
       image2Url: json['image2_url']?.toString() ?? '',
+      extendFrom: json['extend_from']?.toString() ?? '',
       theme: json['theme'] is Map
           ? GenerationTheme.fromJson(_asMap(json['theme']))
           : null,
@@ -70,6 +72,7 @@ class I2VGeneration {
       serviceType: request.serviceType,
       prompt: request.prompt,
       imageUrl: request.imageUrl,
+      extendFrom: request.extendFrom,
       status: request.status,
       createTime: request.createTime,
       remainingCredit: 0,
@@ -95,6 +98,7 @@ class I2VGeneration {
   final String prompt;
   final String imageUrl;
   final String image2Url;
+  final String extendFrom;
   final GenerationTheme? theme;
   final String status;
   final DateTime? createTime;

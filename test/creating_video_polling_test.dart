@@ -23,6 +23,75 @@ const _previewPath = String.fromEnvironment('CREATING_PREVIEW_PATH');
 const _sansPath = String.fromEnvironment('CREATING_PREVIEW_SANS');
 
 void main() {
+  for (final fromHistory in [false, true]) {
+    testWidgets(
+      'extension processing uses last frame and title, fromHistory=$fromHistory',
+      (tester) async {
+        final request = I2VRequestStatus.fromJson({
+          'request_id': 'extension-job',
+          'extend_from': 'original-video',
+          'image_url': 'https://example.test/extend_original-video.png',
+          'request_status': 'IN_QUEUE',
+        });
+        final generation = fromHistory
+            ? I2VGeneration.fromRequestStatus(request.copyWith(resultUrl: ''))
+            : I2VGeneration.fromJson({
+                'request_id': 'extension-job',
+                'image_url': request.imageUrl,
+                'status': 'IN_QUEUE',
+              });
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CreatingVideoScreen(
+              generation: generation,
+              isExtension: !fromHistory,
+              sourceImagePath: 'assets/images/create_video.png',
+              progressRepository: _MemoryProgressRepository(),
+              initialPollDelay: const Duration(minutes: 10),
+              statusFetcher: (_) async => request,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('Extending Video'), findsOneWidget);
+        expect(find.text('Extending your video...'), findsOneWidget);
+        final image = tester.widget<Image>(
+          find.byKey(const Key('creatingSourceImage')),
+        );
+        expect(image.image, NetworkImage(request.imageUrl));
+        expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
+        expect(find.byKey(const Key('creatingDefaultArtwork')), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'missing extension frame uses a video placeholder with processing effect',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CreatingVideoScreen(
+            generation: _generation(),
+            isExtension: true,
+            progressRepository: _MemoryProgressRepository(),
+            initialPollDelay: const Duration(minutes: 10),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('extendingFramePlaceholder')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('creatingDefaultArtwork')), findsNothing);
+      expect(find.byKey(const Key('creatingImageLottie')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   setUpAll(() async {
     if (_previewPath.isEmpty) return;
     final icons = FontLoader('MaterialIcons')
@@ -347,12 +416,14 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('confirms back and opens Generation History', (tester) async {
+  testWidgets('confirms back and opens Profile alongside Home', (tester) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: const Scaffold(body: Text('Create origin')),
+      ProviderScope(
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: Text('Create origin')),
+        ),
       ),
     );
     navigatorKey.currentState!.push(
@@ -364,10 +435,6 @@ void main() {
           notificationPermissionRequester: () async =>
               NotificationPermissionFlowResult.granted,
           notificationPermissionChecker: () async => true,
-          historyDestinationBuilder: (_) => const Scaffold(
-            key: Key('generationHistoryDestination'),
-            body: Text('Generation History'),
-          ),
         ),
       ),
     );
@@ -394,10 +461,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CreatingVideoScreen), findsNothing);
-    expect(
-      find.byKey(const Key('generationHistoryDestination')),
-      findsOneWidget,
-    );
+    expect(find.byType(MainScreen), findsOneWidget);
+    expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
+    expect(navigatorKey.currentState!.canPop(), isFalse);
+    await tester.tap(find.byKey(const Key('homeTab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileSettingsButton')), findsNothing);
+    await tester.tap(find.byKey(const Key('profileTab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileSettingsButton')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

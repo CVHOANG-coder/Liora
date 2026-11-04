@@ -197,6 +197,39 @@ AppErrorPresentation resolveApiErrorPresentation(
         primaryIcon: Icons.edit_rounded,
         visual: AppErrorVisual.image,
       );
+    case ApiErrorCode.videoUrlRequired:
+    case ApiErrorCode.sourceVideoNotFound:
+      return const AppErrorPresentation(
+        title: 'Source Video Unavailable',
+        message:
+            'This video is no longer available to extend. Choose a completed video from your library.',
+        primaryLabel: 'Got It',
+        primaryAction: GenerationFailureAction.close,
+        primaryIcon: Icons.video_library_outlined,
+        visual: AppErrorVisual.warning,
+        secondaryLabel: null,
+        secondaryAction: null,
+      );
+    case ApiErrorCode.frameExtractFailed:
+      return const AppErrorPresentation(
+        title: 'Unable to Read the Last Frame',
+        message:
+            'The last frame could not be extracted from this video. Please try again.',
+        primaryLabel: 'Try Again',
+        primaryAction: GenerationFailureAction.retry,
+        primaryIcon: Icons.refresh_rounded,
+        visual: AppErrorVisual.system,
+      );
+    case ApiErrorCode.invalidDuration:
+      return const AppErrorPresentation(
+        title: 'Invalid Duration',
+        message:
+            'Choose a video duration of 5, 10, or 15 seconds and try again.',
+        primaryLabel: 'Review Settings',
+        primaryAction: GenerationFailureAction.editInput,
+        primaryIcon: Icons.timer_outlined,
+        visual: AppErrorVisual.warning,
+      );
     case ApiErrorCode.invalidAspectRatio:
       return AppErrorPresentation(
         title: 'Invalid Aspect Ratio',
@@ -615,57 +648,60 @@ class GenerationFailureDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             color: const Color(0xFF342D3E),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _FailureIcon(visual: presentation.visual),
-              const SizedBox(height: 18),
-              Text(
-                presentation.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 23,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.45,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                presentation.message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFFC4BDC8),
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 22),
-              _PrimaryDialogButton(
-                label: presentation.primaryLabel,
-                icon: presentation.primaryIcon,
-                onTap: () => Navigator.pop(context, presentation.primaryAction),
-              ),
-              if (presentation.secondaryLabel case final label?) ...[
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () =>
-                      Navigator.pop(context, presentation.secondaryAction),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFAAA2AF),
-                    minimumSize: const Size.fromHeight(42),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _FailureIcon(visual: presentation.visual),
+                const SizedBox(height: 18),
+                Text(
+                  presentation.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.45,
                   ),
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  presentation.message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFC4BDC8),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                _PrimaryDialogButton(
+                  label: presentation.primaryLabel,
+                  icon: presentation.primaryIcon,
+                  onTap: () =>
+                      Navigator.pop(context, presentation.primaryAction),
+                ),
+                if (presentation.secondaryLabel case final label?) ...[
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(context, presentation.secondaryAction),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFAAA2AF),
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -729,7 +765,7 @@ class _PrimaryDialogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 54,
+      constraints: const BoxConstraints(minHeight: 54),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(27),
         gradient: const LinearGradient(
@@ -742,20 +778,26 @@ class _PrimaryDialogButton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Icon(icon, color: Colors.white, size: 24),
-            ],
+                const SizedBox(width: 10),
+                Icon(icon, color: Colors.white, size: 24),
+              ],
+            ),
           ),
         ),
       ),
