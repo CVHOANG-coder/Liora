@@ -3,6 +3,7 @@ package com.lioraai.onboarding;
 import static org.junit.Assert.*;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -33,6 +34,38 @@ public class VideoOnboardingActivityPluginTest {
         context = RuntimeEnvironment.getApplication();
         context.getSharedPreferences("liora_video_onboarding", Context.MODE_PRIVATE).edit().clear().commit();
         plugin = new VideoOnboardingActivityPlugin(context);
+    }
+
+    @Test public void upgradesSilentChannelAndOffersLockScreenSettingsOnlyOnce() {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.createNotificationChannel(new NotificationChannel(
+                VideoOnboardingActivityPlugin.LEGACY_CHANNEL, "Old", NotificationManager.IMPORTANCE_LOW));
+        plugin.ensureNotificationChannel(manager);
+        NotificationChannel current = manager.getNotificationChannel(VideoOnboardingActivityPlugin.CHANNEL);
+        assertEquals(NotificationManager.IMPORTANCE_DEFAULT, current.getImportance());
+        assertNull(manager.getNotificationChannel(VideoOnboardingActivityPlugin.LEGACY_CHANNEL));
+        assertEquals(true, call("claimLockScreenSetup", null));
+        assertEquals(false, call("claimLockScreenSetup", null));
+    }
+
+    @Test public void newChannelAllowsPublicLockScreenContent() {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        plugin.ensureNotificationChannel(manager);
+        NotificationChannel current = manager.getNotificationChannel(VideoOnboardingActivityPlugin.CHANNEL);
+        assertEquals(NotificationManager.IMPORTANCE_DEFAULT, current.getImportance());
+        assertEquals(Notification.VISIBILITY_PUBLIC, current.getLockscreenVisibility());
+        complete("one", "two", "three");
+        assertEquals(false, call("claimLockScreenSetup", null));
+    }
+
+    @Test public void migrationPreservesBlockedChannel() {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.createNotificationChannel(new NotificationChannel(
+                VideoOnboardingActivityPlugin.LEGACY_CHANNEL, "Blocked", NotificationManager.IMPORTANCE_NONE));
+        plugin.ensureNotificationChannel(manager);
+        assertEquals(NotificationManager.IMPORTANCE_NONE,
+                manager.getNotificationChannel(VideoOnboardingActivityPlugin.CHANNEL).getImportance());
+        assertEquals(false, call("claimLockScreenSetup", null));
     }
 
     @Test public void countsUniqueVideosAndPersistsAcrossEngineRestarts() {
@@ -83,8 +116,10 @@ public class VideoOnboardingActivityPluginTest {
         for (int layout : new int[]{R.layout.liora_video_onboarding, R.layout.liora_video_onboarding_compact}) {
             View root = plugin.createView(layout, 2, open).apply(context, null);
             assertEquals(layout == R.layout.liora_video_onboarding_compact
-                            ? "Your first videos: 2/3" : "Create your first videos: 2/3",
+                            ? "Bring photos to life" : "Make your photos move",
                     ((TextView) root.findViewById(R.id.liora_activity_title)).getText().toString());
+            assertEquals("2 / 3 created",
+                    ((TextView) root.findViewById(R.id.liora_activity_count)).getText().toString());
             assertEquals("2 of 3 videos created", root.findViewById(R.id.liora_activity_progress).getContentDescription());
             assertNotNull(root.findViewById(R.id.liora_activity_open));
             assertNotNull(root.findViewById(R.id.liora_segment_three));

@@ -1,9 +1,13 @@
 # Android first-video notification
 
-The Android notification uses Liora's purple palette, three progress segments,
+The Android notification uses Liora's plum gradient, Nunito Sans typography,
+a photo-and-sparkle illustration, three progress segments,
 and an Open action that opens Image to Video directly. It is an ongoing notification in
 the notification drawer and, when allowed by system settings, on the lock screen.
 It uses compact and expanded native layouts to fit Android's notification limits.
+The compact view keeps the illustration, headline, count and Open button within
+48dp. The expanded card adds supporting copy, a full-width progress indicator
+and a gradient Open button. All artwork uses native vector and shape resources.
 
 ![Expanded notification at two completed videos](previews/android_video_onboarding.png)
 
@@ -11,8 +15,16 @@ It uses compact and expanded native layouts to fit Android's notification limits
 
 - Launching the app, opening Home or resuming restores progress and posts the notification
   if fewer than three unique videos have completed.
-- The existing notification permission flow is reused. No additional permission
-  prompt or foreground service is introduced.
+- The existing Android notification permission flow is reused. Android has no
+  separate runtime permission for lock-screen visibility. No additional reminder
+  dialog is shown after the system permission prompt. Lock-screen visibility
+  follows the user's system notification settings.
+- Channel `liora_video_onboarding_v2` uses normal (`IMPORTANCE_DEFAULT`) priority,
+  with public lock-screen content. The former silent v1 channel is migrated and
+  removed; an explicitly blocked v1 channel stays blocked. Subsequent changes to
+  v2 in system settings are preserved. Normal priority may play the system's
+  notification sound when first posted; updates use `setOnlyAlertOnce(true)`.
+- No foreground service is introduced.
 - Open works with a running app and a cold launch. Cold launches wait for Splash
   authentication, then open the form with Home underneath it for Back navigation.
 - Only successful, completed videos count. Failed, cancelled and pending requests

@@ -10,6 +10,25 @@ abstract final class VideoOnboardingActivity {
 
   static Future<void> refresh() => _invoke('refresh');
 
+  /// Android has no runtime lock-screen permission; offer its settings once.
+  static Future<bool> claimLockScreenSetup() =>
+      _invokeBool('claimLockScreenSetup');
+
+  static Future<bool> openNotificationSettings() =>
+      _invokeBool('openNotificationSettings');
+
+  static Future<bool> _invokeBool(String method) async {
+    if (!isSupported) return false;
+    try {
+      return await _channel.invokeMethod<bool>(method) ?? false;
+    } on PlatformException catch (error) {
+      debugPrint('Could not configure video onboarding notification: $error');
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   /// Installs the warm-launch handler before consuming any cold-launch tap.
   static Future<void> listenForOpens(VoidCallback onOpen) async {
     if (!isSupported) return;

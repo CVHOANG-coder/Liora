@@ -11,6 +11,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
+import android.provider.Settings;
 import android.widget.RemoteViews;
 
 import java.util.HashSet;
@@ -28,7 +29,8 @@ import io.flutter.plugin.common.PluginRegistry;
 public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
         MethodChannel.MethodCallHandler, ActivityAware, PluginRegistry.NewIntentListener {
     static final String OPEN_IMAGE_TO_VIDEO = "com.lioraai.onboarding.OPEN_IMAGE_TO_VIDEO";
-    private static final String CHANNEL = "liora_video_onboarding_v1";
+    static final String CHANNEL = "liora_video_onboarding_v2";
+    static final String LEGACY_CHANNEL = "liora_video_onboarding_v1";
     private static final int NOTIFICATION_ID = 71003;
     // The main engine and Firebase background engine share this lock and store.
     private static final Object LOCK = new Object();
@@ -101,6 +103,40 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
             result.success(open);
             return;
         }
+        if (call.method.equals("claimLockScreenSetup")) {
+            if (Build.VERSION.SDK_INT < 26) {
+                result.success(false);
+                return;
+            }
+            synchronized (LOCK) {
+                SharedPreferences prefs = context.getSharedPreferences("liora_video_onboarding", Context.MODE_PRIVATE);
+                NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                NotificationChannel notificationChannel = manager.getNotificationChannel(CHANNEL);
+                boolean eligible = prefs.getInt("completed_count", 0) < 3
+                        && manager.areNotificationsEnabled()
+                        && notificationChannel != null
+                        && notificationChannel.getImportance() != NotificationManager.IMPORTANCE_NONE
+                        && !prefs.getBoolean("lock_screen_setup_offered", false);
+                result.success(eligible && prefs.edit().putBoolean("lock_screen_setup_offered", true).commit());
+            }
+            return;
+        }
+        if (call.method.equals("openNotificationSettings")) {
+            try {
+                Intent settings = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (Build.VERSION.SDK_INT >= 26) {
+                    settings.setAction(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                    settings.putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL);
+                }
+                context.startActivity(settings);
+                result.success(true);
+            } catch (RuntimeException error) {
+                result.error("settings_failed", "Could not open notification settings", null);
+            }
+            return;
+        }
         if (!call.method.equals("refresh") && !call.method.equals("recordCompleted")
                 && !call.method.equals("completedCount")) {
             result.notImplemented();
@@ -150,14 +186,7 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) return;
         if (!manager.areNotificationsEnabled()) return;
-        if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel notificationChannel = new NotificationChannel(
-                    CHANNEL, context.getString(R.string.liora_activity_channel), NotificationManager.IMPORTANCE_LOW);
-            notificationChannel.setDescription(context.getString(R.string.liora_activity_channel_description));
-            notificationChannel.setShowBadge(false);
-            notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            manager.createNotificationChannel(notificationChannel);
-        }
+        ensureNotificationChannel(manager);
 
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (launch == null) return;
@@ -188,11 +217,32 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
         manager.notify(NOTIFICATION_ID, builder.build());
     }
 
+    void ensureNotificationChannel(NotificationManager manager) {
+        if (Build.VERSION.SDK_INT < 26) return;
+        if (manager.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel legacy = manager.getNotificationChannel(LEGACY_CHANNEL);
+            // Upgrade our old LOW default, while preserving an explicitly blocked channel.
+            int importance = legacy != null && legacy.getImportance() == NotificationManager.IMPORTANCE_NONE
+                    ? NotificationManager.IMPORTANCE_NONE : NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel notificationChannel = new NotificationChannel(
+                    CHANNEL, context.getString(R.string.liora_activity_channel), importance);
+            notificationChannel.setDescription(context.getString(R.string.liora_activity_channel_description));
+            notificationChannel.setShowBadge(false);
+            notificationChannel.setLockscreenVisibility(legacy != null
+                    ? legacy.getLockscreenVisibility() : Notification.VISIBILITY_PUBLIC);
+            manager.createNotificationChannel(notificationChannel);
+        }
+        // Do not recreate the new channel: subsequent user settings must remain effective.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL);
+    }
+
     RemoteViews createView(int layout, int count, PendingIntent open) {
         RemoteViews view = new RemoteViews(context.getPackageName(), layout);
         String title = context.getString(layout == R.layout.liora_video_onboarding_compact
                 ? R.string.liora_activity_compact_title : R.string.liora_activity_title, count);
         view.setTextViewText(R.id.liora_activity_title, title);
+        view.setTextViewText(R.id.liora_activity_count,
+                context.getString(R.string.liora_activity_count, count));
         int[] segments = {R.id.liora_segment_one, R.id.liora_segment_two, R.id.liora_segment_three};
         for (int index = 0; index < segments.length; index++) {
             view.setInt(segments[index], "setBackgroundResource", index < count
