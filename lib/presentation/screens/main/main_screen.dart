@@ -8,6 +8,7 @@ import '../../../core/firebase/firebase_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/notifications/video_onboarding_service.dart';
 import '../../../data/models/user_profile.dart';
+import '../../widgets/lock_screen_notification_reminder.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../in_app_purchase/all_plans_screen.dart';
@@ -145,6 +146,8 @@ class _MainScreenState extends ConsumerState<MainScreen>
         widget.notificationPermissionRequester ??
         FirebaseService.requestNotificationPermissionOnHome;
     return requester().then<void>((_) async {
+      if (!mounted) return;
+      await showLockScreenNotificationReminder(context);
       if (!mounted) return;
       await VideoOnboardingService.refresh(
         () => ApiClient.instance.generationHistoryService,

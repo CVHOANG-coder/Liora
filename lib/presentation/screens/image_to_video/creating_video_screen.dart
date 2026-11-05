@@ -1,3 +1,4 @@
+import '../../widgets/lock_screen_notification_reminder.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -141,6 +142,7 @@ class _CreatingVideoScreenState extends State<CreatingVideoScreen>
         _notificationsEnabled = true;
         _notificationActionInFlight = false;
       });
+      await showLockScreenNotificationReminder(context);
       return;
     }
     if (result == NotificationPermissionFlowResult.settingsRequired) {

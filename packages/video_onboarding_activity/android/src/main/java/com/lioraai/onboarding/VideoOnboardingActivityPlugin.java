@@ -111,11 +111,7 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
             synchronized (LOCK) {
                 SharedPreferences prefs = context.getSharedPreferences("liora_video_onboarding", Context.MODE_PRIVATE);
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                NotificationChannel notificationChannel = manager.getNotificationChannel(CHANNEL);
-                boolean eligible = prefs.getInt("completed_count", 0) < 3
-                        && manager.areNotificationsEnabled()
-                        && notificationChannel != null
-                        && notificationChannel.getImportance() != NotificationManager.IMPORTANCE_NONE
+                boolean eligible = manager.areNotificationsEnabled()
                         && !prefs.getBoolean("lock_screen_setup_offered", false);
                 result.success(eligible && prefs.edit().putBoolean("lock_screen_setup_offered", true).commit());
             }
@@ -126,10 +122,6 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
                 Intent settings = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                if (Build.VERSION.SDK_INT >= 26) {
-                    settings.setAction(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
-                    settings.putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL);
-                }
                 context.startActivity(settings);
                 result.success(true);
             } catch (RuntimeException error) {
@@ -197,13 +189,15 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
 
         RemoteViews view = createView(R.layout.liora_video_onboarding, count, open);
         RemoteViews compact = createView(R.layout.liora_video_onboarding_compact, count, open);
-        String title = context.getString(R.string.liora_activity_title, count);
+        String title = context.getString(count == 0
+                ? R.string.liora_activity_title : R.string.liora_activity_next_title);
 
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
         builder.setSmallIcon(R.drawable.liora_activity_icon)
                 .setContentTitle(title)
-                .setContentText(context.getString(R.string.liora_activity_subtitle))
+                .setContentText(context.getString(count == 0
+                        ? R.string.liora_activity_subtitle : R.string.liora_activity_next_subtitle))
                 .setColor(Color.rgb(164, 92, 244))
                 .setContentIntent(open)
                 .setCustomContentView(compact)
@@ -238,15 +232,25 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
 
     RemoteViews createView(int layout, int count, PendingIntent open) {
         RemoteViews view = new RemoteViews(context.getPackageName(), layout);
-        String title = context.getString(layout == R.layout.liora_video_onboarding_compact
-                ? R.string.liora_activity_compact_title : R.string.liora_activity_title, count);
+        boolean compact = layout == R.layout.liora_video_onboarding_compact;
+        int titleId = count == 0
+                ? (compact ? R.string.liora_activity_compact_title : R.string.liora_activity_title)
+                : (compact ? R.string.liora_activity_next_compact_title : R.string.liora_activity_next_title);
+        String title = context.getString(titleId);
+        if (!compact) {
+            view.setTextViewText(R.id.liora_activity_subtitle, context.getString(count == 0
+                    ? R.string.liora_activity_subtitle : R.string.liora_activity_next_subtitle));
+        }
         view.setTextViewText(R.id.liora_activity_title, title);
         view.setTextViewText(R.id.liora_activity_count,
                 context.getString(R.string.liora_activity_count, count));
         int[] segments = {R.id.liora_segment_one, R.id.liora_segment_two, R.id.liora_segment_three};
         for (int index = 0; index < segments.length; index++) {
             view.setInt(segments[index], "setBackgroundResource", index < count
-                    ? R.drawable.liora_activity_segment_active : R.drawable.liora_activity_segment_inactive);
+                    ? R.drawable.liora_activity_segment_active
+                    : (layout == R.layout.liora_video_onboarding_compact
+                        ? R.drawable.liora_activity_compact_segment_inactive
+                        : R.drawable.liora_activity_segment_inactive));
         }
         view.setOnClickPendingIntent(R.id.liora_activity_open, open);
         view.setContentDescription(R.id.liora_activity_progress,

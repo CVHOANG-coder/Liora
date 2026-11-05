@@ -3,14 +3,19 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
 class NotificationPermissionDialog extends StatelessWidget {
-  const NotificationPermissionDialog({super.key});
+  const NotificationPermissionDialog({super.key, this.lockScreen = false});
 
-  static Future<bool> show(BuildContext context) async {
+  final bool lockScreen;
+
+  static Future<bool> show(
+    BuildContext context, {
+    bool lockScreen = false,
+  }) async {
     return await showDialog<bool>(
           context: context,
           barrierDismissible: false,
           barrierColor: const Color(0xD9000000),
-          builder: (_) => const NotificationPermissionDialog(),
+          builder: (_) => NotificationPermissionDialog(lockScreen: lockScreen),
         ) ??
         false;
   }
@@ -25,10 +30,20 @@ class NotificationPermissionDialog extends StatelessWidget {
         padding: const EdgeInsets.all(1.3),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(25),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFD16EB0), Color(0xFFD1888A), Color(0xFFD1A671)],
+            colors: lockScreen
+                ? const [
+                    AppColors.primary,
+                    AppColors.surfaceLight,
+                    AppColors.primaryDark,
+                  ]
+                : const [
+                    Color(0xFFD16EB0),
+                    Color(0xFFD1888A),
+                    Color(0xFFD1A671),
+                  ],
           ),
         ),
         child: Container(
@@ -44,29 +59,37 @@ class NotificationPermissionDialog extends StatelessWidget {
                 width: 82,
                 height: 82,
                 padding: const EdgeInsets.all(1.3),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Color(0xFFD16EB1), Color(0xFFD1A473)],
+                    colors: lockScreen
+                        ? const [AppColors.primary, AppColors.primaryDark]
+                        : const [Color(0xFFD16EB1), Color(0xFFD1A473)],
                   ),
                 ),
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
                     color: Color(0xFF342D3E),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.notifications_active_rounded,
-                    color: Color(0xFFD191B1),
+                    lockScreen
+                        ? Icons.screen_lock_portrait_rounded
+                        : Icons.notifications_active_rounded,
+                    color: lockScreen
+                        ? AppColors.primary
+                        : const Color(0xFFD191B1),
                     size: 42,
                   ),
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Never miss your video',
+              Text(
+                lockScreen
+                    ? 'Your video, ready to watch'
+                    : 'Never miss your video',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 23,
                   height: 1.15,
@@ -75,11 +98,14 @@ class NotificationPermissionDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Enable notifications in Settings and we’ll let you know as '
-                'soon as your AI video is ready.',
+              Text(
+                lockScreen
+                    ? 'Allow lock screen notifications in Settings so we can let '
+                          'you know as soon as your video is ready.'
+                    : 'Enable notifications in Settings and we’ll let you know as '
+                          'soon as your AI video is ready.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   height: 1.5,
@@ -90,12 +116,14 @@ class NotificationPermissionDialog extends StatelessWidget {
                 height: 54,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(27),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFD16DAC),
-                      Color(0xFFD18188),
-                      Color(0xFFD1A871),
-                    ],
+                  gradient: LinearGradient(
+                    colors: lockScreen
+                        ? const [AppColors.primary, AppColors.primaryDark]
+                        : const [
+                            Color(0xFFD16DAC),
+                            Color(0xFFD18188),
+                            Color(0xFFD1A871),
+                          ],
                   ),
                 ),
                 child: Material(

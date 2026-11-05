@@ -8,6 +8,9 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.provider.Settings;
+import org.robolectric.Shadows;
+import android.app.Application;
 import android.view.View;
 import android.widget.TextView;
 
@@ -55,7 +58,8 @@ public class VideoOnboardingActivityPluginTest {
         assertEquals(NotificationManager.IMPORTANCE_DEFAULT, current.getImportance());
         assertEquals(Notification.VISIBILITY_PUBLIC, current.getLockscreenVisibility());
         complete("one", "two", "three");
-        assertEquals(false, call("claimLockScreenSetup", null));
+        // Completion alerts still need lock-screen visibility after onboarding.
+        assertEquals(true, call("claimLockScreenSetup", null));
     }
 
     @Test public void migrationPreservesBlockedChannel() {
@@ -65,7 +69,16 @@ public class VideoOnboardingActivityPluginTest {
         plugin.ensureNotificationChannel(manager);
         assertEquals(NotificationManager.IMPORTANCE_NONE,
                 manager.getNotificationChannel(VideoOnboardingActivityPlugin.CHANNEL).getImportance());
-        assertEquals(false, call("claimLockScreenSetup", null));
+        // The app settings reminder can help configure any notification channel.
+        assertEquals(true, call("claimLockScreenSetup", null));
+    }
+
+    @Test public void opensAppNotificationSettingsInsteadOfASingleChannel() {
+        assertEquals(true, call("openNotificationSettings", null));
+        Intent settings = Shadows.shadowOf((Application) context).getNextStartedActivity();
+        assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, settings.getAction());
+        assertEquals(context.getPackageName(), settings.getStringExtra(Settings.EXTRA_APP_PACKAGE));
+        assertFalse(settings.hasExtra(Settings.EXTRA_CHANNEL_ID));
     }
 
     @Test public void countsUniqueVideosAndPersistsAcrossEngineRestarts() {
@@ -116,7 +129,7 @@ public class VideoOnboardingActivityPluginTest {
         for (int layout : new int[]{R.layout.liora_video_onboarding, R.layout.liora_video_onboarding_compact}) {
             View root = plugin.createView(layout, 2, open).apply(context, null);
             assertEquals(layout == R.layout.liora_video_onboarding_compact
-                            ? "Bring photos to life" : "Make your photos move",
+                            ? "Create your next video" : "Create your next AI video",
                     ((TextView) root.findViewById(R.id.liora_activity_title)).getText().toString());
             assertEquals("2 / 3 created",
                     ((TextView) root.findViewById(R.id.liora_activity_count)).getText().toString());
