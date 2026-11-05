@@ -58,6 +58,11 @@ flutter test
 Meta SDK configuration, tracking consent, and the dashboard/device verification
 checklist are documented in [docs/meta_app_events.md](docs/meta_app_events.md).
 
+## AppsFlyer Android attribution
+
+Android install attribution and the Google Ads dashboard/testing checklist are
+documented in [docs/appsflyer_android.md](docs/appsflyer_android.md).
+
 ## Android first-video notification
 
 The persistent notification for the first three completed videos is documented

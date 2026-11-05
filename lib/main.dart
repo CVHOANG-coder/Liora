@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:video_onboarding_activity/video_onboarding_activity.dart';
 
+import 'core/analytics/appsflyer_service.dart';
 import 'core/analytics/meta_app_events_service.dart';
 import 'core/constants/app_features.dart';
 import 'core/network/api_client.dart';
@@ -22,6 +23,7 @@ import 'presentation/screens/main/main_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(AppsFlyerService.instance.initialize());
   await FirebaseService.initialize();
   FlutterError.onError = FlutterErrorHandler(
     recordError: FirebaseCrashlytics.instance.recordFlutterError,

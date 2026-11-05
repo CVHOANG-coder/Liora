@@ -39,6 +39,7 @@ dependencies:
     video_onboarding_activity:
         path: packages/video_onboarding_activity
     webview_flutter: ^4.14.1
+    appsflyer_sdk: ^7.0.4
 
 dev_dependencies:
     flutter_test:
