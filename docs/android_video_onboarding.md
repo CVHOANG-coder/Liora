@@ -1,15 +1,17 @@
 # Android first-video notification
 
-The Android notification uses Liora's plum gradient, Nunito Sans typography,
-the app’s Liora logo, three progress segments,
-and an Open action that opens Image to Video directly. It is an ongoing notification in
-the notification drawer and, when allowed by system settings, on the lock screen.
-It uses compact and expanded native layouts to fit Android's notification limits.
-The compact view uses a transparent surface to blend into Android's notification
-card. Its Liora logo, headline and Open button sit above a wide 6dp progress track
-and completion count within 48dp. System notification text styles adapt to light and dark
-mode; the expanded card retains the Liora logo. The expanded card adds supporting copy, a full-width progress indicator
-and a gradient Open button. All artwork uses native vector and shape resources.
+The reminder uses Android's standard notification template with the Liora logo,
+purple accent, a determinate progress bar (0–3 completed videos), completion count,
+and an Open action that opens Image to Video directly. BigTextStyle allows the
+expanded view to show the full reminder. There are no custom RemoteViews, fonts,
+or nested cards: Android controls typography, spacing, dark-mode contrast and
+lock-screen rendering. Some devices show the Open action only when expanded. Android or the device's
+theme may override the requested purple accent with its system notification color.
+
+It is an ongoing notification in the notification drawer and, when allowed by
+system settings, on the lock screen. This is a standard notification, not an
+Android 16 promoted Live Update or a Samsung Now Bar integration. Samsung and
+other manufacturers can still restrict lock-screen visibility.
 
 ![Expanded notification](previews/android_video_onboarding.png)
 

@@ -11,8 +11,6 @@ import android.content.Intent;
 import android.provider.Settings;
 import org.robolectric.Shadows;
 import android.app.Application;
-import android.view.View;
-import android.widget.TextView;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -124,18 +122,30 @@ public class VideoOnboardingActivityPluginTest {
         assertEquals(0, manager.getActiveNotifications().length);
     }
 
-    @Test public void bothLayoutsInflateWithProgressAndOpenAction() {
-        PendingIntent open = PendingIntent.getActivity(context, 0, new Intent("test.open"), PendingIntent.FLAG_IMMUTABLE);
-        for (int layout : new int[]{R.layout.liora_video_onboarding, R.layout.liora_video_onboarding_compact}) {
-            View root = plugin.createView(layout, 2, open).apply(context, null);
-            assertEquals(layout == R.layout.liora_video_onboarding_compact
-                            ? "Create your next video" : "Create your next AI video",
-                    ((TextView) root.findViewById(R.id.liora_activity_title)).getText().toString());
-            assertEquals("2 / 3 created",
-                    ((TextView) root.findViewById(R.id.liora_activity_count)).getText().toString());
-            assertEquals("2 of 3 videos created", root.findViewById(R.id.liora_activity_progress).getContentDescription());
-            assertNotNull(root.findViewById(R.id.liora_activity_open));
-            assertNotNull(root.findViewById(R.id.liora_segment_three));
+    @Test public void standardTemplateShowsLogoProgressAndOpenWithoutCustomViews() {
+        PendingIntent open = PendingIntent.getActivity(context, 0,
+                new Intent(VideoOnboardingActivityPlugin.OPEN_IMAGE_TO_VIDEO), PendingIntent.FLAG_IMMUTABLE);
+        for (int count : new int[]{0, 1, 2}) {
+            Notification notification = plugin.buildNotification(count, open);
+            assertNull(notification.contentView);
+            assertNull(notification.bigContentView);
+            assertNull(notification.headsUpContentView);
+            assertNotNull(notification.getLargeIcon());
+            assertEquals(count == 0 ? "Create your first AI video" : "Create your next AI video",
+                    notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString());
+            assertEquals(count + " / 3 created",
+                    notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString());
+            assertEquals(3, notification.extras.getInt(Notification.EXTRA_PROGRESS_MAX));
+            assertEquals(count, notification.extras.getInt(Notification.EXTRA_PROGRESS));
+            assertFalse(notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE));
+            assertEquals(Notification.VISIBILITY_PUBLIC, notification.visibility);
+            assertTrue((notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+            assertTrue((notification.flags & Notification.FLAG_AUTO_CANCEL) == 0);
+            assertEquals(0xffa45cf4, notification.color);
+            assertEquals(open, notification.contentIntent);
+            assertEquals(1, notification.actions.length);
+            assertEquals("Open", notification.actions[0].title.toString());
+            assertEquals(open, notification.actions[0].actionIntent);
         }
     }
 

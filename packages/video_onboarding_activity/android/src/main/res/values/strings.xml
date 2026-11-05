@@ -1,16 +1,10 @@
 <resources>
     <string name="liora_activity_channel">Your first videos</string>
     <string name="liora_activity_channel_description">Your progress towards creating your first three videos with Liora.</string>
-    <string name="liora_activity_brand">LIORA AI  /  IMAGE TO VIDEO</string>
     <string name="liora_activity_title">Create your first AI video</string>
-    <string name="liora_activity_compact_title">Create your first video</string>
-    <string name="liora_activity_progress">%1$d of 3 videos created</string>
     <string name="liora_activity_subtitle">Pick a photo and turn it into your first AI video.</string>
     <string name="liora_activity_open">Open</string>
-    <string name="liora_activity_journey">YOUR FIRST 3 VIDEOS</string>
     <string name="liora_activity_count">%1$d / 3 created</string>
-    <string name="liora_activity_open_expanded">Open  →</string>
     <string name="liora_activity_next_title">Create your next AI video</string>
-    <string name="liora_activity_next_compact_title">Create your next video</string>
     <string name="liora_activity_next_subtitle">Keep going. Turn another photo into a video.</string>
 </resources>

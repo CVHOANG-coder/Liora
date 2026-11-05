@@ -10,9 +10,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.provider.Settings;
-import android.widget.RemoteViews;
 
 import java.util.HashSet;
 import java.util.List;
@@ -187,28 +188,36 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
         PendingIntent open = PendingIntent.getActivity(context, NOTIFICATION_ID, launch,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        RemoteViews view = createView(R.layout.liora_video_onboarding, count, open);
-        RemoteViews compact = createView(R.layout.liora_video_onboarding_compact, count, open);
+        manager.notify(NOTIFICATION_ID, buildNotification(count, open));
+    }
+
+    Notification buildNotification(int count, PendingIntent open) {
         String title = context.getString(count == 0
                 ? R.string.liora_activity_title : R.string.liora_activity_next_title);
-
+        String description = context.getString(count == 0
+                ? R.string.liora_activity_subtitle : R.string.liora_activity_next_subtitle);
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
-        builder.setSmallIcon(R.drawable.liora_activity_icon)
+        // System templates handle lock-screen sizing, contrast and manufacturer styling.
+        return builder.setSmallIcon(R.drawable.liora_activity_icon)
+                .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.liora_activity_logo))
                 .setContentTitle(title)
-                .setContentText(context.getString(count == 0
-                        ? R.string.liora_activity_subtitle : R.string.liora_activity_next_subtitle))
+                .setContentText(description)
+                .setSubText(context.getString(R.string.liora_activity_count, count))
+                .setStyle(new Notification.BigTextStyle().bigText(description))
+                .setProgress(3, count, false)
                 .setColor(Color.rgb(164, 92, 244))
                 .setContentIntent(open)
-                .setCustomContentView(compact)
-                .setCustomBigContentView(view)
-                .setStyle(new Notification.DecoratedCustomViewStyle())
+                .addAction(new Notification.Action.Builder(
+                        Icon.createWithResource(context, R.drawable.liora_activity_icon),
+                        context.getString(R.string.liora_activity_open), open).build())
+                .setCategory(Notification.CATEGORY_STATUS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
-                .setShowWhen(false);
-        manager.notify(NOTIFICATION_ID, builder.build());
+                .setShowWhen(false)
+                .build();
     }
 
     void ensureNotificationChannel(NotificationManager manager) {
@@ -230,32 +239,4 @@ public final class VideoOnboardingActivityPlugin implements FlutterPlugin,
         manager.deleteNotificationChannel(LEGACY_CHANNEL);
     }
 
-    RemoteViews createView(int layout, int count, PendingIntent open) {
-        RemoteViews view = new RemoteViews(context.getPackageName(), layout);
-        boolean compact = layout == R.layout.liora_video_onboarding_compact;
-        int titleId = count == 0
-                ? (compact ? R.string.liora_activity_compact_title : R.string.liora_activity_title)
-                : (compact ? R.string.liora_activity_next_compact_title : R.string.liora_activity_next_title);
-        String title = context.getString(titleId);
-        if (!compact) {
-            view.setTextViewText(R.id.liora_activity_subtitle, context.getString(count == 0
-                    ? R.string.liora_activity_subtitle : R.string.liora_activity_next_subtitle));
-        }
-        view.setTextViewText(R.id.liora_activity_title, title);
-        view.setTextViewText(R.id.liora_activity_count,
-                context.getString(R.string.liora_activity_count, count));
-        int[] segments = {R.id.liora_segment_one, R.id.liora_segment_two, R.id.liora_segment_three};
-        for (int index = 0; index < segments.length; index++) {
-            view.setInt(segments[index], "setBackgroundResource", index < count
-                    ? R.drawable.liora_activity_segment_active
-                    : (layout == R.layout.liora_video_onboarding_compact
-                        ? R.drawable.liora_activity_compact_segment_inactive
-                        : R.drawable.liora_activity_segment_inactive));
-        }
-        view.setOnClickPendingIntent(R.id.liora_activity_open, open);
-        view.setContentDescription(R.id.liora_activity_progress,
-                context.getString(R.string.liora_activity_progress, count));
-
-        return view;
-    }
 }
