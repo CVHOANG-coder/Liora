@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/device/device_identity_service.dart';
 import '../../core/network/api_config.dart';
@@ -18,6 +19,11 @@ class AuthSession {
   SignInData? _currentUser;
   String? _token;
   bool _isInitialized = false;
+  final authenticatedUserId = ValueNotifier<int?>(null);
+
+  void recordUserId(int id) {
+    if (id > 0) authenticatedUserId.value = id;
+  }
 
   SignInData? get currentUser => _currentUser;
   String? get token => _token;
@@ -71,6 +77,7 @@ class AuthSession {
       await _tokenStorage.saveToken(result.data.token);
       _token = result.data.token;
       _currentUser = result.data;
+      recordUserId(result.data.id);
       return result.data;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -83,6 +90,7 @@ class AuthSession {
     await _tokenStorage.clearToken();
     _token = null;
     _currentUser = null;
+    authenticatedUserId.value = null;
     _isInitialized = true;
   }
 }

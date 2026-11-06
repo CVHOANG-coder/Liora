@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:video_onboarding_activity/video_onboarding_activity.dart';
 
 import 'core/analytics/appsflyer_service.dart';
+import 'core/analytics/install_source_reporter.dart';
 import 'core/analytics/meta_app_events_service.dart';
 import 'core/constants/app_features.dart';
 import 'core/network/api_client.dart';
@@ -21,8 +23,30 @@ import 'presentation/providers/purchase_provider.dart';
 import 'presentation/screens/image_to_video/image_to_video_screen.dart';
 import 'presentation/screens/main/main_screen.dart';
 
+InstallSourceReporter? _installSourceReporter;
+
+void _configureInstallAttribution() {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  final api = ApiClient.instance;
+  final appsFlyer = AppsFlyerService.instance;
+  final reporter = _installSourceReporter = InstallSourceReporter(
+    send: api.updateInstallSource,
+  );
+  appsFlyer.onInstallSource = (source) =>
+      unawaited(reporter.recordSource(source));
+  void updateUser() {
+    final userId = api.authSession.authenticatedUserId.value;
+    unawaited(reporter.updateUser(userId));
+    if (userId != null) unawaited(appsFlyer.setCustomerUserId(userId));
+  }
+
+  api.authSession.authenticatedUserId.addListener(updateUser);
+  updateUser();
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureInstallAttribution();
   unawaited(AppsFlyerService.instance.initialize());
   await FirebaseService.initialize();
   FlutterError.onError = FlutterErrorHandler(
@@ -89,6 +113,7 @@ class _VideoGenAppState extends ConsumerState<VideoGenApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_installSourceReporter?.retryPending());
       unawaited(MetaAppEventsService.instance.refreshTrackingAuthorization());
       unawaited(_refreshVideoOnboarding());
     }
