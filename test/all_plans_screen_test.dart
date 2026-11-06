@@ -103,7 +103,7 @@ void main() {
               'ANDROID': {
                 'SUBSCRIPTION': [
                   {
-                    'product_id': 'weekly.pro',
+                    'product_id': 'com.lioraai.videogenerator.weeklybonus',
                     'pack_duration_day': 7,
                     'price': 210000,
                   },
@@ -426,8 +426,8 @@ class _PricedPurchases extends PurchaseController {
   PurchaseState build() => PurchaseState(
     status: PurchaseFlowStatus.ready,
     products: {
-      'weekly.pro': ProductDetails(
-        id: 'weekly.pro',
+      'com.lioraai.videogenerator.weeklybonus': ProductDetails(
+        id: 'com.lioraai.videogenerator.weeklybonus',
         title: 'Weekly Pro',
         description: '',
         price: '₫210.000',

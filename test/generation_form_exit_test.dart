@@ -13,7 +13,7 @@ import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/text_to_video/text_to_video_screen.dart';
 import 'package:video_gen/presentation/screens/theme_to_video/theme_to_video_screen.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
@@ -88,7 +88,7 @@ void main() {
           expect(find.byKey(const Key('openForm')), findsOneWidget);
           expect(find.byKey(const Key('generationExitDialog')), findsNothing);
           expect(find.byType(CreatingVideoScreen), findsNothing);
-          expect(find.byType(FreeTrialScreen), findsNothing);
+          expect(find.byType(WeeklySaleScreen), findsNothing);
           expect(find.byType(GenerationFailureDialog), findsNothing);
           expect(find.byType(SnackBar), findsNothing);
           expect(tester.takeException(), isNull);
@@ -113,7 +113,7 @@ void main() {
             succeeds ? findsOneWidget : findsNothing,
           );
           expect(
-            find.byType(FreeTrialScreen),
+            find.byType(WeeklySaleScreen),
             !succeeds && AppFeatures.commerceEnabled
                 ? findsOneWidget
                 : findsNothing,

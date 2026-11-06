@@ -22,7 +22,7 @@ import '../image_to_video/creating_video_screen.dart';
 import '../image_to_video/generated_video_screen.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
-import '../in_app_purchase/free_trial_screen.dart';
+import '../in_app_purchase/weekly_sale_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -616,7 +616,7 @@ class _UpgradeCard extends StatelessWidget {
                             )
                           : () {
                               if (profile?.isVIP == false) {
-                                FreeTrialScreen.open(context);
+                                WeeklySaleScreen.open(context);
                               } else {
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(

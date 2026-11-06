@@ -16,7 +16,7 @@ import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/yearly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
@@ -29,7 +29,7 @@ void main() {
     return;
   }
 
-  testWidgets('non-VIP opens Free Trial from the Home Pro button', (
+  testWidgets('non-VIP opens Weekly Sale from the Home Pro button', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -54,18 +54,17 @@ void main() {
     await tester.tap(find.byKey(const Key('homeProButton')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(WeeklySaleScreen), findsOneWidget);
     expect(find.byType(AllPlans), findsNothing);
-    expect(find.byKey(const Key('trialClaimButton')), findsOneWidget);
+    expect(find.byKey(const Key('weeklySalePurchaseButton')), findsOneWidget);
   });
 
-  testWidgets('new user does not see annual sale after dismissing Free Trial', (
+  testWidgets('new user sees weekly sale directly and closes to Home', (
     tester,
   ) async {
     _configurePhoneSize(tester);
     final container = _profileContainer(isSubscribed: false);
     addTearDown(container.dispose);
-
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -73,15 +72,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-
-    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(WeeklySaleScreen), findsOneWidget);
+    expect(find.text('free trial works'), findsNothing);
     expect(find.byType(YearlySaleScreen), findsNothing);
-
-    await tester.tap(find.byKey(const Key('trialLaterButton')));
+    await tester.tap(find.byKey(const Key('weeklySaleCloseButton')));
     await tester.pumpAndSettle();
-
-    expect(find.byType(FreeTrialScreen), findsNothing);
-    expect(find.byType(YearlySaleScreen), findsNothing);
+    expect(find.byType(WeeklySaleScreen), findsNothing);
+    expect(find.byType(MainScreen), findsOneWidget);
   });
 
   testWidgets('yearly subscriber sees credits and opens Buy Credits', (
@@ -102,7 +99,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('trialClaimButton')), findsNothing);
+    expect(find.byKey(const Key('weeklySalePurchaseButton')), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const Key('homeProButton')),
@@ -122,7 +119,7 @@ void main() {
     await tester.tap(find.byKey(const Key('homeCreditButton')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('trialClaimButton')), findsNothing);
+    expect(find.byKey(const Key('weeklySalePurchaseButton')), findsNothing);
     expect(find.byType(BuyCredits), findsOneWidget);
   });
 
@@ -223,7 +220,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('trialClaimButton')), findsNothing);
+    expect(find.byKey(const Key('weeklySalePurchaseButton')), findsNothing);
     expect(find.byType(YearlySaleScreen), findsNothing);
     expect(find.byKey(const Key('homeProButton')), findsOneWidget);
     expect(find.text('Pro'), findsOneWidget);

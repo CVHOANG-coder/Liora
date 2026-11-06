@@ -12,7 +12,7 @@ import '../../widgets/lock_screen_notification_reminder.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../in_app_purchase/all_plans_screen.dart';
-import '../in_app_purchase/free_trial_screen.dart';
+import '../in_app_purchase/weekly_sale_screen.dart';
 import '../in_app_purchase/yearly_sale_screen.dart';
 import '../home/home_screen.dart';
 import '../image_to_video/image_to_video_screen.dart';
@@ -120,7 +120,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       if (_hasActiveWeeklyPlan(profile)) {
         await YearlySaleScreen.open(context);
       } else if (activePlan == ProPlanStatus.none && profile?.isVIP != true) {
-        await FreeTrialScreen.open(context);
+        await WeeklySaleScreen.open(context);
       }
     } finally {
       _isShowingInitialOffer = false;

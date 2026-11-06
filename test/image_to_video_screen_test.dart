@@ -14,7 +14,7 @@ import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/widgets/generation_failure_dialog.dart';
 
@@ -307,14 +307,14 @@ void main() {
       await _prepareAndGenerate(tester);
 
       expect(find.byType(GenerationFailureDialog), findsNothing);
-      expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(find.byType(WeeklySaleScreen), findsOneWidget);
       expect(find.byType(BuyCredits), findsNothing);
       expect(
         find.widgetWithText(SnackBar, 'Insufficient credit balance'),
         findsOneWidget,
       );
 
-      Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+      Navigator.of(tester.element(find.byType(WeeklySaleScreen))).pop(true);
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
@@ -370,7 +370,7 @@ void main() {
 
       expect(find.byType(GenerationFailureDialog), findsNothing);
       expect(find.byType(BuyCredits), findsOneWidget);
-      expect(find.byType(FreeTrialScreen), findsNothing);
+      expect(find.byType(WeeklySaleScreen), findsNothing);
       expect(tester.takeException(), isNull);
     },
     skip: !AppFeatures.commerceEnabled,

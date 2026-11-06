@@ -7,7 +7,7 @@ import 'package:video_gen/presentation/providers/package_provider.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/providers/purchase_provider.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 
 void main() {
@@ -24,7 +24,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(r'only $0.96/week'), findsOneWidget);
-    expect(find.text(r'$7.99/week'), findsOneWidget);
+    expect(find.text(r'$5.99/week'), findsOneWidget);
+    expect(find.text(r'$7.99/week'), findsNothing);
   });
 
   testWidgets('purchases the regular yearly product from All Plans', (
@@ -64,7 +65,7 @@ void main() {
     expect(controller.replaceExistingSubscription, isFalse);
   });
 
-  testWidgets('purchases the weekly product when its plan card is selected', (
+  testWidgets('purchases weeklybonus when its plan card is selected', (
     tester,
   ) async {
     _configurePhoneSize(tester);
@@ -92,7 +93,7 @@ void main() {
     final controller =
         container.read(purchaseControllerProvider.notifier)
             as _RecordingPurchaseController;
-    expect(controller.productId, 'com.lioraai.videogenerator.weekly');
+    expect(controller.productId, 'com.lioraai.videogenerator.weeklybonus');
     expect(controller.replaceExistingSubscription, isFalse);
   });
 
@@ -259,7 +260,7 @@ void main() {
   });
 
   testWidgets(
-    'opens the free trial screen when the subscription banner is tapped',
+    'opens the weekly sale screen when the subscription banner is tapped',
     (tester) async {
       final container = _container(isSubscribed: false);
       addTearDown(container.dispose);
@@ -273,9 +274,10 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('subscriptionBanner')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 4300));
 
-      expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(find.byType(WeeklySaleScreen), findsOneWidget);
     },
   );
 
@@ -314,7 +316,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AllPlans), findsOneWidget);
-    expect(find.byType(FreeTrialScreen), findsNothing);
+    expect(find.byType(WeeklySaleScreen), findsNothing);
     expect(find.text('Annually'), findsOneWidget);
     expect(find.text('Weekly Pro'), findsNothing);
   });
@@ -358,6 +360,12 @@ ProviderContainer _container({
                 productId: 'com.lioraai.videogenerator.weekly',
                 name: 'Weekly Pro',
                 price: 7.99,
+                days: 7,
+              ),
+              _package(
+                productId: 'com.lioraai.videogenerator.weeklybonus',
+                name: 'Weekly Bonus',
+                price: 5.99,
                 days: 7,
               ),
               _package(

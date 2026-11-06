@@ -16,7 +16,7 @@ import '../../providers/theme_provider.dart';
 import '../../widgets/cached_video_thumbnail.dart';
 import '../image_to_video/image_to_video_screen.dart';
 import '../in_app_purchase/all_plans_screen.dart';
-import '../in_app_purchase/free_trial_screen.dart';
+import '../in_app_purchase/weekly_sale_screen.dart';
 import '../in_app_purchase/in_app_purchase_screen.dart';
 import '../text_to_video/text_to_video_screen.dart';
 import '../video_detail/video_detail_screen.dart';
@@ -102,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onProPressed: () {
                 if (planStatus == HomeSubscriptionPlan.none &&
                     profile?.isVIP != true) {
-                  FreeTrialScreen.open(context);
+                  WeeklySaleScreen.open(context);
                   return;
                 }
                 Navigator.of(context).push(

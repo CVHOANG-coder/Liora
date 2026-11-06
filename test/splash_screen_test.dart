@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/storage/onboarding_preferences.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/splash/splash_screen.dart';
 
 void main() {
@@ -135,8 +135,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(FreeTrialScreen), findsOneWidget);
-    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
+    expect(find.byType(WeeklySaleScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(WeeklySaleScreen))).pop();
     await tester.pumpAndSettle();
     expect(find.text('Get Started'), findsNothing);
     expect(find.byKey(const Key('homeVideoBanner')), findsOneWidget);

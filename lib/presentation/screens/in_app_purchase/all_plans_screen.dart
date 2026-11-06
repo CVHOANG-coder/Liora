@@ -81,7 +81,7 @@ class _PlanPrices {
     PlatformPackages? packages,
     Map<String, ProductDetails> storeProducts,
   ) {
-    final weeklyPackage = packages?.weeklySubscription;
+    final weeklyPackage = packages?.weeklyBonusSubscription;
     final yearlyPackage = packages?.regularYearlySubscription;
     if (weeklyPackage == null || yearlyPackage == null) {
       return const _PlanPrices(
@@ -457,7 +457,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         ?.forPlatform(ref.read(iapCatalogPlatformProvider));
     final package = profile?.isVIP == true || planIndex == 0
         ? packages?.regularYearlySubscription
-        : packages?.weeklySubscription;
+        : packages?.weeklyBonusSubscription;
     _buySubscription(package);
   }
 

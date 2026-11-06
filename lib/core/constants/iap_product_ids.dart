@@ -2,6 +2,7 @@ abstract final class IapProductIds {
   static const namespace = 'com.lioraai.videogenerator';
 
   static const weekly = '$namespace.weekly';
+  static const weeklyBonus = '$namespace.weeklybonus';
   static const annually = '$namespace.annually';
   static const annuallySale = '$namespace.annuallysale';
 
@@ -19,6 +20,7 @@ abstract final class IapProductIds {
 
   static const subscriptionProductIds = <String>{
     weekly,
+    weeklyBonus,
     annually,
     annuallySale,
   };

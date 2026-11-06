@@ -31,10 +31,10 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_video_thumbnail_plus/ios"
 
 SPEC CHECKSUMS:
-  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
-  flutter_video_thumbnail_plus: 11624c05e788b4dac5d434e605f68762e44dd23d
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_video_thumbnail_plus: 0a83dc7bed8cc47940c32f951c638181601de2cb
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
 
 PODFILE CHECKSUM: 25129b65135cfc4cac927ef3491792dcfa5e2af8
 
-COCOAPODS: 1.17.0
+COCOAPODS: 1.16.2

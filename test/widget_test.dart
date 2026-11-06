@@ -8,7 +8,7 @@ import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/theme_provider.dart';
 import 'package:video_gen/presentation/screens/home/home_screen.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/main/main_screen.dart';
 import 'package:video_gen/presentation/screens/onboarding/onboarding_screen.dart';
 import 'package:video_gen/presentation/screens/profile/profile_screen.dart';
@@ -66,10 +66,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(FreeTrialScreen), findsOneWidget);
+    expect(find.byType(WeeklySaleScreen), findsOneWidget);
     expect(permissionRequests, 0);
 
-    Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
+    Navigator.of(tester.element(find.byType(WeeklySaleScreen))).pop();
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
@@ -217,7 +217,7 @@ void main() {
 
 Future<void> _dismissInitialTrialOffer(WidgetTester tester) async {
   if (!AppFeatures.commerceEnabled) return;
-  expect(find.byType(FreeTrialScreen), findsOneWidget);
-  Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop();
+  expect(find.byType(WeeklySaleScreen), findsOneWidget);
+  Navigator.of(tester.element(find.byType(WeeklySaleScreen))).pop();
   await tester.pumpAndSettle();
 }

@@ -12,7 +12,7 @@ import '../../widgets/generation_failure_dialog.dart';
 import '../support/app_web_view_screen.dart';
 import '../support/support_contact_screen.dart';
 import 'all_plans_screen.dart';
-import 'free_trial_screen.dart';
+import 'weekly_sale_screen.dart';
 
 const _creditBackground = Color(0xFF02050C);
 const _creditSurface = LinearGradient(
@@ -251,7 +251,7 @@ class _BuyCreditsState extends ConsumerState<BuyCredits> {
   }
 
   Future<void> _openSubscriptionPlans({required bool isVIP}) {
-    if (!isVIP) return FreeTrialScreen.open(context);
+    if (!isVIP) return WeeklySaleScreen.open(context);
     return Navigator.of(
       context,
     ).push<void>(MaterialPageRoute<void>(builder: (_) => const AllPlans()));

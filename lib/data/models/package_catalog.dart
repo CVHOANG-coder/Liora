@@ -79,8 +79,17 @@ class PlatformPackages {
   List<AppPackage> creditsFor({required bool isSubscribed}) =>
       isSubscribed ? consumableVip : consumableNew;
 
-  AppPackage? get weeklySubscription =>
-      _firstWhere(subscriptions, (package) => package.durationDays <= 14);
+  AppPackage? get weeklySubscription => _firstWhere(
+    subscriptions,
+    (package) =>
+        package.durationDays <= 14 &&
+        package.productId != IapProductIds.weeklyBonus,
+  );
+
+  AppPackage? get weeklyBonusSubscription => _firstWhere(
+    subscriptions,
+    (package) => package.productId == IapProductIds.weeklyBonus,
+  );
 
   AppPackage? get yearlySaleSubscription =>
       _firstWhere(sales, (package) => package.durationDays >= 300);

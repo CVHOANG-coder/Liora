@@ -38,6 +38,30 @@ void main() {
     expect(android.creditsFor(isSubscribed: false).single.price, 5.19);
   });
 
+  test('selects weekly bonus separately regardless of subscription order', () {
+    final regular = _package(name: 'Weekly Pro', price: 7.99, days: 7)
+      ..['product_id'] = IapProductIds.weekly;
+    final bonus = _package(name: 'Weekly Bonus', price: 0.99, days: 7)
+      ..['product_id'] = IapProductIds.weeklyBonus;
+    for (final subscriptions in [
+      [bonus, regular],
+      [regular, bonus],
+      [bonus],
+    ]) {
+      final packages = PlatformPackages.fromJson({
+        'SUBSCRIPTION': subscriptions,
+      });
+      expect(
+        packages.weeklyBonusSubscription?.productId,
+        IapProductIds.weeklyBonus,
+      );
+      expect(
+        packages.weeklySubscription?.productId,
+        subscriptions.length == 1 ? isNull : IapProductIds.weekly,
+      );
+    }
+  });
+
   test('handles missing package groups as empty lists', () {
     final catalog = PackageCatalog.fromJson(<String, dynamic>{
       'IOS': <String, dynamic>{},
@@ -51,10 +75,10 @@ void main() {
   });
 
   test('defines all planned Liora store products once', () {
-    expect(IapProductIds.subscriptionProductIds, hasLength(3));
+    expect(IapProductIds.subscriptionProductIds, hasLength(4));
     expect(IapProductIds.consumableNewProductIds, hasLength(5));
     expect(IapProductIds.consumableVipProductIds, hasLength(5));
-    expect(IapProductIds.allProductIds, hasLength(13));
+    expect(IapProductIds.allProductIds, hasLength(14));
     expect(
       IapProductIds.allProductIds.every(
         (id) => id.startsWith('com.lioraai.videogenerator.'),

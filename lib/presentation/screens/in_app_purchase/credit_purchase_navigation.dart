@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_exception.dart';
 import 'all_plans_screen.dart';
-import 'free_trial_screen.dart';
+import 'weekly_sale_screen.dart';
 import 'in_app_purchase_screen.dart';
 
 Future<bool> openCreditPurchaseDestination(
@@ -26,7 +26,7 @@ Future<bool> openCreditPurchaseDestination(
       ),
     );
   if (!isSubscribed && !isVIP) {
-    return await FreeTrialScreen.open(context, returnPurchaseResult: true) ??
+    return await WeeklySaleScreen.open(context, returnPurchaseResult: true) ??
         false;
   }
   return await Navigator.of(context).push<bool>(

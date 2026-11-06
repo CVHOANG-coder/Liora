@@ -350,6 +350,7 @@ class PurchaseController extends Notifier<PurchaseState> {
             ?.productId;
         final weeklyProductIds = <String>{
           IapProductIds.weekly,
+          IapProductIds.weeklyBonus,
           if (configuredWeeklyId != null && configuredWeeklyId.isNotEmpty)
             configuredWeeklyId,
         };

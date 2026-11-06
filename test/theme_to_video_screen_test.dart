@@ -14,7 +14,7 @@ import 'package:video_gen/data/services/generation_progress_repository.dart';
 import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/creating_video_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/theme_to_video/theme_to_video_screen.dart';
 
 void main() {
@@ -221,7 +221,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Not Enough Credits'), findsNothing);
-      expect(find.byType(FreeTrialScreen), findsOneWidget);
+      expect(find.byType(WeeklySaleScreen), findsOneWidget);
       expect(
         find.widgetWithText(
           SnackBar,
@@ -230,7 +230,7 @@ void main() {
         findsOneWidget,
       );
 
-      Navigator.of(tester.element(find.byType(FreeTrialScreen))).pop(true);
+      Navigator.of(tester.element(find.byType(WeeklySaleScreen))).pop(true);
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));

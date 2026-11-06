@@ -13,7 +13,7 @@ import 'package:video_gen/data/video_categories.dart';
 import 'package:video_gen/presentation/providers/profile_provider.dart';
 import 'package:video_gen/presentation/screens/image_to_video/image_to_video_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/all_plans_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
 import 'package:video_gen/presentation/screens/text_to_video/text_to_video_screen.dart';
 import 'package:video_gen/presentation/screens/theme_to_video/theme_to_video_screen.dart';
@@ -34,7 +34,7 @@ void main() {
     (isSubscribed: true, isVIP: true, destination: BuyCredits),
     (isSubscribed: true, isVIP: false, destination: BuyCredits),
     (isSubscribed: false, isVIP: true, destination: AllPlans),
-    (isSubscribed: false, isVIP: false, destination: FreeTrialScreen),
+    (isSubscribed: false, isVIP: false, destination: WeeklySaleScreen),
   ];
 
   for (final form in _GenerationForm.values) {
@@ -91,7 +91,7 @@ void main() {
 
           expect(submitCount, 1);
           expect(find.byType(GenerationFailureDialog), findsNothing);
-          for (final destination in [BuyCredits, AllPlans, FreeTrialScreen]) {
+          for (final destination in [BuyCredits, AllPlans, WeeklySaleScreen]) {
             expect(
               find.byType(destination),
               destination == scenario.destination
@@ -138,7 +138,7 @@ void main() {
           expect(switch (tester.widget(destination)) {
             BuyCredits screen => screen.returnPurchaseResult,
             AllPlans screen => screen.returnPurchaseResult,
-            FreeTrialScreen screen => screen.returnPurchaseResult,
+            WeeklySaleScreen screen => screen.returnPurchaseResult,
             _ => false,
           }, isTrue);
 

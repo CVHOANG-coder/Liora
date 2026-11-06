@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_gen/core/network/api_exception.dart';
 import 'package:video_gen/core/constants/app_features.dart';
 import 'package:video_gen/presentation/screens/in_app_purchase/in_app_purchase_screen.dart';
-import 'package:video_gen/presentation/screens/in_app_purchase/free_trial_screen.dart';
+import 'package:video_gen/presentation/screens/in_app_purchase/weekly_sale_screen.dart';
 import 'package:video_gen/data/models/i2v_generation.dart';
 import 'package:video_gen/data/models/i2v_request_status.dart';
 import 'package:video_gen/data/models/user_profile.dart';
@@ -204,7 +204,7 @@ void main() {
           await tester.pumpAndSettle();
           final destination = subscribed
               ? find.byType(BuyCredits)
-              : find.byType(FreeTrialScreen);
+              : find.byType(WeeklySaleScreen);
           expect(destination, findsOneWidget);
           expect(calls, 1);
           Navigator.of(tester.element(destination)).pop(true);
