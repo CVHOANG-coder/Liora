@@ -71,6 +71,7 @@ String _formatSubscriptionEnd(DateTime? value) {
 class _PlanPrices {
   const _PlanPrices({
     required this.weekly,
+    this.weeklyFirstWeek,
     required this.yearly,
     required this.yearlyPerWeek,
     required this.savingsPercent,
@@ -82,9 +83,12 @@ class _PlanPrices {
     Map<String, ProductDetails> storeProducts,
   ) {
     final weeklyPackage = packages?.weeklyBonusSubscription;
+    // Google Play exposes the selected offer's first phase as a localized price.
+    final weeklyFirstWeek = storeProducts[weeklyPackage?.productId]?.price;
     final yearlyPackage = packages?.regularYearlySubscription;
     if (weeklyPackage == null || yearlyPackage == null) {
-      return const _PlanPrices(
+      return _PlanPrices(
+        weeklyFirstWeek: weeklyFirstWeek,
         weekly: 'VND 210,000/week',
         yearly: 'VND 1,300,000/year',
         yearlyPerWeek: 'VND 25,000/week',
@@ -108,6 +112,7 @@ class _PlanPrices {
     final yearlyProduct = storeProducts[yearlyPackage.productId];
     final storeYearly = recurringSubscriptionPrice(yearlyProduct);
     return _PlanPrices(
+      weeklyFirstWeek: weeklyFirstWeek,
       weekly:
           '${storeWeekly ?? '\$${weeklyPackage.price.toStringAsFixed(2)}'}/week',
       yearly:
@@ -122,6 +127,7 @@ class _PlanPrices {
   }
 
   final String weekly;
+  final String? weeklyFirstWeek;
   final String yearly;
   final String yearlyPerWeek;
   final int savingsPercent;
@@ -322,7 +328,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
             child: _PlanCard(
               title: 'Annually',
               price: prices.yearly,
-              weeklyEquivalent: prices.yearlyPerWeek,
+              hintText: 'only ${prices.yearlyPerWeek}',
               selected: _selectedPlan == 0,
               popular: true,
               onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(0),
@@ -344,6 +350,7 @@ class _AllPlansState extends ConsumerState<AllPlans> {
         _PlanCard(
           title: 'Weekly',
           price: prices.weekly,
+          hintText: 'Only ${prices.weeklyFirstWeek ?? '--'} for the first week',
           selected: _selectedPlan == 1,
           onTap: purchaseState.isBusy ? null : () => _selectAndSubscribe(1),
         ),
@@ -886,7 +893,7 @@ class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.title,
     required this.price,
-    this.weeklyEquivalent,
+    this.hintText,
     required this.selected,
     required this.onTap,
     this.popular = false,
@@ -894,7 +901,7 @@ class _PlanCard extends StatelessWidget {
 
   final String title;
   final String price;
-  final String? weeklyEquivalent;
+  final String? hintText;
   final bool selected;
   final bool popular;
   final VoidCallback? onTap;
@@ -988,12 +995,14 @@ class _PlanCard extends StatelessWidget {
                                         height: 1.2,
                                       ),
                                     ),
-                                    if (weeklyEquivalent != null) ...[
+                                    if (hintText != null) ...[
                                       const SizedBox(height: 3),
                                       Text(
-                                        'only $weeklyEquivalent',
-                                        key: const Key(
-                                          'allPlansYearlyWeeklyPrice',
+                                        hintText!,
+                                        key: Key(
+                                          popular
+                                              ? 'allPlansYearlyWeeklyPrice'
+                                              : 'allPlansWeeklyFirstWeekPrice',
                                         ),
                                         style: const TextStyle(
                                           color: _AllPlansStyle.secondary,

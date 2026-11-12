@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:video_gen/data/models/package_catalog.dart';
 import 'package:video_gen/data/models/user_profile.dart';
 import 'package:video_gen/presentation/providers/package_provider.dart';
@@ -130,6 +132,21 @@ void main() {
         const Key('allPlansYearlyWeeklyPrice'),
       );
       expect(tester.widget<Text>(annualPrice).data, '₫1.300.000/year');
+      final weeklyHint = find.byKey(const Key('allPlansWeeklyFirstWeekPrice'));
+      expect(
+        tester.widget<Text>(weeklyHint).data,
+        'Only 10.000 ₫ for the first week',
+      );
+      expect(
+        tester.widget<Text>(weeklyHint).style,
+        tester.widget<Text>(weeklyEquivalent).style,
+      );
+      expect(find.text('210.000 ₫/week'), findsOneWidget);
+      expect(
+        tester.getRect(weeklyHint).top,
+        greaterThan(tester.getRect(find.text('Weekly')).bottom),
+      );
+
       expect(tester.widget<Text>(weeklyEquivalent).data, 'only 25000 ₫/week');
       expect(
         tester.getRect(weeklyEquivalent).top,
@@ -426,14 +443,42 @@ class _PricedPurchases extends PurchaseController {
   PurchaseState build() => PurchaseState(
     status: PurchaseFlowStatus.ready,
     products: {
-      'com.lioraai.videogenerator.weeklybonus': ProductDetails(
-        id: 'com.lioraai.videogenerator.weeklybonus',
-        title: 'Weekly Pro',
-        description: '',
-        price: '₫210.000',
-        rawPrice: 210000,
-        currencyCode: 'VND',
-      ),
+      'com.lioraai.videogenerator.weeklybonus':
+          GooglePlayProductDetails.fromProductDetails(
+            const ProductDetailsWrapper(
+              productId: 'com.lioraai.videogenerator.weeklybonus',
+              title: 'Weekly Bonus',
+              name: 'Weekly Bonus',
+              description: '',
+              productType: ProductType.subs,
+              subscriptionOfferDetails: [
+                SubscriptionOfferDetailsWrapper(
+                  basePlanId: 'weekly',
+                  offerId: 'first-week',
+                  offerIdToken: 'first-week-token',
+                  offerTags: [],
+                  pricingPhases: [
+                    PricingPhaseWrapper(
+                      billingCycleCount: 1,
+                      billingPeriod: 'P1W',
+                      formattedPrice: '10.000 ₫',
+                      priceAmountMicros: 10000000000,
+                      priceCurrencyCode: 'VND',
+                      recurrenceMode: RecurrenceMode.finiteRecurring,
+                    ),
+                    PricingPhaseWrapper(
+                      billingCycleCount: 0,
+                      billingPeriod: 'P1W',
+                      formattedPrice: '210.000 ₫',
+                      priceAmountMicros: 210000000000,
+                      priceCurrencyCode: 'VND',
+                      recurrenceMode: RecurrenceMode.infiniteRecurring,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ).single,
       'annually.pro': ProductDetails(
         id: 'annually.pro',
         title: 'Annually Pro',
