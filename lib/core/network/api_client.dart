@@ -102,7 +102,35 @@ class ApiClient {
     PurchaseReceipt receipt,
   ) => purchaseVerificationService.verify(receipt);
 
-  Future<UserProfile> fetchProfile() => profileService.fetchProfile();
+  Future<UserProfile> fetchProfile() => _fetchProfile();
+
+  Future<UserProfile> _fetchProfile({bool allowAuthRefresh = true}) async {
+    final profile = await profileService.fetchProfile(
+      allowAuthRefresh: allowAuthRefresh,
+    );
+    authSession.recordUserId(profile.id);
+    return profile;
+  }
+
+  Future<void> updateInstallSource(int userId, String source) async {
+    if (authSession.authenticatedUserId.value != userId ||
+        !authSession.hasToken) {
+      throw StateError('Install source requires the matching signed-in user.');
+    }
+    final response = await dio.post<dynamic>(
+      ApiConfig.updateInstallSourcePath,
+      data: <String, dynamic>{'install_source': source},
+      // Retry later after normal authentication recovers, rather than refreshing
+      // into a potentially different account during this background request.
+      options: Options(extra: {ApiConfig.skipAuthRefreshKey: true}),
+    );
+    if (response.statusCode == null ||
+        response.statusCode! < 200 ||
+        response.statusCode! >= 300 ||
+        (response.data is Map && response.data['success'] == false)) {
+      throw const ApiException(message: 'Unable to update install source.');
+    }
+  }
 
   Future<List<VideoCategory>> fetchThemes() => themeService.fetchThemes();
 
@@ -180,7 +208,7 @@ class ApiClient {
 
     if (authSession.hasToken) {
       try {
-        return await profileService.fetchProfile(allowAuthRefresh: false);
+        return await _fetchProfile(allowAuthRefresh: false);
       } catch (error) {
         if (error is ApiException &&
             (error.hasCode(ApiErrorCode.accountBanned) ||
@@ -192,6 +220,6 @@ class ApiClient {
     }
 
     await authSession.signIn();
-    return profileService.fetchProfile(allowAuthRefresh: false);
+    return _fetchProfile(allowAuthRefresh: false);
   }
 }

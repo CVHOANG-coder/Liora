@@ -13,6 +13,57 @@ import 'package:video_gen/core/storage/token_storage.dart';
 import 'package:video_gen/data/models/purchase_verification.dart';
 
 void main() {
+  test(
+    'install source uses authenticated endpoint after restored session',
+    () async {
+      final adapter = _CallbackAdapter((options) {
+        if (options.path == '/users/user-status') {
+          return _jsonResponse(_profileBody(), 200);
+        }
+        expect(options.path, '/users/update-install-source');
+        expect(options.method, 'POST');
+        expect(options.headers['Authorization'], 'Bearer saved-token');
+        expect(options.data, {'install_source': 'ADS'});
+        expect(options.extra['skip_auth_refresh'], true);
+        return _jsonResponse({'success': true}, 200);
+      });
+      final client = ApiClient(
+        authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
+        httpClient: _dioWithAdapter(adapter),
+        deviceIdentity: const _FakeDeviceIdentity(),
+        tokenStorage: _MemoryTokenStorage('saved-token'),
+      );
+      final profile = await client.bootstrapSession();
+      expect(client.authSession.authenticatedUserId.value, profile.id);
+      await client.updateInstallSource(profile.id, 'ADS');
+      await expectLater(
+        client.updateInstallSource(profile.id + 1, 'ADS'),
+        throwsStateError,
+      );
+      expect(adapter.requests, hasLength(2));
+    },
+  );
+
+  test(
+    'install source does not acknowledge application-level failures',
+    () async {
+      final client = ApiClient(
+        authClient: _dioWithAdapter(_CallbackAdapter(_unusedRequest)),
+        httpClient: _dioWithAdapter(
+          _CallbackAdapter((_) => _jsonResponse({'success': false}, 200)),
+        ),
+        deviceIdentity: const _FakeDeviceIdentity(),
+        tokenStorage: _MemoryTokenStorage('saved-token'),
+      );
+      await client.authSession.initialize();
+      client.authSession.recordUserId(42);
+      await expectLater(
+        client.updateInstallSource(42, 'ORGANIC'),
+        throwsA(isA<ApiException>()),
+      );
+    },
+  );
+
   for (final kind in ['image', 'text', 'theme']) {
     for (final duration in [5, 10, 15]) {
       test(

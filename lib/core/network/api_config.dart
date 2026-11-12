@@ -2,6 +2,7 @@ abstract final class ApiConfig {
   static const baseUrl = 'https://ai-video.giddychat.com';
   static const signInPath = '/signin';
   static const profilePath = '/users/user-status';
+  static const updateInstallSourcePath = '/users/update-install-source';
   static const packagesPath = '/get-all-package';
   static const verifyPurchasePath = '/users/verify-purchase';
   static const generateI2VPath = '/users/gen-i2v';

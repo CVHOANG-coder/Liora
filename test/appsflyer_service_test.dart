@@ -2,9 +2,36 @@ import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_gen/core/analytics/appsflyer_service.dart';
+import 'package:video_gen/core/analytics/install_source_reporter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'forwards known conversion results and ignores unknown or failed data',
+    () async {
+      final sdk = _FakeSdk();
+      final results = <InstallSource>[];
+      final service = AppsFlyerService(
+        sdk: sdk,
+        platform: TargetPlatform.android,
+      )..onInstallSource = results.add;
+      await service.initialize();
+      sdk.onConversion!({
+        'af_status': 'Non-organic',
+        'media_source': 'Facebook Ads',
+      });
+      sdk.onConversion!({'af_status': 'Organic'});
+      sdk.onConversion!({
+        'af_status': 'Non-organic',
+        'media_source': 'restricted',
+      });
+      sdk.onConversionFailure!({'error': 'network'});
+      expect(results, [InstallSource.ads, InstallSource.organic]);
+      await service.setCustomerUserId(42);
+      expect(sdk.customerUserId, '42');
+    },
+  );
 
   test(
     'initializes once and reports every native foreground session',
@@ -18,7 +45,7 @@ void main() {
       await Future.wait([service.initialize(), service.initialize()]);
       await service.initialize();
 
-      expect(sdk.calls, ['debug:false', 'init', 'listen']);
+      expect(sdk.calls, ['debug:false', 'init', 'conversion', 'listen']);
       expect(sdk.devKey, isNotEmpty);
       expect(sdk.sessions, 0);
       sdk.onReady!();
@@ -89,6 +116,24 @@ class _FakeSdk extends AppsFlyerSdk {
   bool failInit = false;
   bool failStart = false;
   int sessions = 0;
+  OnConversionDataSuccess? onConversion;
+  OnConversionDataFailure? onConversionFailure;
+  String? customerUserId;
+
+  @override
+  Future<void> setCustomerUserId(String customerId) async {
+    customerUserId = customerId;
+  }
+
+  @override
+  Future<void> registerConversionListener({
+    OnConversionDataSuccess? onConversionDataSuccess,
+    OnConversionDataFailure? onConversionDataFail,
+  }) async {
+    calls.add('conversion');
+    onConversion = onConversionDataSuccess;
+    onConversionFailure = onConversionDataFail;
+  }
 
   @override
   Future<void> enableDebug(bool enabled) async => calls.add('debug:$enabled');
